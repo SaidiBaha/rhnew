@@ -1,0 +1,22 @@
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+
+import { formatEmployee } from "@/modules/employee/utils";
+import type { RequestColumn } from "@/modules/request/components/columns";
+import type { Request } from "@/modules/request/types";
+
+export function formatRequest(request: Request): RequestColumn {
+  return {
+    id: request.id,
+    requestType: request.requestType,
+    comment: request.comment || "",
+    status: request.status,
+    employee: formatEmployee(request.employee),
+    createdAt: format(request.createdAt, "dd MMMM HH:mm", { locale: fr }),
+    updatedAt: request.updatedAt
+      ? format(request.updatedAt, "dd MMMM HH:mm", { locale: fr })
+      : "",
+    createdBy: request.createdBy.employee.fullName || "",
+    updatedBy: request.updatedBy?.employee.fullName || "",
+  };
+}

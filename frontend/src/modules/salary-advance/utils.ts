@@ -1,0 +1,23 @@
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+
+import type { SalaryAdvanceColumn } from "@/modules/salary-advance/components/columns";
+import type { SalaryAdvance } from "@/modules/salary-advance/types";
+import { formatEmployee } from "@/modules/employee/utils";
+
+export function formatSalaryAdvance(
+  salaryAdvance: SalaryAdvance
+): SalaryAdvanceColumn {
+  return {
+    id: salaryAdvance.id,
+    month: salaryAdvance.month,
+    year: salaryAdvance.year,
+    amount: salaryAdvance.amount,
+    comment: salaryAdvance.comment || "",
+    employee: formatEmployee(salaryAdvance.employee),
+    updatedAt: salaryAdvance.updatedAt
+      ? format(salaryAdvance.updatedAt, "dd MMMM HH:mm", { locale: fr })
+      : "",
+    updatedBy: salaryAdvance.updatedBy?.employee.fullName || "",
+  };
+}
