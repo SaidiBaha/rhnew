@@ -44,4 +44,6 @@ public class EmployeeRequestDto {
 
     @Pattern(regexp = "^\\d+$", message = "Matricule du Superviseur invalide")
     private String supervisor;
+
+    private boolean isFree =false;  // free operator
 }

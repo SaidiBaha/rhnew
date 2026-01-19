@@ -34,4 +34,5 @@ public class EmployeeDto {
     private AttendanceDto attendance;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean isFree =false;  // free operator
 }

@@ -265,4 +265,41 @@ public class EmployeeService {
         }
         return employeeRepository.findAvailableOperators(startDate, endDate);
     }
+
+    @Transactional
+    public void markOperatorsAsFree(List<Long> employeeIds) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            throw new IllegalArgumentException("Employee ids list must not be empty");
+        }
+
+        List<Employee> employees = employeeRepository.findAllById(employeeIds);
+
+        if (employees.size() != employeeIds.size()) {
+            throw new EntityNotFoundException("One or more employees not found");
+        }
+
+        employees.forEach(employee -> employee.setFree(true));
+
+        employeeRepository.saveAll(employees);
+    }
+
+    @Transactional
+    public void markOperatorsAsBusy(List<Long> employeeIds) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            throw new IllegalArgumentException("Employee ids list must not be empty");
+        }
+
+        List<Employee> employees = employeeRepository.findAllById(employeeIds);
+
+        if (employees.size() != employeeIds.size()) {
+            throw new EntityNotFoundException("One or more employees not found");
+        }
+
+        employees.forEach(employee -> employee.setFree(false));
+
+        employeeRepository.saveAll(employees);
+    }
+
+
+
 }

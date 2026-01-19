@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import tn.sage.rh.employee.dto.EmployeeDto;
+import tn.sage.rh.employee.dto.EmployeeFreeRequestDto;
 import tn.sage.rh.employee.dto.EmployeeRequestDto;
 
 import java.security.Principal;
@@ -85,5 +86,19 @@ public class EmployeeController {
                         .map(employeeMapper::toDTO)
                         .toList()
         );
+    }
+    @PutMapping("/mark-free")
+    public ResponseEntity<Void> markOperatorsAsFree(
+            @Valid @RequestBody EmployeeFreeRequestDto request
+    ) {
+        employeeService.markOperatorsAsFree(request.getEmployeeIds());
+        return ResponseEntity.ok().build();
+    }
+    @PutMapping("/mark-busy")
+    public ResponseEntity<Void> markOperatorsAsBusy(
+            @Valid @RequestBody EmployeeFreeRequestDto request
+    ) {
+        employeeService.markOperatorsAsBusy(request.getEmployeeIds());
+        return ResponseEntity.ok().build();
     }
 }
