@@ -11,6 +11,7 @@ import RequestsPage from "@/pages/RequestsPage";
 import AttendancesPage from "@/pages/AttendancesPage";
 import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
+import OperatorsAvailabilityPage from "./pages/OperatorsAvailabilityPage";
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
             }
           />
         </Route>
+
 
         <Route
           element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}
@@ -89,7 +91,23 @@ function App() {
                     </Layout>
                 }
             />
+            
         </Route>
+        <Route
+  element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
+>
+  <Route
+    path="/free-operators"
+    element={
+      <Layout>
+        <OperatorsAvailabilityPage />
+      </Layout>
+    }
+  />
+</Route>
+
+ 
+        
         <Route
             element={<ProtectedRoute allowedRoles={["ADMIN","SUPERVISOR","OPERATIONAL_MANAGER"]} />}
         >

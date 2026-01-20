@@ -148,6 +148,12 @@ export const Sidebar = () => {
       path: "/permutations",
       allowedRoles: ["SUPERVISOR","OPERATIONAL_MANAGER"],
     },
+     {
+      label: "Opérateurs Disponibles",
+      icon: "user-check",
+      path: "/free-operators",
+      allowedRoles: ["SUPERVISOR","OPERATIONAL_MANAGER"],
+    },
     {
       label: "Changer mot de passe",
       icon: "lock-keyhole",

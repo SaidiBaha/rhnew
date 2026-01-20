@@ -56,6 +56,7 @@ export type Employee = {
   hasBankDomiciliation: boolean;
   createdAt: Date;
   updatedAt?: Date;
+   free: boolean;
 };
 
 export type EmployeeRequest = {
@@ -70,4 +71,5 @@ export type EmployeeRequest = {
   hireDate: Date;
   supervisor?: string;
   hasBankDomiciliation: boolean;
+   free: boolean;
 };

@@ -1,5 +1,6 @@
 import { useState, useMemo, type FormEvent } from "react";
 import Swal from "sweetalert2";
+import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 
 import { useCreatePermutation } from "../hooks/useCreatePermutation";
 import type { PermutationCreatePayload, Permutation } from "../types";
@@ -376,6 +377,7 @@ export function PermutationForm({ onCreated }: Props) {
                     )}
 
                     {filteredOperators.map((emp) => {
+                         console.log(emp.fullName, emp.free, typeof emp.free);
                         const checked = operatorIds.includes(emp.id);
                         const matricule = emp.matricule ?? "";
 
@@ -395,16 +397,32 @@ export function PermutationForm({ onCreated }: Props) {
                                     className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                                 />
 
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-bold text-slate-900">
-                                        {emp.fullName}
-                                    </p>
-                                    {matricule && (
-                                        <p className="text-[11px] font-semibold uppercase text-slate-400">
-                                            Matricule : {matricule}
-                                        </p>
-                                    )}
-                                </div>
+                              <div className="min-w-0 flex-1">
+    <div className="flex items-center gap-2">
+        <p className="truncate text-sm font-bold text-slate-900">
+            {emp.fullName}
+        </p>
+
+        {emp.free ? (
+            <CheckCircleIcon
+                className="h-4 w-4 text-emerald-600"
+                title="Opérateur libre"
+            />
+        ) : (
+            <XCircleIcon
+                className="h-4 w-4 text-red-500"
+                title="Opérateur non libre"
+            />
+        )}
+    </div>
+
+    {matricule && (
+        <p className="text-[11px] font-semibold uppercase text-slate-400">
+            Matricule : {matricule}
+        </p>
+    )}
+</div>
+
                             </label>
                         );
                     })}

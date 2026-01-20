@@ -4,6 +4,11 @@ export type OperatorMini = {
     id: number;
     fullName: string;
     matricule?: string | null;
+    free: boolean;
+
+};
+export type EmployeeFreeRequest = {
+  employeeIds: number[];
 };
 
 export type Permutation = {
@@ -26,6 +31,7 @@ export type Permutation = {
     endDate: string;
     startTime: string;
     endTime: string;
+    
 
     asSender?: boolean;
     asReceiver?: boolean;
