@@ -72,7 +72,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     );
 
     @Modifying
-    @Query("UPDATE Employee e SET e.isFree = true WHERE e.id IN :ids")
+    @Query("UPDATE Employee e SET e.free = true WHERE e.id IN :ids")
     void updateIsFreeTrue(@Param("ids") List<Long> ids);
 
 }

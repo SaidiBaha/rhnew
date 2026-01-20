@@ -28,5 +28,5 @@ public class EmployeeMinimalDto {
     private boolean hasBankDomiciliation;
     private EmployeeMinimalDto supervisor;
     private AttendanceDto attendance;
-    private boolean isFree =false;  // free operator
+   // private boolean free =false;  // free operator
 }

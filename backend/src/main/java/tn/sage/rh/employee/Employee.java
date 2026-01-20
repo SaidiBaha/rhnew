@@ -42,7 +42,7 @@ public class Employee {
     private String fullName;
 
     @Column(nullable = false)
-    private boolean isFree =false; // free operator
+    private boolean free =false; // free operator
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
