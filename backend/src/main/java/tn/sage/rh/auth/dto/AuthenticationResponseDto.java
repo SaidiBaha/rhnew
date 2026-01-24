@@ -16,6 +16,7 @@ public class AuthenticationResponseDto {
         private Long id;
         private String matricule;
         private UserRole role;
+        private String fullName;
     }
 
     private User user;
