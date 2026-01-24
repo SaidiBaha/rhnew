@@ -58,6 +58,7 @@ public class AuthenticationService {
     ) {
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         final String refreshToken;
+        final String fullName;
         final String matricule;
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -79,7 +80,9 @@ public class AuthenticationService {
                         .user(AuthenticationResponseDto.User.builder()
                                 .id(user.getId())
                                 .matricule(user.getUsername())
+
                                 .role(user.getRole()).build())
+
                         .build();
             }
         }
