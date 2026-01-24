@@ -14,4 +14,6 @@ public class RegisterRequestDto {
     private String matricule;
     private String password;
     private UserRole role;
+    private String fullName;
+
 }

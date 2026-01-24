@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class LoginRequestDto {
     private String matricule;
     String password;
+
 }
