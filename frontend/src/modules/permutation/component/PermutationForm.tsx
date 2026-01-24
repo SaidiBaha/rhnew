@@ -17,8 +17,11 @@ type Props = {
     onCreated?: () => void;
 };
 
+type AvailabilityFilter = "all" | "free" | "occupied";
+
 export function PermutationForm({ onCreated }: Props) {
     const [operatorsSearch, setOperatorsSearch] = useState("");
+    const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
 
     const {
         data: employees,
@@ -81,25 +84,69 @@ export function PermutationForm({ onCreated }: Props) {
         return result;
     }, [permutations, startDate, endDate, startTime, endTime]);
 
+    // Déterminer la disponibilité des opérateurs
+    const operatorAvailability = useMemo(() => {
+        const result = new Map<number, boolean>();
+        
+        operators.forEach((emp) => {
+            // Si l'opérateur est marqué comme occupé dans les permutations existantes
+            const isUnavailable = unavailableOperatorIds.has(emp.id);
+            // Prendre en compte également le champ `free` de l'employé si disponible
+            const isFreeFromData = emp.free === true;
+            
+            // Un opérateur est considéré comme libre s'il n'est pas indisponible ET que son champ free est true
+            const isFree = !isUnavailable && isFreeFromData;
+            result.set(emp.id, isFree);
+        });
+        
+        return result;
+    }, [operators, unavailableOperatorIds]);
+
+    // Calcul des statistiques de disponibilité
+    const availabilityStats = useMemo(() => {
+        const allCount = operators.length;
+        const freeCount = operators.filter(emp => {
+            const isFree = operatorAvailability.get(emp.id) ?? true;
+            return isFree;
+        }).length;
+        const occupiedCount = allCount - freeCount;
+        
+        return { allCount, freeCount, occupiedCount };
+    }, [operators, operatorAvailability]);
+
     const searchTerm = operatorsSearch.trim().toLowerCase();
 
     const filteredOperators = useMemo(
         () =>
             operators.filter((emp) => {
-                if (unavailableOperatorIds.has(emp.id)) return false;
-                if (!searchTerm) return true;
+                // Filtrer par recherche textuelle
+                if (searchTerm) {
+                    const fullName = (emp.fullName ?? "").toLowerCase();
+                    const matricule = (emp.matricule ?? "").toLowerCase();
+                    const idStr = String(emp.id);
 
-                const fullName = (emp.fullName ?? "").toLowerCase();
-                const matricule = (emp.matricule ?? "").toLowerCase();
-                const idStr = String(emp.id);
+                    const matchesSearch = 
+                        fullName.includes(searchTerm) ||
+                        matricule.includes(searchTerm) ||
+                        idStr.includes(searchTerm);
+                    
+                    if (!matchesSearch) return false;
+                }
 
-                return (
-                    fullName.includes(searchTerm) ||
-                    matricule.includes(searchTerm) ||
-                    idStr.includes(searchTerm)
-                );
+                // Filtrer par disponibilité
+                const isFree = operatorAvailability.get(emp.id) ?? true;
+                
+                switch (availabilityFilter) {
+                    case "free":
+                        return isFree;
+                    case "occupied":
+                        return !isFree;
+                    case "all":
+                    default:
+                        return true;
+                }
             }),
-        [operators, unavailableOperatorIds, searchTerm]
+        [operators, operatorAvailability, searchTerm, availabilityFilter]
     );
 
     const toggleOperator = (id: number) => {
@@ -108,6 +155,27 @@ export function PermutationForm({ onCreated }: Props) {
         );
     };
 
+    // DÉPLACER TOUS LES HOOKS AVANT LES RETOURS CONDITIONNELS
+    const labelCls = "mb-1 block text-xs font-semibold text-slate-600";
+    const inputCls =
+        "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
+        "transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
+    const sectionCls =
+        "rounded-2xl border border-slate-100 bg-white p-4 shadow-sm";
+    
+    // Classes pour les badges de filtre
+    const filterButtonCls = (isActive: boolean, color: "emerald" | "red" = "emerald") =>
+        `px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
+            isActive
+                ? color === "emerald" 
+                    ? "bg-emerald-600 text-white" 
+                    : "bg-red-600 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+        }`;
+
+    const selectedOperatorsCount = operatorIds.length;
+
+    // MAINTENANT les retours conditionnels APRÈS tous les hooks
     if (
         empLoading ||
         empFetching ||
@@ -215,6 +283,7 @@ export function PermutationForm({ onCreated }: Props) {
             setStartTime("09:00");
             setEndTime("11:00");
             setOperatorsSearch("");
+            setAvailabilityFilter("all");
 
             onCreated?.();
         } catch (err: any) {
@@ -231,15 +300,6 @@ export function PermutationForm({ onCreated }: Props) {
             });
         }
     };
-
-    const selectedOperatorsCount = operatorIds.length;
-
-    const labelCls = "mb-1 block text-xs font-semibold text-slate-600";
-    const inputCls =
-        "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
-        "transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
-    const sectionCls =
-        "rounded-2xl border border-slate-100 bg-white p-4 shadow-sm";
 
     return (
         <form onSubmit={handleSubmit} className="space-y-2">
@@ -353,13 +413,14 @@ export function PermutationForm({ onCreated }: Props) {
                                 : "bg-emerald-600 text-white"
                         }`}
                     >
-            {selectedOperatorsCount === 0
-                ? "Aucun opérateur sélectionné"
-                : `${selectedOperatorsCount} sélectionné${selectedOperatorsCount > 1 ? "s" : ""}`}
-          </span>
+                        {selectedOperatorsCount === 0
+                            ? "Aucun opérateur sélectionné"
+                            : `${selectedOperatorsCount} sélectionné${selectedOperatorsCount > 1 ? "s" : ""}`}
+                    </span>
                 </div>
 
-                <div className="mb-3">
+                {/* Barre de recherche et filtres */}
+                <div className="mb-3 space-y-3">
                     <input
                         type="text"
                         value={operatorsSearch}
@@ -367,6 +428,54 @@ export function PermutationForm({ onCreated }: Props) {
                         placeholder="Rechercher par nom, matricule ou id..."
                         className={inputCls}
                     />
+                    
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
+                        <div className="flex gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setAvailabilityFilter("all")}
+                                className={filterButtonCls(availabilityFilter === "all")}
+                            >
+                                Tous
+                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                    availabilityFilter === "all"
+                                        ? "bg-white/20"
+                                        : "bg-slate-300 text-slate-700"
+                                }`}>
+                                    {availabilityStats.allCount}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAvailabilityFilter("free")}
+                                className={filterButtonCls(availabilityFilter === "free")}
+                            >
+                                Libre
+                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                    availabilityFilter === "free"
+                                        ? "bg-white/20"
+                                        : "bg-emerald-100 text-emerald-700"
+                                }`}>
+                                    {availabilityStats.freeCount}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAvailabilityFilter("occupied")}
+                                className={filterButtonCls(availabilityFilter === "occupied", "red")}
+                            >
+                                Occupé
+                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                    availabilityFilter === "occupied"
+                                        ? "bg-white/20"
+                                        : "bg-red-100 text-red-600"
+                                }`}>
+                                    {availabilityStats.occupiedCount}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
@@ -377,9 +486,9 @@ export function PermutationForm({ onCreated }: Props) {
                     )}
 
                     {filteredOperators.map((emp) => {
-                         console.log(emp.fullName, emp.free, typeof emp.free);
                         const checked = operatorIds.includes(emp.id);
                         const matricule = emp.matricule ?? "";
+                        const isFree = operatorAvailability.get(emp.id) ?? true;
 
                         return (
                             <label
@@ -397,32 +506,38 @@ export function PermutationForm({ onCreated }: Props) {
                                     className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                                 />
 
-                              <div className="min-w-0 flex-1">
-    <div className="flex items-center gap-2">
-        <p className="truncate text-sm font-bold text-slate-900">
-            {emp.fullName}
-        </p>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className="truncate text-sm font-bold text-slate-900">
+                                            {emp.fullName}
+                                        </p>
+                                        
+                                        {/* Badge de disponibilité */}
+                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                            isFree
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : "bg-red-100 text-red-800"
+                                        }`}>
+                                            {isFree ? (
+                                                <>
+                                                    <CheckCircleIcon className="h-3 w-3" />
+                                                    Libre
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircleIcon className="h-3 w-3" />
+                                                    Occupé
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
 
-        {emp.free ? (
-            <CheckCircleIcon
-                className="h-4 w-4 text-emerald-600"
-                title="Opérateur libre"
-            />
-        ) : (
-            <XCircleIcon
-                className="h-4 w-4 text-red-500"
-                title="Opérateur non libre"
-            />
-        )}
-    </div>
-
-    {matricule && (
-        <p className="text-[11px] font-semibold uppercase text-slate-400">
-            Matricule : {matricule}
-        </p>
-    )}
-</div>
-
+                                    {matricule && (
+                                        <p className="text-[11px] font-semibold uppercase text-slate-400">
+                                            Matricule : {matricule}
+                                        </p>
+                                    )}
+                                </div>
                             </label>
                         );
                     })}

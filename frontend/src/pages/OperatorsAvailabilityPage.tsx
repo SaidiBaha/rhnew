@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import {
   CheckCircleIcon,
@@ -27,6 +27,16 @@ export default function OperatorsAvailabilityPage() {
   const [search, setSearch] = useState("");
   const [availabilityFilter, setAvailabilityFilter] =
     useState<"all" | "free" | "busy">("all");
+
+  // Calcul des statistiques
+  const stats = useMemo(() => {
+    const operators = data ?? [];
+    const allCount = operators.length;
+    const freeCount = operators.filter(op => op.free).length;
+    const busyCount = operators.filter(op => !op.free).length;
+    
+    return { allCount, freeCount, busyCount };
+  }, [data]);
 
   const toggle = (id: number) => {
     setSelectedIds((prev) =>
@@ -98,7 +108,7 @@ export default function OperatorsAvailabilityPage() {
           Disponibilité des opérateurs
         </h1>
         <p className="text-slate-500">
-          Gérez rapidement l’état des opérateurs
+          Gérez rapidement l'état des opérateurs
         </p>
       </div>
 
@@ -114,29 +124,84 @@ export default function OperatorsAvailabilityPage() {
         />
       </div>
 
-      {/* Filtres */}
+      {/* Filtres avec nombres */}
       <div className="flex gap-2">
-        {[
-          { key: "all", label: "Tous" },
-          { key: "free", label: "Libres" },
-          { key: "busy", label: "Occupés" },
-        ].map((f) => (
-          <button
-            key={f.key}
-            onClick={() =>
-              setAvailabilityFilter(
-                f.key as "all" | "free" | "busy"
-              )
-            }
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-              availabilityFilter === f.key
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+        <button
+          onClick={() => setAvailabilityFilter("all")}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition flex items-center gap-2 ${
+            availabilityFilter === "all"
+              ? "bg-emerald-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          Tous
+          <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+            availabilityFilter === "all"
+              ? "bg-white/20"
+              : "bg-slate-300 text-slate-700"
+          }`}>
+            {stats.allCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAvailabilityFilter("free")}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition flex items-center gap-2 ${
+            availabilityFilter === "free"
+              ? "bg-emerald-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          Libres
+          <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+            availabilityFilter === "free"
+              ? "bg-white/20"
+              : "bg-emerald-100 text-emerald-700"
+          }`}>
+            {stats.freeCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAvailabilityFilter("busy")}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition flex items-center gap-2 ${
+            availabilityFilter === "busy"
+              ? "bg-red-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          Occupés
+          <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+            availabilityFilter === "busy"
+              ? "bg-white/20"
+              : "bg-red-100 text-red-600"
+          }`}>
+            {stats.busyCount}
+          </span>
+        </button>
+      </div>
+
+      {/* Résumé des statistiques */}
+      <div className="bg-slate-50 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <span className="text-sm font-medium text-slate-700">
+                Libres : <strong>{stats.freeCount}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-sm font-medium text-slate-700">
+                Occupés : <strong>{stats.busyCount}</strong>
+              </span>
+            </div>
+          </div>
+          <div className="text-sm font-medium text-slate-600">
+            Total : <strong>{stats.allCount}</strong> opérateurs
+          </div>
+        </div>
       </div>
 
       {/* Liste */}
@@ -204,19 +269,29 @@ export default function OperatorsAvailabilityPage() {
 
       {/* Actions */}
       <div className="flex justify-end gap-3 sticky bottom-0 bg-white pt-4">
+        <div className="mr-auto flex items-center gap-2">
+          {selectedIds.length > 0 && (
+            <span className="text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+              {selectedIds.length} opérateur(s) sélectionné(s)
+            </span>
+          )}
+        </div>
+        
         <button
           disabled={freePending}
           onClick={() => submit("free")}
-          className="rounded-xl bg-emerald-600 px-6 py-3 text-white font-bold hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-emerald-600 px-6 py-3 text-white font-bold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
         >
+          <CheckCircleIcon className="h-5 w-5" />
           Marquer libre
         </button>
 
         <button
           disabled={busyPending}
           onClick={() => submit("busy")}
-          className="rounded-xl bg-red-600 px-6 py-3 text-white font-bold hover:bg-red-700 disabled:opacity-50"
+          className="rounded-xl bg-red-600 px-6 py-3 text-white font-bold hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
         >
+          <XCircleIcon className="h-5 w-5" />
           Marquer occupé
         </button>
       </div>
