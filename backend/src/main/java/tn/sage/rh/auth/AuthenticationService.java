@@ -125,6 +125,7 @@ public class AuthenticationService {
                 new UsernamePasswordAuthenticationToken(
                         request.getMatricule(),
                         request.getPassword()
+
                 )
         );
         var user = userRepository.findByEmployee_Matricule(request.getMatricule())
@@ -141,6 +142,7 @@ public class AuthenticationService {
                         .matricule(user.getUsername())
                         .fullName(user.getEmployee().getFullName())
                         .role(user.getRole()).build())
+
                 .build();
     }
 

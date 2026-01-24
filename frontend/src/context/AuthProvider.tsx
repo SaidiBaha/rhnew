@@ -8,6 +8,7 @@ import {
 } from "react";
 
 interface User {
+  fullName: String;
   id: string;
   matricule: string;
   role: UserRole;
