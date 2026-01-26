@@ -90,24 +90,24 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                 {/* Filtres */}
                 <div className="mb-3 flex items-center gap-2 text-xs">
                     <span className="text-slate-600">Filtrer par :</span>
-                    <button
+                    {/*<button
                         type="button"
                         className="rounded-full bg-[#6b7a12] px-3 py-1.5 font-medium text-white"
                     >
                         Tous <span className="ml-1.5">127</span>
-                    </button>
+                    </button>*/}
                     <button
                         type="button"
                         className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-200"
                     >
-                        Libre <span className="ml-1.5 text-[#6b7a12]">6</span>
+                        Libres <span className="ml-1.5 text-[#6b7a12]">6</span>
                     </button>
-                    <button
+                    {/*<button
                         type="button"
                         className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-200"
                     >
                         Occupé <span className="ml-1.5 text-red-600">121</span>
-                    </button>
+                    </button>*/}
                 </div>
 
                 {/* Liste des opérateurs */}

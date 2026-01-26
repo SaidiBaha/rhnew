@@ -15,7 +15,7 @@ import { ErrorAlert } from "@/components/ErrorAlert";
 
 type Props = {
     onCreated?: () => void;
-    mode?: "send" | "choose"; // Nouvelle prop optionnelle
+    mode?: "send" | "choose"; // Nouvelle prop
 };
 
 type AvailabilityFilter = "all" | "free" | "occupied";
@@ -235,7 +235,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             return;
         }
 
-        // Validation des heures uniquement en mode "send"
         if (mode === "send" && endTime <= startTime) {
             await Swal.fire({
                 icon: "error",
@@ -361,7 +360,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 </div>
             </div>
 
-            {/* HORAIRES - Affiché uniquement en mode "send" */}
+            {/* HORAIRES - Visible seulement en mode "send" */}
             {mode === "send" && (
                 <div className={sectionCls}>
                     <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">

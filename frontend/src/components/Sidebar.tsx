@@ -79,7 +79,7 @@ export const Sidebar = () => {
 
   return (
     <aside
-      className={`h-screen bg-[#687818] transition-all duration-300 ${
+      className={`fixed left-0 top-0 h-screen bg-[#687818] transition-all duration-300 z-40 ${
         expanded ? "w-64" : "w-20"
       }`}
     >
@@ -125,7 +125,7 @@ export const Sidebar = () => {
         )}
 
         {/* ================= MENU ================= */}
-        <ul className="flex-1 space-y-1 px-3">
+        <ul className="flex-1 space-y-1 overflow-y-auto px-3">
           {navigationItems
             .filter(
               (item) =>

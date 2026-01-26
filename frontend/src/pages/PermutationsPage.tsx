@@ -15,6 +15,7 @@ import type { ProductionLine } from "@/modules/permutation/hooks/useFetchProduct
 import useAuth from "@/hooks/useAuth";
 
 type FilterMode = "all" | "received" | "sent";
+type PermutationMode = "send" | "choose"; // ✅ Nouveau type
 
 function hasRole(auth: any, role: string) {
     const r =
@@ -48,6 +49,7 @@ export default function PermutationsPage() {
 
     const [filter, setFilter] = useState<FilterMode>("all");
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [permutationMode, setPermutationMode] = useState<PermutationMode>("send"); // ✅ État pour le mode
 
     const [search, setSearch] = useState("");
 
@@ -132,7 +134,6 @@ export default function PermutationsPage() {
         <div className="w-full">
             <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
-
                     <div>
                         <h1 className="text-4xl font-bold text-[#6b7a12]">
                             Permutations ({totalCount})
@@ -151,8 +152,6 @@ export default function PermutationsPage() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-
-
                     <div className="flex justify-end">
                         <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 text-xs">
                             <button
@@ -202,7 +201,6 @@ export default function PermutationsPage() {
                             Ajouter
                         </button>
                     )}
-
                 </div>
             </div>
 
@@ -215,10 +213,10 @@ export default function PermutationsPage() {
                     uiVariant="demandes"
                 />
             </div>
+
             {isSupervisor && isCreateOpen && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4">
                     <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl mt-6 overflow-hidden">
-
                         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                             <h2 className="text-base font-semibold text-slate-800">
                                 Nouvelle permutation
@@ -234,13 +232,43 @@ export default function PermutationsPage() {
                             </button>
                         </div>
 
+                        {/* ✅ ZONE VERTE - Filtre de mode */}
+                        <div className="bg-gradient-to-r from-[#6b7a12] to-[#8a9a1a] px-6 py-4">
+                            <div className="inline-flex rounded-full border border-white/30 bg-white/20 p-1 text-xs backdrop-blur-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setPermutationMode("send")}
+                                    className={`rounded-full px-4 py-2 font-medium transition-all ${
+                                        permutationMode === "send"
+                                            ? "bg-white text-[#6b7a12] shadow-sm"
+                                            : "text-white hover:bg-white/10"
+                                    }`}
+                                >
+                                    Envoyer un employé
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPermutationMode("choose")}
+                                    className={`rounded-full px-4 py-2 font-medium transition-all ${
+                                        permutationMode === "choose"
+                                            ? "bg-white text-[#6b7a12] shadow-sm"
+                                            : "text-white hover:bg-white/10"
+                                    }`}
+                                >
+                                    Recevoir un employé
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="max-h-[80vh] overflow-y-auto px-6 py-6">
-                            <PermutationForm onCreated={() => setIsCreateOpen(false)} />
+                            <PermutationForm 
+                                onCreated={() => setIsCreateOpen(false)} 
+                                mode={permutationMode}
+                            />
                         </div>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
