@@ -15,11 +15,12 @@ import { ErrorAlert } from "@/components/ErrorAlert";
 
 type Props = {
     onCreated?: () => void;
+    mode?: "send" | "choose"; // Nouvelle prop optionnelle
 };
 
 type AvailabilityFilter = "all" | "free" | "occupied";
 
-export function PermutationForm({ onCreated }: Props) {
+export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [operatorsSearch, setOperatorsSearch] = useState("");
     const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
 
@@ -28,7 +29,7 @@ export function PermutationForm({ onCreated }: Props) {
         isLoading: empLoading,
         isFetching: empFetching,
         error: empError,
-    } = useFetchEmployees();
+    } = useFetchEmployees({ includeAll: mode === "choose" });
 
     const {
         data: supervisors,
@@ -84,17 +85,12 @@ export function PermutationForm({ onCreated }: Props) {
         return result;
     }, [permutations, startDate, endDate, startTime, endTime]);
 
-    // Déterminer la disponibilité des opérateurs
     const operatorAvailability = useMemo(() => {
         const result = new Map<number, boolean>();
         
         operators.forEach((emp) => {
-            // Si l'opérateur est marqué comme occupé dans les permutations existantes
             const isUnavailable = unavailableOperatorIds.has(emp.id);
-            // Prendre en compte également le champ `free` de l'employé si disponible
             const isFreeFromData = emp.free === true;
-            
-            // Un opérateur est considéré comme libre s'il n'est pas indisponible ET que son champ free est true
             const isFree = !isUnavailable && isFreeFromData;
             result.set(emp.id, isFree);
         });
@@ -102,7 +98,6 @@ export function PermutationForm({ onCreated }: Props) {
         return result;
     }, [operators, unavailableOperatorIds]);
 
-    // Calcul des statistiques de disponibilité
     const availabilityStats = useMemo(() => {
         const allCount = operators.length;
         const freeCount = operators.filter(emp => {
@@ -119,7 +114,6 @@ export function PermutationForm({ onCreated }: Props) {
     const filteredOperators = useMemo(
         () =>
             operators.filter((emp) => {
-                // Filtrer par recherche textuelle
                 if (searchTerm) {
                     const fullName = (emp.fullName ?? "").toLowerCase();
                     const matricule = (emp.matricule ?? "").toLowerCase();
@@ -133,7 +127,6 @@ export function PermutationForm({ onCreated }: Props) {
                     if (!matchesSearch) return false;
                 }
 
-                // Filtrer par disponibilité
                 const isFree = operatorAvailability.get(emp.id) ?? true;
                 
                 switch (availabilityFilter) {
@@ -155,27 +148,24 @@ export function PermutationForm({ onCreated }: Props) {
         );
     };
 
-    // DÉPLACER TOUS LES HOOKS AVANT LES RETOURS CONDITIONNELS
     const labelCls = "mb-1 block text-xs font-semibold text-slate-600";
     const inputCls =
         "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
-        "transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
+        "transition focus:border-[#6b7a12] focus:ring-2 focus:ring-[#6b7a12]/20";
     const sectionCls =
         "rounded-2xl border border-slate-100 bg-white p-4 shadow-sm";
     
-    // Classes pour les badges de filtre
-    const filterButtonCls = (isActive: boolean, color: "emerald" | "red" = "emerald") =>
+    const filterButtonCls = (isActive: boolean, color: "green" | "red" = "green") =>
         `px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
             isActive
-                ? color === "emerald" 
-                    ? "bg-emerald-600 text-white" 
+                ? color === "green" 
+                    ? "bg-[#6b7a12] text-white" 
                     : "bg-red-600 text-white"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
         }`;
 
     const selectedOperatorsCount = operatorIds.length;
 
-    // MAINTENANT les retours conditionnels APRÈS tous les hooks
     if (
         empLoading ||
         empFetching ||
@@ -210,7 +200,7 @@ export function PermutationForm({ onCreated }: Props) {
                 icon: "warning",
                 title: "Superviseur manquant",
                 text: "Veuillez sélectionner un superviseur receveur.",
-                confirmButtonColor: "#10b981",
+                confirmButtonColor: "#6b7a12",
             });
             return;
         }
@@ -220,7 +210,7 @@ export function PermutationForm({ onCreated }: Props) {
                 icon: "warning",
                 title: "Projet manquant",
                 text: "Veuillez sélectionner le projet / la ligne de production.",
-                confirmButtonColor: "#10b981",
+                confirmButtonColor: "#6b7a12",
             });
             return;
         }
@@ -230,7 +220,7 @@ export function PermutationForm({ onCreated }: Props) {
                 icon: "warning",
                 title: "Aucun opérateur sélectionné",
                 text: "Veuillez sélectionner au moins un opérateur.",
-                confirmButtonColor: "#10b981",
+                confirmButtonColor: "#6b7a12",
             });
             return;
         }
@@ -245,7 +235,8 @@ export function PermutationForm({ onCreated }: Props) {
             return;
         }
 
-        if (endTime <= startTime) {
+        // Validation des heures uniquement en mode "send"
+        if (mode === "send" && endTime <= startTime) {
             await Swal.fire({
                 icon: "error",
                 title: "Heures invalides",
@@ -272,7 +263,7 @@ export function PermutationForm({ onCreated }: Props) {
                 icon: "success",
                 title: "Permutation créée",
                 text: "La permutation a été créée avec succès.",
-                confirmButtonColor: "#10b981",
+                confirmButtonColor: "#6b7a12",
             });
 
             setReceiverId("");
@@ -370,34 +361,36 @@ export function PermutationForm({ onCreated }: Props) {
                 </div>
             </div>
 
-            {/* HORAIRES */}
-            <div className={sectionCls}>
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Horaires
-                </p>
+            {/* HORAIRES - Affiché uniquement en mode "send" */}
+            {mode === "send" && (
+                <div className={sectionCls}>
+                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                        Horaires
+                    </p>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                        <label className={labelCls}>Heure de début</label>
-                        <input
-                            type="time"
-                            className={inputCls}
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                        />
-                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label className={labelCls}>Heure de début</label>
+                            <input
+                                type="time"
+                                className={inputCls}
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                            />
+                        </div>
 
-                    <div>
-                        <label className={labelCls}>Heure de fin</label>
-                        <input
-                            type="time"
-                            className={inputCls}
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                        />
+                        <div>
+                            <label className={labelCls}>Heure de fin</label>
+                            <input
+                                type="time"
+                                className={inputCls}
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* OPERATEURS */}
             <div className={sectionCls}>
@@ -409,8 +402,8 @@ export function PermutationForm({ onCreated }: Props) {
                     <span
                         className={`rounded-full px-3 py-1 text-[11px] font-bold ${
                             selectedOperatorsCount === 0
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-emerald-600 text-white"
+                                ? "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                : "bg-[#6b7a12] text-white"
                         }`}
                     >
                         {selectedOperatorsCount === 0
@@ -419,7 +412,6 @@ export function PermutationForm({ onCreated }: Props) {
                     </span>
                 </div>
 
-                {/* Barre de recherche et filtres */}
                 <div className="mb-3 space-y-3">
                     <input
                         type="text"
@@ -455,7 +447,7 @@ export function PermutationForm({ onCreated }: Props) {
                                 <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
                                     availabilityFilter === "free"
                                         ? "bg-white/20"
-                                        : "bg-emerald-100 text-emerald-700"
+                                        : "bg-[#6b7a12]/10 text-[#6b7a12]"
                                 }`}>
                                     {availabilityStats.freeCount}
                                 </span>
@@ -495,7 +487,7 @@ export function PermutationForm({ onCreated }: Props) {
                                 key={emp.id}
                                 className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
                                     checked
-                                        ? "border-emerald-300 bg-emerald-50"
+                                        ? "border-[#6b7a12] bg-[#6b7a12]/5"
                                         : "border-slate-200 bg-white hover:bg-slate-50"
                                 }`}
                             >
@@ -503,7 +495,7 @@ export function PermutationForm({ onCreated }: Props) {
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() => toggleOperator(emp.id)}
-                                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                    className="h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
                                 />
 
                                 <div className="min-w-0 flex-1">
@@ -512,10 +504,9 @@ export function PermutationForm({ onCreated }: Props) {
                                             {emp.fullName}
                                         </p>
                                         
-                                        {/* Badge de disponibilité */}
                                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                             isFree
-                                                ? "bg-emerald-100 text-emerald-800"
+                                                ? "bg-green-100 text-green-800"
                                                 : "bg-red-100 text-red-800"
                                         }`}>
                                             {isFree ? (
@@ -553,7 +544,7 @@ export function PermutationForm({ onCreated }: Props) {
                 <button
                     type="submit"
                     disabled={isPending}
-                    className="h-11 rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                    className="h-11 rounded-full bg-[#6b7a12] px-6 text-sm font-bold text-white shadow-sm transition hover:bg-[#5a6610] disabled:opacity-60"
                 >
                     {isPending ? "Création..." : "Créer la permutation"}
                 </button>

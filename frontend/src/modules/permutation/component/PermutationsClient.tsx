@@ -1,326 +1,287 @@
-// src/modules/permutation/component/PermutationsClient.tsx
-
+import { useState, useMemo, type FormEvent } from "react";
 import Swal from "sweetalert2";
+import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 
-import { formatPermutation } from "../utils/formatPermutation";
-import { useUpdatePermutationStatus } from "../hooks/useUpdatePermutationStatus";
+import { useCreatePermutation } from "../hooks/useCreatePermutation";
+import type { PermutationCreatePayload, Permutation } from "../types";
 
-import type { Permutation } from "../types";
-import type { Employee } from "@/modules/employee/hooks/useFetchEmployees";
-import type { ProductionLine } from "@/modules/permutation/hooks/useFetchProductionLines";
-import { useEffect, useMemo, useState } from "react";
+import { useFetchEmployees } from "@/modules/employee/hooks/useFetchEmployees";
+import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
+import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
+import { useFetchProductionLines } from "@/modules/permutation/hooks/useFetchProductionLines";
 
-const ITEMS_PER_PAGE = 7;
+import { Loader } from "@/components/Loader";
+import { ErrorAlert } from "@/components/ErrorAlert";
 
 type Props = {
-    data: Permutation[];
-    employeesById: Record<number, Employee>;
-    productionLinesById: Record<number, ProductionLine>;
-
-    // ✅ si true => affiche bouton "En cours (aujourd'hui)" (Operational Manager)
-    showTodayOnlyToggle?: boolean;
-
-    // ✅ pour forcer le rendu UI style “Demandes”
-    uiVariant?: "demandes" | "default";
+    onCreated?: () => void;
+    mode?: "send" | "choose"; // Nouvelle prop optionnelle
 };
 
-export function PermutationsClient({
-                                       data,
-                                       employeesById,
-                                       productionLinesById,
-                                       showTodayOnlyToggle = false,
-                                       uiVariant = "demandes",
-                                   }: Props) {
-    const { mutateAsync } = useUpdatePermutationStatus();
-    const [loadingId, setLoadingId] = useState<number | null>(null);
+type AvailabilityFilter = "all" | "free" | "occupied";
 
-    // ✅ Pagination
-    const [page, setPage] = useState(1);
+export function PermutationForm({ onCreated, mode = "send" }: Props) {
+    const [operatorsSearch, setOperatorsSearch] = useState("");
+    const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
 
-    // ✅ Filtres (frontend)
-    const [supervisorFilter, setSupervisorFilter] = useState<number | "">(""); // sender/receiver
-    const [productionLineFilter, setProductionLineFilter] = useState<number | "">(
-        ""
+    const {
+        data: employees,
+        isLoading: empLoading,
+        isFetching: empFetching,
+        error: empError,
+    } = useFetchEmployees();
+
+    const {
+        data: supervisors,
+        isLoading: supLoading,
+        isFetching: supFetching,
+        error: supError,
+    } = useFetchSupervisors();
+
+    const {
+        data: permutationsData,
+        isLoading: permLoading,
+        isFetching: permFetching,
+    } = useFetchPermutations();
+
+    const {
+        data: productionLines,
+        isLoading: plLoading,
+        isFetching: plFetching,
+        error: plError,
+    } = useFetchProductionLines();
+
+    const { mutateAsync, isPending } = useCreatePermutation();
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [receiverId, setReceiverId] = useState<number | "">("");
+    const [productionLineId, setProductionLineId] = useState<number | "">("");
+    const [operatorIds, setOperatorIds] = useState<number[]>([]);
+    const [startDate, setStartDate] = useState(today);
+    const [endDate, setEndDate] = useState(today);
+    const [startTime, setStartTime] = useState("09:00");
+    const [endTime, setEndTime] = useState("11:00");
+
+    const operators = employees ?? [];
+    const permutations: Permutation[] = permutationsData ?? [];
+    const lines = productionLines ?? [];
+
+    const unavailableOperatorIds = useMemo(() => {
+        const result = new Set<number>();
+        if (!startDate || !endDate || !startTime || !endTime) return result;
+
+        permutations.forEach((p) => {
+            if (p.status !== "ACCEPTEE") return;
+
+            const datesOverlap = p.startDate <= endDate && p.endDate >= startDate;
+            const timesOverlap = p.startTime < endTime && p.endTime > startTime;
+
+            if (datesOverlap && timesOverlap) {
+                p.operatorIds.forEach((opId) => result.add(opId));
+            }
+        });
+
+        return result;
+    }, [permutations, startDate, endDate, startTime, endTime]);
+
+    const operatorAvailability = useMemo(() => {
+        const result = new Map<number, boolean>();
+        
+        operators.forEach((emp) => {
+            const isUnavailable = unavailableOperatorIds.has(emp.id);
+            const isFreeFromData = emp.free === true;
+            const isFree = !isUnavailable && isFreeFromData;
+            result.set(emp.id, isFree);
+        });
+        
+        return result;
+    }, [operators, unavailableOperatorIds]);
+
+    const availabilityStats = useMemo(() => {
+        const allCount = operators.length;
+        const freeCount = operators.filter(emp => {
+            const isFree = operatorAvailability.get(emp.id) ?? true;
+            return isFree;
+        }).length;
+        const occupiedCount = allCount - freeCount;
+        
+        return { allCount, freeCount, occupiedCount };
+    }, [operators, operatorAvailability]);
+
+    const searchTerm = operatorsSearch.trim().toLowerCase();
+
+    const filteredOperators = useMemo(
+        () =>
+            operators.filter((emp) => {
+                if (searchTerm) {
+                    const fullName = (emp.fullName ?? "").toLowerCase();
+                    const matricule = (emp.matricule ?? "").toLowerCase();
+                    const idStr = String(emp.id);
+
+                    const matchesSearch = 
+                        fullName.includes(searchTerm) ||
+                        matricule.includes(searchTerm) ||
+                        idStr.includes(searchTerm);
+                    
+                    if (!matchesSearch) return false;
+                }
+
+                const isFree = operatorAvailability.get(emp.id) ?? true;
+                
+                switch (availabilityFilter) {
+                    case "free":
+                        return isFree;
+                    case "occupied":
+                        return !isFree;
+                    case "all":
+                    default:
+                        return true;
+                }
+            }),
+        [operators, operatorAvailability, searchTerm, availabilityFilter]
     );
-    const [dateFrom, setDateFrom] = useState<string>(""); // start date filter
-    const [dateTo, setDateTo] = useState<string>(""); // end date filter
 
-    // ✅ option "aujourd'hui" (permutation en cours)
-    const [todayOnly, setTodayOnly] = useState(false);
-
-    // === HELPERS =============================================================
-    const getEmployeeName = (emp?: Employee | null) => {
-        if (!emp) return "";
-        if ((emp as any).fullName) return (emp as any).fullName;
-        const first = (emp as any).firstName ?? "";
-        const last = (emp as any).lastName ?? "";
-        return `${first} ${last}`.trim();
-    };
-
-    // ✅ opérateurs affichés SANS /employees (fallback)
-    const getOperatorsLabel = (perm: Permutation) => {
-        // 1) si backend renvoie operatorNames
-        const namesFromBackend = (perm as any).operatorNames as string[] | undefined;
-        if (namesFromBackend && namesFromBackend.length > 0) {
-            return namesFromBackend.join(", ");
-        }
-
-        // 2) si backend renvoie operators = [{id, fullName}]
-        const opsFromBackend = (perm as any).operators as
-            | Array<{ id: number; fullName?: string; matricule?: string | null }>
-            | undefined;
-        if (opsFromBackend && opsFromBackend.length > 0) {
-            const n = opsFromBackend
-                .map((o) => (o.fullName ?? "").trim())
-                .filter(Boolean);
-            if (n.length > 0) return n.join(", ");
-            return `${opsFromBackend.length} opérateur(s)`;
-        }
-
-        // 3) fallback via employeesById (si dispo)
-        const fallbackNames =
-            perm.operatorIds
-                ?.map((id) => employeesById[id])
-                .filter(Boolean)
-                .map((emp) => getEmployeeName(emp)) ?? [];
-
-        if (fallbackNames.length > 0) return fallbackNames.join(", ");
-
-        return perm.operatorIds && perm.operatorIds.length > 0
-            ? `${perm.operatorIds.length} opérateur(s)`
-            : "-";
-    };
-
-    // ✅ superviseurs (sender/receiver présents dans data)
-    const supervisorOptions = useMemo(() => {
-        const map = new Map<number, string>();
-
-        data.forEach((p) => {
-            const sId = p.senderId;
-            const rId = p.receiverId;
-
-            const sName =
-                p.senderFullName ||
-                getEmployeeName(employeesById[sId]) ||
-                (p.senderMatricule ? `#${p.senderMatricule}` : `#${sId}`);
-
-            const rName =
-                p.receiverFullName ||
-                getEmployeeName(employeesById[rId]) ||
-                (p.receiverMatricule ? `#${p.receiverMatricule}` : `#${rId}`);
-
-            if (sId != null) map.set(sId, sName);
-            if (rId != null) map.set(rId, rName);
-        });
-
-        return Array.from(map.entries())
-            .map(([id, name]) => ({ id, name }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }, [data, employeesById]);
-
-    // ✅ production lines options
-    const productionLineOptions = useMemo(() => {
-        const map = new Map<number, string>();
-
-        data.forEach((p) => {
-            if (p.productionLineId == null) return;
-            const pl = productionLinesById[p.productionLineId];
-            const name = (pl as any)?.name ?? (pl as any)?.label ?? `Ligne #${p.productionLineId}`;
-            map.set(p.productionLineId, name);
-        });
-
-        return Array.from(map.entries())
-            .map(([id, name]) => ({ id, name }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }, [data, productionLinesById]);
-    useEffect(() => {
-        if (dateFrom && dateTo && dateFrom > dateTo) {
-            Swal.fire({
-                icon: "warning",
-                title: "Intervalle de dates invalide",
-                text: "La date de début ne peut pas être postérieure à la date de fin.",
-                confirmButtonColor: "#ef4444",
-            });
-
-            // 🔁 Reset intelligent (on garde le UI propre)
-            setDateFrom("");
-            setDateTo("");
-            setPage(1);
-        }
-    }, [dateFrom, dateTo]);
-
-    // ✅ Filtrage frontend (rapide)
-    const filteredData = useMemo(() => {
-        const todayStr = new Date().toISOString().slice(0, 10);
-
-        return data.filter((p) => {
-            // todayOnly => permutation en cours aujourd'hui : startDate <= today <= endDate
-            if (showTodayOnlyToggle && todayOnly) {
-                if (!(p.startDate <= todayStr && p.endDate >= todayStr)) return false;
-            }
-
-            // superviseur (sender OU receiver)
-            if (supervisorFilter !== "") {
-                const supId = Number(supervisorFilter);
-                if (p.senderId !== supId && p.receiverId !== supId) return false;
-            }
-
-            // production line
-            if (productionLineFilter !== "") {
-                const plId = Number(productionLineFilter);
-                if ((p.productionLineId ?? null) !== plId) return false;
-            }
-
-            // date range overlap: [p.startDate, p.endDate] chevauche [dateFrom, dateTo]
-            if (dateFrom || dateTo) {
-                const from = dateFrom || "0000-01-01";
-                const to = dateTo || "9999-12-31";
-                const overlaps = p.startDate <= to && p.endDate >= from;
-                if (!overlaps) return false;
-            }
-
-            return true;
-        });
-    }, [
-        data,
-        supervisorFilter,
-        productionLineFilter,
-        dateFrom,
-        dateTo,
-        todayOnly,
-        showTodayOnlyToggle,
-    ]);
-
-    // ✅ Pagination
-    const totalItems = filteredData.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
-
-    useEffect(() => {
-        if (page > totalPages) setPage(totalPages);
-        if (page < 1) setPage(1);
-    }, [page, totalPages]);
-
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * ITEMS_PER_PAGE;
-        return filteredData.slice(start, start + ITEMS_PER_PAGE);
-    }, [filteredData, page]);
-
-    const fromItem = totalItems === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1;
-    const toItem = Math.min(page * ITEMS_PER_PAGE, totalItems);
-
-    // ✅ status badges (propre)
-    const statusBadge = (status: string) => {
-        if (status === "ACCEPTEE") {
-            return (
-                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
-          ● Acceptée
-        </span>
-            );
-        }
-        if (status === "REFUSEE") {
-            return (
-                <span className="inline-flex items-center rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-800">
-          ● Refusée
-        </span>
-            );
-        }
-        return (
-            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-900">
-        ● En attente
-      </span>
+    const toggleOperator = (id: number) => {
+        setOperatorIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
     };
 
-    const resetFilters = () => {
-        setSupervisorFilter("");
-        setProductionLineFilter("");
-        setDateFrom("");
-        setDateTo("");
-        if (showTodayOnlyToggle) setTodayOnly(false);
-        setPage(1);
-    };
+    const labelCls = "mb-1 block text-xs font-semibold text-slate-600";
+    const inputCls =
+        "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
+        "transition focus:border-[#6b7a12] focus:ring-2 focus:ring-[#6b7a12]/20";
+    const sectionCls =
+        "rounded-2xl border border-slate-100 bg-white p-4 shadow-sm";
+    
+    const filterButtonCls = (isActive: boolean, color: "green" | "red" = "green") =>
+        `px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
+            isActive
+                ? color === "green" 
+                    ? "bg-[#6b7a12] text-white" 
+                    : "bg-red-600 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+        }`;
 
-    const handleAction = async (perm: Permutation, action: "accept" | "refuse") => {
-        const f = formatPermutation(perm);
+    const selectedOperatorsCount = operatorIds.length;
 
-        const sender = employeesById[perm.senderId];
-        const receiver = employeesById[perm.receiverId];
+    if (
+        empLoading ||
+        empFetching ||
+        supLoading ||
+        supFetching ||
+        permLoading ||
+        permFetching ||
+        plLoading ||
+        plFetching
+    ) {
+        return <Loader />;
+    }
 
-        const senderName =
-            perm.senderFullName ||
-            getEmployeeName(sender) ||
-            (perm.senderMatricule ? `#${perm.senderMatricule}` : `#${perm.senderId}`);
+    if (empError || supError || plError) {
+        return (
+            <ErrorAlert
+                error={
+                    (empError as any)?.message ||
+                    (supError as any)?.message ||
+                    (plError as any)?.message ||
+                    "Impossible de charger les données."
+                }
+            />
+        );
+    }
 
-        const receiverName =
-            perm.receiverFullName ||
-            getEmployeeName(receiver) ||
-            (perm.receiverMatricule ? `#${perm.receiverMatricule}` : `#${perm.receiverId}`);
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
 
-        const operatorsLabel = getOperatorsLabel(perm);
+        if (!receiverId) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Superviseur manquant",
+                text: "Veuillez sélectionner un superviseur receveur.",
+                confirmButtonColor: "#6b7a12",
+            });
+            return;
+        }
 
-        const project =
-            perm.productionLineId != null ? productionLinesById[perm.productionLineId] : undefined;
+        if (!productionLineId) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Projet manquant",
+                text: "Veuillez sélectionner le projet / la ligne de production.",
+                confirmButtonColor: "#6b7a12",
+            });
+            return;
+        }
 
-        const projectName = (project as any)?.name ?? "—";
+        if (operatorIds.length === 0) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Aucun opérateur sélectionné",
+                text: "Veuillez sélectionner au moins un opérateur.",
+                confirmButtonColor: "#6b7a12",
+            });
+            return;
+        }
 
-        const title = action === "accept" ? "Confirmer l'acceptation" : "Confirmer le refus";
-        const confirmText = action === "accept" ? "Oui, accepter" : "Oui, refuser";
-        const confirmColor = action === "accept" ? "#10b981" : "#ef4444";
+        if (endDate < startDate) {
+            await Swal.fire({
+                icon: "error",
+                title: "Dates invalides",
+                text: "La date de fin doit être supérieure ou égale à la date de début.",
+                confirmButtonColor: "#ef4444",
+            });
+            return;
+        }
 
-        const html = `
-      <div style="text-align:left;font-size:13px">
-        <p><strong>Projet :</strong> ${projectName}</p>
-        <p><strong>Émetteur :</strong> ${senderName}</p>
-        <p><strong>Récepteur :</strong> ${receiverName}</p>
-        <p><strong>Période :</strong> ${f.dateRange}</p>
-        <p><strong>Horaires :</strong> ${f.timeRange}</p>
-        <p><strong>Opérateurs :</strong> ${operatorsLabel}</p>
-      </div>
-    `;
+        // Validation des heures uniquement en mode "send"
+        if (mode === "send" && endTime <= startTime) {
+            await Swal.fire({
+                icon: "error",
+                title: "Heures invalides",
+                text: "L'heure de fin doit être strictement supérieure à l'heure de début.",
+                confirmButtonColor: "#ef4444",
+            });
+            return;
+        }
 
-        const result = await Swal.fire({
-            icon: action === "accept" ? "question" : "warning",
-            title,
-            html,
-            showCancelButton: true,
-            confirmButtonText: confirmText,
-            cancelButtonText: "Annuler",
-            confirmButtonColor: confirmColor,
-            cancelButtonColor: "#6b7280",
-            reverseButtons: true,
-        });
-
-        if (!result.isConfirmed) return;
+        const payload: PermutationCreatePayload = {
+            receiverId: Number(receiverId),
+            operatorIds,
+            productionLineId: Number(productionLineId),
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+        };
 
         try {
-            setLoadingId(perm.id);
-
-            const updated = await mutateAsync({ id: perm.id, action });
-            const newStatus = updated?.status;
-
-            const autoMsg =
-                (updated as any)?.autoRefusedMessage ||
-                "Un ou plusieurs opérateurs ne sont plus disponibles sur cette période. La permutation a été refusée.";
-
-            if (action === "accept" && newStatus === "REFUSEE") {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Permutation refusée automatiquement",
-                    text: autoMsg,
-                    confirmButtonColor: "#ef4444",
-                });
-                return;
-            }
+            await mutateAsync(payload);
 
             await Swal.fire({
                 icon: "success",
-                title: newStatus === "ACCEPTEE" ? "Permutation acceptée" : "Permutation refusée",
-                text: "Le statut de la permutation a été mis à jour.",
-                confirmButtonColor: "#10b981",
+                title: "Permutation créée",
+                text: "La permutation a été créée avec succès.",
+                confirmButtonColor: "#6b7a12",
             });
+
+            setReceiverId("");
+            setProductionLineId("");
+            setOperatorIds([]);
+            setStartDate(today);
+            setEndDate(today);
+            setStartTime("09:00");
+            setEndTime("11:00");
+            setOperatorsSearch("");
+            setAvailabilityFilter("all");
+
+            onCreated?.();
         } catch (err: any) {
             const backendMessage =
-                err?.response?.data?.message || err?.message || "Une erreur est survenue lors de la mise à jour.";
+                err?.response?.data?.message ||
+                err?.message ||
+                "Erreur lors de la création de la permutation.";
 
             await Swal.fire({
                 icon: "error",
@@ -328,280 +289,266 @@ export function PermutationsClient({
                 text: backendMessage,
                 confirmButtonColor: "#ef4444",
             });
-        } finally {
-            setLoadingId(null);
         }
     };
 
-    // === EMPTY ===============================================================
-    if (data.length === 0) {
-        return (
-            <div className="w-full rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-                Aucune permutation pour le moment.
-            </div>
-        );
-    }
-
-    // === UI ==================================================================
-    const isDemandesUI = uiVariant === "demandes";
-
     return (
-        <div className="w-full">
-            {/* ✅ Table container (flat like “Demandes”) */}
-            <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-                {/* Top bar: reset + todayOnly */}
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                    <div className="text-sm text-slate-500">
-                        Affichage de <span className="font-semibold text-slate-700">{fromItem}</span> à{" "}
-                        <span className="font-semibold text-slate-700">{toItem}</span> sur{" "}
-                        <span className="font-semibold text-slate-700">{totalItems}</span> permutations
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {showTodayOnlyToggle && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setTodayOnly((v) => !v);
-                                    setPage(1);
-                                }}
-                                className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                                    todayOnly
-                                        ? "border-[#6b7a12] bg-[#6b7a12]/10 text-[#6b7a12]"
-                                        : "border-slate-200 bg-white text-slate-600"
-                                }`}
-                            >
-                                En cours (aujourd&apos;hui)
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={resetFilters}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"
-                        >
-                            Réinitialiser
-                        </button>
-                    </div>
+        <form onSubmit={handleSubmit} className="space-y-2">
+            {/* INFORMATIONS GENERALES */}
+            <div className={sectionCls}>
+                <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                        Informations générales
+                    </p>
                 </div>
 
-                {/* Filters row (like your screenshot “Permutations”) */}
-                <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
-                    <div className="grid gap-3 md:grid-cols-4">
-                        {/* superviseur */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
-                                Superviseur (émetteur ou récepteur)
-                            </label>
-                            <select
-                                value={supervisorFilter}
-                                onChange={(e) =>
-                                    setSupervisorFilter(e.target.value ? Number(e.target.value) : "")
-                                }
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#6b7a12]"
-                            >
-                                <option value="">Tous</option>
-                                {supervisorOptions.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                        {s.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* production line */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
-                                Ligne de production
-                            </label>
-                            <select
-                                value={productionLineFilter}
-                                onChange={(e) =>
-                                    setProductionLineFilter(e.target.value ? Number(e.target.value) : "")
-                                }
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#6b7a12]"
-                            >
-                                <option value="">Toutes</option>
-                                {productionLineOptions.map((pl) => (
-                                    <option key={pl.id} value={pl.id}>
-                                        {pl.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* date from */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
-                                Date début (range)
-                            </label>
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#6b7a12]"
-                            />
-                        </div>
-
-                        {/* date to */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
-                                Date fin (range)
-                            </label>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#6b7a12]"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead>
-                        <tr
-                            className={
-                                isDemandesUI
-                                    ? "bg-[#6b7a12] text-white text-xs font-semibold"
-                                    : "border-b border-slate-100 bg-slate-50/70 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                        <label className={labelCls}>Récepteur (superviseur)</label>
+                        <select
+                            className={`${inputCls} ${receiverId ? "" : ""}`}
+                            value={receiverId}
+                            onChange={(e) =>
+                                setReceiverId(e.target.value ? Number(e.target.value) : ("" as any))
                             }
                         >
-                            <th className="px-4 py-3 text-left">Émetteur</th>
-                            <th className="px-4 py-3 text-left">Récepteur</th>
-                            <th className="px-4 py-3 text-left">Projet</th>
-                            <th className="px-4 py-3 text-left">Opérateurs</th>
-                            <th className="px-4 py-3 text-left">Dates</th>
-                            <th className="px-4 py-3 text-left">Horaires</th>
-                            <th className="px-4 py-3 text-left">Statut</th>
-                            <th className="px-4 py-3 text-left">Actions</th>
-                        </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-slate-100">
-                        {paginatedData.map((p) => {
-                            const f = formatPermutation(p);
-
-                            const sender = employeesById[p.senderId];
-                            const receiver = employeesById[p.receiverId];
-
-                            const senderName =
-                                p.senderFullName ||
-                                getEmployeeName(sender) ||
-                                (p.senderMatricule ? `#${p.senderMatricule}` : `#${p.senderId}`);
-
-                            const receiverName =
-                                p.receiverFullName ||
-                                getEmployeeName(receiver) ||
-                                (p.receiverMatricule ? `#${p.receiverMatricule}` : `#${p.receiverId}`);
-
-                            const operatorsLabel = getOperatorsLabel(p);
-
-                            const project =
-                                p.productionLineId != null ? productionLinesById[p.productionLineId] : undefined;
-                            const projectName = (project as any)?.name ?? "—";
-
-                            const isPending = p.status === "EN_ATTENTE";
-                            const isRowLoading = loadingId === p.id;
-
-                            // ✅ Actions seulement pour receiver en attente
-                            const canValidate = isPending && !!p.asReceiver;
-
-                            return (
-                                <tr key={p.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 align-top">
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-slate-900">{senderName}</span>
-                                            {p.senderMatricule && (
-                                                <span className="text-[11px] uppercase text-slate-400">
-                            Matricule : {p.senderMatricule}
-                          </span>
-                                            )}
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top">
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-slate-900">{receiverName}</span>
-                                            {p.receiverMatricule && (
-                                                <span className="text-[11px] uppercase text-slate-400">
-                            Matricule : {p.receiverMatricule}
-                          </span>
-                                            )}
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top text-xs font-semibold text-slate-700">
-                                        {projectName}
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top text-xs text-slate-700">
-                                        <span className="whitespace-normal">{operatorsLabel}</span>
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top text-xs text-slate-700">{f.dateRange}</td>
-                                    <td className="px-4 py-3 align-top text-xs text-slate-700">{f.timeRange}</td>
-
-                                    <td className="px-4 py-3 align-top">{statusBadge(p.status)}</td>
-
-                                    <td className="px-4 py-3 align-top text-right">
-                                        {canValidate ? (
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    disabled={isRowLoading}
-                                                    onClick={() => handleAction(p, "accept")}
-                                                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                                                >
-                                                    {isRowLoading ? "..." : "Accepter"}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    disabled={isRowLoading}
-                                                    onClick={() => handleAction(p, "refuse")}
-                                                    className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                                                >
-                                                    {isRowLoading ? "..." : "Refuser"}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-400">—</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination (like “Demandes”: 1 of N) */}
-                <div className="flex items-center justify-end gap-3 px-4 py-3">
-                    <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs disabled:opacity-40"
-                    >
-                        ‹
-                    </button>
-
-                    <div className="text-xs text-slate-600">
-                        {page} of {totalPages}
+                            <option value="">-- Sélectionner --</option>
+                            {supervisors!.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                    {emp.fullName}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs disabled:opacity-40"
-                    >
-                        ›
-                    </button>
+                    <div>
+                        <label className={labelCls}>Projet / ligne de production</label>
+                        <select
+                            className={inputCls}
+                            value={productionLineId}
+                            onChange={(e) =>
+                                setProductionLineId(e.target.value ? Number(e.target.value) : ("" as any))
+                            }
+                        >
+                            <option value="">-- Sélectionner --</option>
+                            {lines.map((line) => (
+                                <option key={line.id} value={line.id}>
+                                    {line.name ?? (line as any).label ?? `Ligne #${line.id}`}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className={labelCls}>Date de début</label>
+                        <input
+                            type="date"
+                            className={inputCls}
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className={labelCls}>Date de fin</label>
+                        <input
+                            type="date"
+                            className={inputCls}
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                        />
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {/* HORAIRES - Affiché uniquement en mode "send" */}
+            {mode === "send" && (
+                <div className={sectionCls}>
+                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                        Horaires
+                    </p>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label className={labelCls}>Heure de début</label>
+                            <input
+                                type="time"
+                                className={inputCls}
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className={labelCls}>Heure de fin</label>
+                            <input
+                                type="time"
+                                className={inputCls}
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* OPERATEURS */}
+            <div className={sectionCls}>
+                <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                        Opérateurs concernés
+                    </p>
+
+                    <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                            selectedOperatorsCount === 0
+                                ? "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                : "bg-[#6b7a12] text-white"
+                        }`}
+                    >
+                        {selectedOperatorsCount === 0
+                            ? "Aucun opérateur sélectionné"
+                            : `${selectedOperatorsCount} sélectionné${selectedOperatorsCount > 1 ? "s" : ""}`}
+                    </span>
+                </div>
+
+                <div className="mb-3 space-y-3">
+                    <input
+                        type="text"
+                        value={operatorsSearch}
+                        onChange={(e) => setOperatorsSearch(e.target.value)}
+                        placeholder="Rechercher par nom, matricule ou id..."
+                        className={inputCls}
+                    />
+                    
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
+                        <div className="flex gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setAvailabilityFilter("all")}
+                                className={filterButtonCls(availabilityFilter === "all")}
+                            >
+                                Tous
+                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                    availabilityFilter === "all"
+                                        ? "bg-white/20"
+                                        : "bg-slate-300 text-slate-700"
+                                }`}>
+                                    {availabilityStats.allCount}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAvailabilityFilter("free")}
+                                className={filterButtonCls(availabilityFilter === "free")}
+                            >
+                                Libre
+                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                    availabilityFilter === "free"
+                                        ? "bg-white/20"
+                                        : "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                }`}>
+                                    {availabilityStats.freeCount}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAvailabilityFilter("occupied")}
+                                className={filterButtonCls(availabilityFilter === "occupied", "red")}
+                            >
+                                Occupé
+                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                    availabilityFilter === "occupied"
+                                        ? "bg-white/20"
+                                        : "bg-red-100 text-red-600"
+                                }`}>
+                                    {availabilityStats.occupiedCount}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
+                    {filteredOperators.length === 0 && (
+                        <p className="text-xs text-slate-400">
+                            Aucun opérateur disponible pour cette période / recherche.
+                        </p>
+                    )}
+
+                    {filteredOperators.map((emp) => {
+                        const checked = operatorIds.includes(emp.id);
+                        const matricule = emp.matricule ?? "";
+                        const isFree = operatorAvailability.get(emp.id) ?? true;
+
+                        return (
+                            <label
+                                key={emp.id}
+                                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
+                                    checked
+                                        ? "border-[#6b7a12] bg-[#6b7a12]/5"
+                                        : "border-slate-200 bg-white hover:bg-slate-50"
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleOperator(emp.id)}
+                                    className="h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
+                                />
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className="truncate text-sm font-bold text-slate-900">
+                                            {emp.fullName}
+                                        </p>
+                                        
+                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                            isFree
+                                                ? "bg-green-100 text-green-800"
+                                                : "bg-red-100 text-red-800"
+                                        }`}>
+                                            {isFree ? (
+                                                <>
+                                                    <CheckCircleIcon className="h-3 w-3" />
+                                                    Libre
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircleIcon className="h-3 w-3" />
+                                                    Occupé
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    {matricule && (
+                                        <p className="text-[11px] font-semibold uppercase text-slate-400">
+                                            Matricule : {matricule}
+                                        </p>
+                                    )}
+                                </div>
+                            </label>
+                        );
+                    })}
+                </div>
+
+                <p className="mt-2 text-[11px] text-slate-500">
+                    Cochez chaque opérateur concerné par cette permutation.
+                </p>
+            </div>
+
+            {/* FOOTER BUTTON */}
+            <div className="flex justify-end pt-1">
+                <button
+                    type="submit"
+                    disabled={isPending}
+                    className="h-11 rounded-full bg-[#6b7a12] px-6 text-sm font-bold text-white shadow-sm transition hover:bg-[#5a6610] disabled:opacity-60"
+                >
+                    {isPending ? "Création..." : "Créer la permutation"}
+                </button>
+            </div>
+        </form>
     );
 }
