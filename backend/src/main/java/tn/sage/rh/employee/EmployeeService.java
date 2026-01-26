@@ -35,6 +35,7 @@ public class EmployeeService {
     private final ShiftService shiftService;
     private final EmploymentTypeService employmentTypeService;
 
+
     @Transactional
     public void save(EmployeeRequestDto employeeRequest) {
         employeeRepository
@@ -407,7 +408,10 @@ public class EmployeeService {
 
         employeeRepository.saveAll(employees);
     }
-
+    @Transactional(readOnly = true)
+    public List<Employee> findFreeEmployees() {
+        return employeeRepository.findByFreeTrueAndDeletedFalse();
+    }
 
 
 }

@@ -75,4 +75,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @Query("UPDATE Employee e SET e.free = true WHERE e.id IN :ids")
     void updateIsFreeTrue(@Param("ids") List<Long> ids);
 
+    // Récupérer les employés libres (free = true)
+    List<Employee> findByFreeTrue();
+
+    // Récupérer les employés libres non supprimés
+    List<Employee> findByFreeTrueAndDeletedFalse();
+
+    // Optionnel: Récupérer par statut free
+    List<Employee> findByFree(boolean free);
+
+
 }

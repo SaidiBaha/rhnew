@@ -14,6 +14,7 @@ import tn.sage.rh.employee.dto.EmployeeRequestDto;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/employees")
@@ -100,5 +101,14 @@ public class EmployeeController {
     ) {
         employeeService.markOperatorsAsBusy(request.getEmployeeIds());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/free")
+    public ResponseEntity<List<EmployeeDto>> getFreeEmployees() {
+        List<Employee> freeEmployees = employeeService.findFreeEmployees();
+        List<EmployeeDto> employeeDtos = freeEmployees.stream()
+                .map(employeeMapper::toDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(employeeDtos);
     }
 }
