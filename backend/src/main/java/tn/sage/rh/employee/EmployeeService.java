@@ -52,6 +52,74 @@ public class EmployeeService {
         eventPublisher.publishEvent(new EmployeeCreationEvent(employee));
     }
 
+ /*   @Transactional
+    public void save(EmployeeRequestDto employeeRequest) {
+        // Vérification du matricule unique
+        employeeRepository
+                .findByMatricule(employeeRequest.getMatricule())
+                .ifPresent(employee -> {
+                    throw new IllegalStateException("Un employé existe déjà avec ce matricule.");
+                });
+
+        // Vérification de l'EmploymentType
+        EmploymentType employmentType = employmentTypeService
+                .findByName(employeeRequest.getEmploymentType())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Le type d'emploi '" + employeeRequest.getEmploymentType() + "' n'existe pas."));
+
+        // Vérification du JobTitle
+        JobTitle jobTitle = jobTitleService
+                .findByTitle(employeeRequest.getJobTitle())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Le poste '" + employeeRequest.getJobTitle() + "' n'existe pas."));
+
+        // Vérification du Department
+        Department department = departmentService
+                .findByName(employeeRequest.getDepartment())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Le département '" + employeeRequest.getDepartment() + "' n'existe pas."));
+
+        // Vérification optionnelle de la ProductionLine
+        ProductionLine productionLine = null;
+        if (employeeRequest.getProductionLine() != null && !employeeRequest.getProductionLine().isEmpty()) {
+            productionLine = productionLineService
+                    .findByName(employeeRequest.getProductionLine())
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "La ligne de production '" + employeeRequest.getProductionLine() + "' n'existe pas."));
+        }
+
+
+
+        // Vérification optionnelle du superviseur
+        Employee supervisor = null;
+        if (employeeRequest.getSupervisor() != null && !employeeRequest.getSupervisor().isEmpty()) {
+            supervisor = employeeRepository
+                    .findByMatricule(employeeRequest.getSupervisor())
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "Le superviseur avec matricule '" + employeeRequest.getSupervisor() + "' n'existe pas."));
+        }
+
+        // Création de l'employé
+        Employee employee = Employee.builder()
+                .matricule(employeeRequest.getMatricule())
+                .civility(employeeRequest.getCivility())
+                .fullName(employeeRequest.getFullName())
+                .hireDate(employeeRequest.getHireDate())
+                .hasBankDomiciliation(employeeRequest.isHasBankDomiciliation())
+                .department(department)
+                .jobTitle(jobTitle)
+                .productionLine(productionLine)
+
+                .employmentType(employmentType)
+                .supervisor(supervisor)
+                .build();
+
+        employeeRepository.save(employee);
+
+        eventPublisher.publishEvent(new EmployeeCreationEvent(employee));
+    }*/
+
+
     @Transactional
     public void update(Long id, EmployeeRequestDto employeeRequest) {
         Employee employee = employeeRepository
@@ -175,7 +243,7 @@ public class EmployeeService {
 
         return hireYear < currentYear || (hireYear == currentYear && hireMonth < currentMonth);
     }
-
+/*
     private void setEmployeeFromRequestDTO(Employee employee, EmployeeRequestDto employeeRequest, Context context) {
         Employee supervisor = null;
         Department department;
@@ -199,6 +267,46 @@ public class EmployeeService {
             if (employeeRequest.getSupervisor() != null) {
                 supervisor = employeeRepository.findByMatricule(employeeRequest.getSupervisor())
                         .orElseThrow(() -> new EntityNotFoundException("Supervisor not found."));
+            }
+        }
+
+        employee.setMatricule(employeeRequest.getMatricule());
+        employee.setCivility(employeeRequest.getCivility());
+        employee.setFullName(employeeRequest.getFullName());
+        employee.setHireDate(employeeRequest.getHireDate());
+        employee.setHasBankDomiciliation(employeeRequest.isHasBankDomiciliation());
+        employee.setDepartment(department);
+        employee.setJobTitle(jobTitle);
+        employee.setProductionLine(productionLine);
+        employee.setShift(shift);
+        employee.setEmploymentType(employmentType);
+        employee.setSupervisor(supervisor);
+    }*/
+
+    private void setEmployeeFromRequestDTO(Employee employee, EmployeeRequestDto employeeRequest, Context context) {
+        Employee supervisor = null;
+        Department department;
+        JobTitle jobTitle;
+        ProductionLine productionLine;
+        Shift shift;
+        EmploymentType employmentType;
+
+        if (context != null) {
+            department = context.departments.get(employeeRequest.getDepartment());
+            jobTitle = context.jobTitles.get(employeeRequest.getJobTitle());
+            productionLine = context.productionLines.get(employeeRequest.getProductionLine());
+            shift = context.shifts.get(employeeRequest.getShift());
+            employmentType = context.employmentTypes.get(employeeRequest.getEmploymentType());
+        } else {
+            // Pour batchSave, utilisez findOrCreate comme avant
+            department = departmentService.findOrCreateDepartment(employeeRequest.getDepartment());
+            jobTitle = jobTitleService.findOrCreateJobTitle(employeeRequest.getJobTitle());
+            productionLine = productionLineService.findOrCreateProductionLine(employeeRequest.getProductionLine());
+            shift = shiftService.findOrCreateShift(employeeRequest.getShift());
+            employmentType = employmentTypeService.findOrCreateEmploymentType(employeeRequest.getEmploymentType());
+            if (employeeRequest.getSupervisor() != null) {
+                supervisor = employeeRepository.findByMatricule(employeeRequest.getSupervisor())
+                        .orElseThrow(() -> new EntityNotFoundException("Superviseur non trouvé."));
             }
         }
 

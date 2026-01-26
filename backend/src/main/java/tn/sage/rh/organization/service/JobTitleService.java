@@ -5,6 +5,9 @@ import org.springframework.stereotype.Service;
 import tn.sage.rh.organization.entity.JobTitle;
 import tn.sage.rh.organization.repository.JobTitleRepository;
 
+import java.util.List;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class JobTitleService {
@@ -21,4 +24,18 @@ public class JobTitleService {
         }
         return null;
     }
+  /*  public Optional<JobTitle> findByTitle(String title) {
+        if (title == null || title.isEmpty()) {
+            return Optional.empty();
+        }
+        return jobTitleRepository.findByTitleIgnoreCase(title.toUpperCase());
+    }
+
+    public boolean existsByTitle(String title) {
+        return findByTitle(title).isPresent();
+    }
+    public List<JobTitle> findAll() {
+        return jobTitleRepository.findAll();
+    }*/
+
 }

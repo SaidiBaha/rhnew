@@ -7,6 +7,7 @@ import tn.sage.rh.organization.entity.ProductionLine;
 import tn.sage.rh.organization.repository.ProductionLineRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,4 +34,7 @@ public class ProductionLineService {
         return productionLineRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Production line not found for id " + id));
     }
+ /*   public Optional<ProductionLine> findByName(String name) {
+        return productionLineRepository.findByNameIgnoreCase(name.toUpperCase());
+    }*/
 }

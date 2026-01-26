@@ -11,7 +11,8 @@ import RequestsPage from "@/pages/RequestsPage";
 import AttendancesPage from "@/pages/AttendancesPage";
 import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
-import OperatorsAvailabilityPage from "./pages/OperatorsAvailabilityPage";
+import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
+import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
 
 function App() {
   return (
@@ -19,8 +20,9 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<PersistLogin />}>
+        {/* Routes accessibles par ADMIN, SUPERVISOR et OPERATIONAL_MANAGER */}
         <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR","OPERATIONAL_MANAGER"]} />}
+          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
         >
           <Route
             path="/"
@@ -40,7 +42,21 @@ function App() {
           />
         </Route>
 
+        {/* Routes accessibles uniquement par ADMIN */}
+        <Route
+          element={<ProtectedRoute allowedRoles={["ADMIN"]} />}
+        >
+          <Route
+            path="/addEmployee"
+            element={
+              <Layout>
+                <CreateEmployeeForm />
+              </Layout>
+            }
+          />
+        </Route>
 
+        {/* Routes accessibles par ADMIN et SUPERVISOR */}
         <Route
           element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}
         >
@@ -79,48 +95,50 @@ function App() {
             }
           />
         </Route>
-      </Route>
-        <Route
-            element={<ProtectedRoute allowedRoles={["SUPERVISOR","OPERATIONAL_MANAGER"]} />}
-        >
-            <Route
-                path="/permutations"
-                element={
-                    <Layout>
-                        <PermutationsPage />
-                    </Layout>
-                }
-            />
-            
-        </Route>
-        <Route
-  element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
->
-  <Route
-    path="/free-operators"
-    element={
-      <Layout>
-        <OperatorsAvailabilityPage />
-      </Layout>
-    }
-  />
-</Route>
 
- 
-        
+        {/* Routes accessibles par SUPERVISOR et OPERATIONAL_MANAGER */}
         <Route
-            element={<ProtectedRoute allowedRoles={["ADMIN","SUPERVISOR","OPERATIONAL_MANAGER"]} />}
+          element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
         >
-            <Route
-                path="/change-password"
-                element={
-                    <Layout>
-                        <ChangePasswordCard />
-                    </Layout>
-                }
-            />
+          <Route
+            path="/permutations"
+            element={
+              <Layout>
+                <PermutationsPage />
+              </Layout>
+            }
+          />
         </Route>
+
+        <Route
+          element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
+        >
+          <Route
+            path="/free-operators"
+            element={
+              <Layout>
+                <OperatorsAvailabilityPage />
+              </Layout>
+            }
+          />
+        </Route>
+
+        {/* Routes accessibles par tous les rôles connectés */}
+        <Route
+          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
+        >
+          <Route
+            path="/change-password"
+            element={
+              <Layout>
+                <ChangePasswordCard />
+              </Layout>
+            }
+          />
+        </Route>
+      </Route>
     </Routes>
   );
 }
+
 export default App;
