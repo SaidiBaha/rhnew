@@ -1,3 +1,4 @@
+// src/modules/employee/schema.ts
 import * as z from "zod";
 
 import { Civilities } from "@/modules/employee/types";
@@ -46,6 +47,10 @@ export const EmployeeSchema = z
       .regex(/^\d+$/, "Champ invalide")
       .optional(),
     hasBankDomiciliation: z.coerce
+      .boolean("Champ invalide")
+      .optional()
+      .default(false),
+    free: z.coerce
       .boolean("Champ invalide")
       .optional()
       .default(false),

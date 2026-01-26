@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface EmploymentTypeRepository extends JpaRepository<EmploymentType, Long> {
     Optional<EmploymentType> findByType(String type);
+
 }

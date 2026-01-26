@@ -3,17 +3,122 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-
 import Swal from "sweetalert2";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, ChevronDown, Search } from "lucide-react";
 import { EmployeeSchema } from "@/modules/employee/schema";
 import { useCreateEmployee } from "@/lib/data/employee";
+import { DEPARTMENTS, JOB_TITLES, PRODUCTION_LINES, EMPLOYMENT_TYPES } from "@/modules/employee/constants";
+import type { EmployeeRequest } from "@/modules/employee/types";
 
 // Créer le schéma pour le formulaire
 const CreateEmployeeFormSchema = EmployeeSchema;
 
 type FormData = z.infer<typeof CreateEmployeeFormSchema>;
+
+// Composant pour les champs de recherche avec autocomplétion
+interface SearchSelectProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  error?: string;
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+}
+
+function SearchSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  error,
+  placeholder = "Sélectionner ou taper pour rechercher",
+  required = false,
+  disabled = false,
+}: SearchSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredOptions, setFilteredOptions] = useState(options);
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    const filtered = options.filter(option =>
+      option.toLowerCase().includes(term.toLowerCase())
+    );
+    setFilteredOptions(filtered);
+  };
+
+  const handleSelect = (option: string) => {
+    onChange(option);
+    setIsOpen(false);
+    setSearchTerm("");
+    setFilteredOptions(options);
+  };
+
+  return (
+    <div className="relative">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && "*"}
+      </label>
+      
+      <div className="relative">
+        <div
+          className={`flex items-center w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white cursor-pointer ${error ? 'border-red-500' : ''} ${disabled ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+        >
+          <div className="flex-1 truncate">
+            {value || <span className="text-gray-400">{placeholder}</span>}
+          </div>
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+
+        {isOpen && !disabled && (
+          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            {/* Barre de recherche */}
+            <div className="sticky top-0 p-2 bg-white border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  className="w-full pl-9 pr-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  placeholder="Rechercher..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Liste des options */}
+            <div className="py-1">
+              {filteredOptions.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                  Aucun résultat trouvé
+                </div>
+              ) : (
+                filteredOptions.map((option) => (
+                  <div
+                    key={option}
+                    className={`px-3 py-2 cursor-pointer hover:bg-emerald-50 text-sm ${value === option ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'}`}
+                    onClick={() => handleSelect(option)}
+                  >
+                    {option}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 export function CreateEmployeeForm() {
   const { mutateAsync, isPending } = useCreateEmployee();
@@ -24,12 +129,20 @@ export function CreateEmployeeForm() {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm<FormData>({
     resolver: zodResolver(CreateEmployeeFormSchema),
     defaultValues: {
       hasBankDomiciliation: false,
     },
   });
+
+  // Observateur pour les valeurs des champs
+  const departmentValue = watch("department");
+  const jobTitleValue = watch("jobTitle");
+  const productionLineValue = watch("productionLine");
+  const employmentTypeValue = watch("employmentType");
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -40,7 +153,9 @@ export function CreateEmployeeForm() {
         productionLine: data.productionLine || undefined,
         shift: data.shift || undefined,
         supervisor: data.supervisor || undefined,
+        free: false, // Ajout du champ free
       };
+       console.log("📤 Requête envoyée (payload) :", formattedData);
 
       await mutateAsync(formattedData);
       
@@ -147,53 +262,41 @@ export function CreateEmployeeForm() {
             )}
           </div>
 
-          {/* Département */}
-          <div>
-            <label htmlFor="department" className={labelClass}>
-              Département *
-            </label>
-            <input
-              id="department"
-              type="text"
-              {...register("department")}
-              className={`${inputClass} ${errors.department ? 'border-red-500' : ''}`}
-              placeholder="PRODUCTION"
-            />
-            {errors.department && (
-              <p className={errorClass}>{errors.department.message}</p>
-            )}
-          </div>
+          {/* Département - Nouveau avec barre de recherche */}
+          <SearchSelect
+            id="department"
+            label="Département"
+            value={departmentValue || ""}
+            onChange={(value) => setValue("department", value)}
+            options={DEPARTMENTS}
+            error={errors.department?.message}
+            required
+            disabled={isPending}
+          />
 
-          {/* Poste occupé */}
-          <div>
-            <label htmlFor="jobTitle" className={labelClass}>
-              Poste Occupé *
-            </label>
-            <input
-              id="jobTitle"
-              type="text"
-              {...register("jobTitle")}
-              className={`${inputClass} ${errors.jobTitle ? 'border-red-500' : ''}`}
-              placeholder="OPERATEUR"
-            />
-            {errors.jobTitle && (
-              <p className={errorClass}>{errors.jobTitle.message}</p>
-            )}
-          </div>
+          {/* Poste occupé - Nouveau avec barre de recherche */}
+          <SearchSelect
+            id="jobTitle"
+            label="Poste Occupé"
+            value={jobTitleValue || ""}
+            onChange={(value) => setValue("jobTitle", value)}
+            options={JOB_TITLES}
+            error={errors.jobTitle?.message}
+            required
+            disabled={isPending}
+          />
 
-          {/* Ligne de production */}
-          <div>
-            <label htmlFor="productionLine" className={labelClass}>
-              Ligne de Production
-            </label>
-            <input
-              id="productionLine"
-              type="text"
-              {...register("productionLine")}
-              className={inputClass}
-              placeholder="LIGNE A"
-            />
-          </div>
+          {/* Ligne de production - Nouveau avec barre de recherche */}
+          <SearchSelect
+            id="productionLine"
+            label="Ligne de Production"
+            value={productionLineValue || ""}
+            onChange={(value) => setValue("productionLine", value, { shouldValidate: true })}
+            options={PRODUCTION_LINES}
+            error={errors.productionLine?.message}
+            placeholder="Sélectionner une ligne (optionnel)"
+            disabled={isPending}
+          />
 
           {/* Poste/Shift */}
           <div>
@@ -206,29 +309,21 @@ export function CreateEmployeeForm() {
               {...register("shift")}
               className={inputClass}
               placeholder="POSTE 1"
+              disabled={isPending}
             />
           </div>
 
-          {/* Type de travail */}
-          <div>
-            <label htmlFor="employmentType" className={labelClass}>
-              Type de Travail *
-            </label>
-            <select
-              id="employmentType"
-              {...register("employmentType")}
-              className={`${inputClass} ${errors.employmentType ? 'border-red-500' : ''}`}
-            >
-              <option value="">Sélectionner</option>
-              <option value="CDI">CDI</option>
-              <option value="CDD">CDD</option>
-              <option value="INTERIM">Intérim</option>
-              <option value="STAGIAIRE">Stagiaire</option>
-            </select>
-            {errors.employmentType && (
-              <p className={errorClass}>{errors.employmentType.message}</p>
-            )}
-          </div>
+          {/* Type de travail - Nouveau avec barre de recherche */}
+          <SearchSelect
+            id="employmentType"
+            label="Type de Travail"
+            value={employmentTypeValue || ""}
+            onChange={(value) => setValue("employmentType", value)}
+            options={EMPLOYMENT_TYPES}
+            error={errors.employmentType?.message}
+            required
+            disabled={isPending}
+          />
 
           {/* Date d'embauche */}
           <div>
@@ -241,6 +336,7 @@ export function CreateEmployeeForm() {
                 type="date"
                 {...register("hireDate", { valueAsDate: true })}
                 className={`${inputClass} ${errors.hireDate ? 'border-red-500' : ''}`}
+                disabled={isPending}
               />
               <CalendarIcon className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
             </div>
@@ -260,6 +356,7 @@ export function CreateEmployeeForm() {
               {...register("supervisor")}
               className={inputClass}
               placeholder="12345 (optionnel)"
+              disabled={isPending}
             />
             {errors.supervisor && (
               <p className={errorClass}>{errors.supervisor.message}</p>
@@ -274,6 +371,7 @@ export function CreateEmployeeForm() {
                 type="checkbox"
                 {...register("hasBankDomiciliation")}
                 className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                disabled={isPending}
               />
               <label htmlFor="hasBankDomiciliation" className="ml-2 block text-sm text-gray-700">
                 Domiciliation bancaire effectuée
@@ -317,6 +415,7 @@ export function CreateEmployeeForm() {
           <li>• Le matricule doit contenir uniquement des chiffres</li>
           <li>• Le matricule du superviseur doit également contenir uniquement des chiffres</li>
           <li>• Les noms et départements seront automatiquement convertis en majuscules</li>
+          <li>• Utilisez la barre de recherche pour trouver rapidement votre département, poste, etc.</li>
         </ul>
       </div>
     </div>

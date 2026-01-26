@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import tn.sage.rh.organization.entity.Department;
 import tn.sage.rh.organization.repository.DepartmentRepository;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class DepartmentService {
@@ -25,4 +27,8 @@ public class DepartmentService {
                         .name(departmentName)
                         .build()));
     }
+ /*   public Optional<Department> findByName(String name) {
+        return departmentRepository.findByNameIgnoreCase(name.toUpperCase());
+    }*/
+
 }

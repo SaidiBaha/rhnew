@@ -1,5 +1,6 @@
 package tn.sage.rh.organization.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.sage.rh.organization.entity.EmploymentType;
@@ -21,4 +22,7 @@ public class EmploymentTypeService {
         }
         return null;
     }
+
+
+
 }
