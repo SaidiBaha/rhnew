@@ -42,7 +42,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="mb-2 block text-sm font-medium text-slate-700">
-                            Date de début
+                            Date de début 
                         </label>
                         <input
                             type="date"

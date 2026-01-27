@@ -1,22 +1,11 @@
-// src/modules/employee/hooks/useFetchEmployees.ts
+// src/modules/employee/hooks/useFetchFreeEmployees.ts
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import useAuth from "@/hooks/useAuth";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:9001";
 
-export type Employee = {
-  id: number;
-  fullName: string;
-  matricule: string;
-  free?: boolean; // Ajoutez ce champ si votre API le renvoie
-};
-
-type UseFetchEmployeesParams = {
-  includeAll?: boolean;
-};
-
-export function useFetchEmployees(params?: UseFetchEmployeesParams) {
+export function useFetchFreeEmployees() {
   const { auth } = useAuth();
 
   const token =
@@ -26,15 +15,11 @@ export function useFetchEmployees(params?: UseFetchEmployeesParams) {
       null;
 
   return useQuery({
-    queryKey: ["employees", params], // Inclure les params dans la clé
+    queryKey: ["employees", "free"], // Clé distincte
     enabled: !!token,
     queryFn: async () => {
-      const url = params?.includeAll 
-        ? `${API_BASE_URL}/employees`
-        : `${API_BASE_URL}/employees`;
-      
-      const res = await axios.get<Employee[]>(
-          url,
+      const res = await axios.get(
+          `${API_BASE_URL}/employees/free`,
           {
             headers: token
                 ? { Authorization: `Bearer ${token}` }

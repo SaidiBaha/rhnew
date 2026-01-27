@@ -232,33 +232,7 @@ export default function PermutationsPage() {
                             </button>
                         </div>
 
-                        {/* ✅ ZONE VERTE - Filtre de mode */}
-                        <div className="bg-gradient-to-r from-[#6b7a12] to-[#8a9a1a] px-6 py-4">
-                            <div className="inline-flex rounded-full border border-white/30 bg-white/20 p-1 text-xs backdrop-blur-sm">
-                                <button
-                                    type="button"
-                                    onClick={() => setPermutationMode("send")}
-                                    className={`rounded-full px-4 py-2 font-medium transition-all ${
-                                        permutationMode === "send"
-                                            ? "bg-white text-[#6b7a12] shadow-sm"
-                                            : "text-white hover:bg-white/10"
-                                    }`}
-                                >
-                                    Envoyer un employé
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPermutationMode("choose")}
-                                    className={`rounded-full px-4 py-2 font-medium transition-all ${
-                                        permutationMode === "choose"
-                                            ? "bg-white text-[#6b7a12] shadow-sm"
-                                            : "text-white hover:bg-white/10"
-                                    }`}
-                                >
-                                    Recevoir un employé
-                                </button>
-                            </div>
-                        </div>
+
 
                         <div className="max-h-[80vh] overflow-y-auto px-6 py-6">
                             <PermutationForm 

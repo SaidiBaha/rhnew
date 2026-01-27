@@ -1,11 +1,12 @@
 import { useState, useMemo, type FormEvent } from "react";
 import Swal from "sweetalert2";
-import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
+import { CheckCircleIcon, XCircleIcon, ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/solid";
 
 import { useCreatePermutation } from "../hooks/useCreatePermutation";
 import type { PermutationCreatePayload, Permutation } from "../types";
 
 import { useFetchEmployees } from "@/modules/employee/hooks/useFetchEmployees";
+import { useFetchFreeEmployees } from "@/modules/employee/hooks/useFetchFreeEmployees"; // Nouveau hook
 import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
 import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
 import { useFetchProductionLines } from "@/modules/permutation/hooks/useFetchProductionLines";
@@ -19,17 +20,28 @@ type Props = {
 };
 
 type AvailabilityFilter = "all" | "free" | "occupied";
+type OperationMode = "send" | "receive"; // Nouveau type
 
 export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [operatorsSearch, setOperatorsSearch] = useState("");
     const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
+    const [operationMode, setOperationMode] = useState<OperationMode>("send"); // Nouvel état
 
     const {
         data: employees,
         isLoading: empLoading,
         isFetching: empFetching,
         error: empError,
+        refetch: refetchEmployees // Ajouté pour rafraîchir la liste
     } = useFetchEmployees({ includeAll: mode === "choose" });
+
+    const {
+        data: freeEmployees,
+        isLoading: freeEmpLoading,
+        isFetching: freeEmpFetching,
+        error: freeEmpError,
+        refetch: refetchFreeEmployees
+    } = useFetchFreeEmployees();
 
     const {
         data: supervisors,
@@ -63,11 +75,19 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [startTime, setStartTime] = useState("09:00");
     const [endTime, setEndTime] = useState("11:00");
 
-    const operators = employees ?? [];
+    // Déterminer quelle liste d'opérateurs utiliser selon le mode
+    const allOperators = employees ?? [];
+    const freeOperatorsList = freeEmployees ?? [];
+    
+    const operators = operationMode === "receive" ? freeOperatorsList : allOperators;
+    
     const permutations: Permutation[] = permutationsData ?? [];
     const lines = productionLines ?? [];
 
+    // Calcul de disponibilité uniquement en mode "envoyer"
     const unavailableOperatorIds = useMemo(() => {
+        if (operationMode === "receive") return new Set<number>();
+        
         const result = new Set<number>();
         if (!startDate || !endDate || !startTime || !endTime) return result;
 
@@ -83,23 +103,35 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         });
 
         return result;
-    }, [permutations, startDate, endDate, startTime, endTime]);
+    }, [permutations, startDate, endDate, startTime, endTime, operationMode]);
 
     const operatorAvailability = useMemo(() => {
         const result = new Map<number, boolean>();
         
         operators.forEach((emp) => {
-            const isUnavailable = unavailableOperatorIds.has(emp.id);
-            const isFreeFromData = emp.free === true;
-            const isFree = !isUnavailable && isFreeFromData;
-            result.set(emp.id, isFree);
+            if (operationMode === "receive") {
+                // En mode "recevoir", tous les employés de la liste sont libres
+                result.set(emp.id, true);
+            } else {
+                // En mode "envoyer", calculer la disponibilité
+                const isUnavailable = unavailableOperatorIds.has(emp.id);
+                const isFreeFromData = emp.free === true;
+                const isFree = !isUnavailable && isFreeFromData;
+                result.set(emp.id, isFree);
+            }
         });
         
         return result;
-    }, [operators, unavailableOperatorIds]);
+    }, [operators, unavailableOperatorIds, operationMode]);
 
     const availabilityStats = useMemo(() => {
         const allCount = operators.length;
+        
+        if (operationMode === "receive") {
+            // En mode "recevoir", tous sont libres
+            return { allCount, freeCount: allCount, occupiedCount: 0 };
+        }
+        
         const freeCount = operators.filter(emp => {
             const isFree = operatorAvailability.get(emp.id) ?? true;
             return isFree;
@@ -107,7 +139,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         const occupiedCount = allCount - freeCount;
         
         return { allCount, freeCount, occupiedCount };
-    }, [operators, operatorAvailability]);
+    }, [operators, operatorAvailability, operationMode]);
 
     const searchTerm = operatorsSearch.trim().toLowerCase();
 
@@ -127,6 +159,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     if (!matchesSearch) return false;
                 }
 
+                // En mode "recevoir", pas de filtre par disponibilité
+                if (operationMode === "receive") return true;
+
                 const isFree = operatorAvailability.get(emp.id) ?? true;
                 
                 switch (availabilityFilter) {
@@ -139,7 +174,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         return true;
                 }
             }),
-        [operators, operatorAvailability, searchTerm, availabilityFilter]
+        [operators, operatorAvailability, searchTerm, availabilityFilter, operationMode]
     );
 
     const toggleOperator = (id: number) => {
@@ -166,24 +201,42 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     const selectedOperatorsCount = operatorIds.length;
 
-    if (
-        empLoading ||
-        empFetching ||
+    const handleOperationModeChange = (mode: OperationMode) => {
+        setOperationMode(mode);
+        setOperatorIds([]); // Réinitialiser la sélection
+        setAvailabilityFilter("all"); // Réinitialiser le filtre
+        
+        // Rafraîchir les données si nécessaire
+        if (mode === "receive") {
+            refetchFreeEmployees();
+        } else {
+            refetchEmployees();
+        }
+    };
+
+    const isLoading =
+        (operationMode === "send" && (empLoading || empFetching)) ||
+        (operationMode === "receive" && (freeEmpLoading || freeEmpFetching)) ||
         supLoading ||
         supFetching ||
         permLoading ||
         permFetching ||
         plLoading ||
-        plFetching
-    ) {
+        plFetching;
+
+    if (isLoading) {
         return <Loader />;
     }
 
-    if (empError || supError || plError) {
+    if ((operationMode === "send" && empError) || 
+        (operationMode === "receive" && freeEmpError) || 
+        supError || 
+        plError) {
         return (
             <ErrorAlert
                 error={
                     (empError as any)?.message ||
+                    (freeEmpError as any)?.message ||
                     (supError as any)?.message ||
                     (plError as any)?.message ||
                     "Impossible de charger les données."
@@ -261,10 +314,11 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             await Swal.fire({
                 icon: "success",
                 title: "Permutation créée",
-                text: "La permutation a été créée avec succès.",
+                text: `La permutation a été créée avec succès.`,
                 confirmButtonColor: "#6b7a12",
             });
 
+            // Réinitialiser le formulaire
             setReceiverId("");
             setProductionLineId("");
             setOperatorIds([]);
@@ -293,6 +347,49 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-2">
+            {/* SWITCH ENVOYER/RECEVOIR */}
+            <div className={sectionCls}>
+                <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                        Type d'opération
+                    </p>
+                </div>
+                
+                <div className="flex rounded-xl bg-slate-100 p-1">
+                    <button
+                        type="button"
+                        onClick={() => handleOperationModeChange("send")}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+                            operationMode === "send"
+                                ? "bg-white text-[#6b7a12] shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                        }`}
+                    >
+                        <ArrowRightIcon className="h-4 w-4" />
+                        Envoyer un employé
+                    </button>
+                    
+                    <button
+                        type="button"
+                        onClick={() => handleOperationModeChange("receive")}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+                            operationMode === "receive"
+                                ? "bg-white text-[#6b7a12] shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                        }`}
+                    >
+                        <ArrowLeftIcon className="h-4 w-4" />
+                        Recevoir un employé
+                    </button>
+                </div>
+                
+                <p className="mt-2 text-xs text-slate-500">
+                    {operationMode === "send" 
+                        ? "Sélectionnez les employés à envoyer vers un autre projet"
+                        : "Sélectionnez les employés libres à recevoir sur votre projet"}
+                </p>
+            </div>
+
             {/* INFORMATIONS GENERALES */}
             <div className={sectionCls}>
                 <div className="mb-3 flex items-center justify-between">
@@ -303,7 +400,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                 <div className="grid gap-3 md:grid-cols-2">
                     <div>
-                        <label className={labelCls}>Récepteur (superviseur)</label>
+                        <label className={labelCls}>
+                            {operationMode === "send" ? "Récepteur (superviseur)" : "Provenance (superviseur)"}
+                        </label>
                         <select
                             className={`${inputCls} ${receiverId ? "" : ""}`}
                             value={receiverId}
@@ -339,7 +438,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     </div>
 
                     <div>
-                        <label className={labelCls}>Date de début</label>
+                        <label className={labelCls}>Date de début***</label>
                         <input
                             type="date"
                             className={inputCls}
@@ -395,7 +494,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             <div className={sectionCls}>
                 <div className="mb-3 flex items-center justify-between">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        Opérateurs concernés
+                        {operationMode === "send" ? "Opérateurs à envoyer" : "Opérateurs disponibles à recevoir"}
                     </p>
 
                     <span
@@ -420,59 +519,74 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         className={inputCls}
                     />
                     
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
-                        <div className="flex gap-1">
-                            <button
-                                type="button"
-                                onClick={() => setAvailabilityFilter("all")}
-                                className={filterButtonCls(availabilityFilter === "all")}
-                            >
-                                Tous
-                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
-                                    availabilityFilter === "all"
-                                        ? "bg-white/20"
-                                        : "bg-slate-300 text-slate-700"
-                                }`}>
-                                    {availabilityStats.allCount}
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setAvailabilityFilter("free")}
-                                className={filterButtonCls(availabilityFilter === "free")}
-                            >
-                                Libre
-                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
-                                    availabilityFilter === "free"
-                                        ? "bg-white/20"
-                                        : "bg-[#6b7a12]/10 text-[#6b7a12]"
-                                }`}>
-                                    {availabilityStats.freeCount}
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setAvailabilityFilter("occupied")}
-                                className={filterButtonCls(availabilityFilter === "occupied", "red")}
-                            >
-                                Occupé
-                                <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
-                                    availabilityFilter === "occupied"
-                                        ? "bg-white/20"
-                                        : "bg-red-100 text-red-600"
-                                }`}>
-                                    {availabilityStats.occupiedCount}
-                                </span>
-                            </button>
+                    {/* Filtres de disponibilité - masqués en mode "recevoir" */}
+                    {operationMode === "send" && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setAvailabilityFilter("all")}
+                                    className={filterButtonCls(availabilityFilter === "all")}
+                                >
+                                    Tous
+                                    <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                        availabilityFilter === "all"
+                                            ? "bg-white/20"
+                                            : "bg-slate-300 text-slate-700"
+                                    }`}>
+                                        {availabilityStats.allCount}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAvailabilityFilter("free")}
+                                    className={filterButtonCls(availabilityFilter === "free")}
+                                >
+                                    Libre
+                                    <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                        availabilityFilter === "free"
+                                            ? "bg-white/20"
+                                            : "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                    }`}>
+                                        {availabilityStats.freeCount}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAvailabilityFilter("occupied")}
+                                    className={filterButtonCls(availabilityFilter === "occupied", "red")}
+                                >
+                                    Occupé
+                                    <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
+                                        availabilityFilter === "occupied"
+                                            ? "bg-white/20"
+                                            : "bg-red-100 text-red-600"
+                                    }`}>
+                                        {availabilityStats.occupiedCount}
+                                    </span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
+                    
+                    {/* Info en mode "recevoir" */}
+                    {operationMode === "receive" && (
+                        <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3">
+                            <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                            <span className="text-xs font-medium text-green-700">
+                                Liste des opérateurs actuellement libres (disponibles)
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
                     {filteredOperators.length === 0 && (
                         <p className="text-xs text-slate-400">
-                            Aucun opérateur disponible pour cette période / recherche.
+                            {operationMode === "send" 
+                                ? "Aucun opérateur disponible pour cette période / recherche."
+                                : "Aucun opérateur libre disponible pour le moment."}
                         </p>
                     )}
 
@@ -503,23 +617,25 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                             {emp.fullName}
                                         </p>
                                         
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                            isFree
-                                                ? "bg-green-100 text-green-800"
-                                                : "bg-red-100 text-red-800"
-                                        }`}>
-                                            {isFree ? (
-                                                <>
-                                                    <CheckCircleIcon className="h-3 w-3" />
-                                                    Libre
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <XCircleIcon className="h-3 w-3" />
-                                                    Occupé
-                                                </>
-                                            )}
-                                        </span>
+                                        {operationMode === "send" && (
+                                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                                isFree
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-red-100 text-red-800"
+                                            }`}>
+                                                {isFree ? (
+                                                    <>
+                                                        <CheckCircleIcon className="h-3 w-3" />
+                                                        Libre
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <XCircleIcon className="h-3 w-3" />
+                                                        Occupé
+                                                    </>
+                                                )}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {matricule && (
@@ -534,7 +650,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 </div>
 
                 <p className="mt-2 text-[11px] text-slate-500">
-                    Cochez chaque opérateur concerné par cette permutation.
+                    {operationMode === "send"
+                        ? "Cochez chaque opérateur concerné par cette permutation."
+                        : "Sélectionnez les opérateurs libres que vous souhaitez intégrer à votre projet."}
                 </p>
             </div>
 
@@ -545,7 +663,11 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     disabled={isPending}
                     className="h-11 rounded-full bg-[#6b7a12] px-6 text-sm font-bold text-white shadow-sm transition hover:bg-[#5a6610] disabled:opacity-60"
                 >
-                    {isPending ? "Création..." : "Créer la permutation"}
+                    {isPending 
+                        ? "Création..." 
+                        : operationMode === "send" 
+                            ? "Envoyer les opérateurs" 
+                            : "Recevoir les opérateurs"}
                 </button>
             </div>
         </form>
