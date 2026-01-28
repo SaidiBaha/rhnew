@@ -4,6 +4,7 @@ export type UserRole = "ADMIN" | "SUPERVISOR" | "OPERATIONAL_MANAGER";
 
 export type User = {
   id: string;
+ 
   role: UserRole;
   employee: Employee;
 };

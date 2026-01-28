@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from "react";
+import { useState, useMemo, type FormEvent, useEffect } from "react";
 import Swal from "sweetalert2";
 import { CheckCircleIcon, XCircleIcon, ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/solid";
 
@@ -6,33 +6,39 @@ import { useCreatePermutation } from "../hooks/useCreatePermutation";
 import type { PermutationCreatePayload, Permutation } from "../types";
 
 import { useFetchEmployees } from "@/modules/employee/hooks/useFetchEmployees";
-import { useFetchFreeEmployees } from "@/modules/employee/hooks/useFetchFreeEmployees"; // Nouveau hook
+import { useFetchFreeEmployees } from "@/modules/employee/hooks/useFetchFreeEmployees";
 import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
 import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
 import { useFetchProductionLines } from "@/modules/permutation/hooks/useFetchProductionLines";
 
 import { Loader } from "@/components/Loader";
 import { ErrorAlert } from "@/components/ErrorAlert";
+import useAuth from "@/hooks/useAuth"; // Importez useAuth
 
 type Props = {
     onCreated?: () => void;
-    mode?: "send" | "choose"; // Nouvelle prop
+    mode?: "send" | "choose";
 };
 
 type AvailabilityFilter = "all" | "free" | "occupied";
-type OperationMode = "send" | "receive"; // Nouveau type
+type OperationMode = "send" | "receive";
 
 export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [operatorsSearch, setOperatorsSearch] = useState("");
     const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
-    const [operationMode, setOperationMode] = useState<OperationMode>("send"); // Nouvel état
+    const [operationMode, setOperationMode] = useState<OperationMode>("send");
+    
+    // Récupérez l'utilisateur connecté
+    const { auth } = useAuth();
+    const connectedUser = auth?.user;
+    const isSupervisor = connectedUser?.role === "SUPERVISOR";
 
     const {
         data: employees,
         isLoading: empLoading,
         isFetching: empFetching,
         error: empError,
-        refetch: refetchEmployees // Ajouté pour rafraîchir la liste
+        refetch: refetchEmployees
     } = useFetchEmployees({ includeAll: mode === "choose" });
 
     const {
@@ -75,6 +81,26 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [startTime, setStartTime] = useState("09:00");
     const [endTime, setEndTime] = useState("11:00");
 
+    // Effet pour initialiser le récepteur avec l'utilisateur connecté en mode "recevoir"
+    useEffect(() => {
+        if (operationMode === "receive" && connectedUser && isSupervisor) {
+            // Convertir l'ID de l'utilisateur en nombre
+            const userId = Number(connectedUser.id);
+            setReceiverId(userId);
+        } else if (operationMode === "send") {
+            // Réinitialiser en mode "envoyer"
+            setReceiverId("");
+        }
+    }, [operationMode, connectedUser, isSupervisor]);
+
+    // Trouver si l'utilisateur connecté est dans la liste des superviseurs
+    const currentUserSupervisor = useMemo(() => {
+        if (!connectedUser || !supervisors) return null;
+        
+        const userId = Number(connectedUser.id);
+        return supervisors.find(sup => sup.id === userId);
+    }, [connectedUser, supervisors]);
+
     // Déterminer quelle liste d'opérateurs utiliser selon le mode
     const allOperators = employees ?? [];
     const freeOperatorsList = freeEmployees ?? [];
@@ -84,7 +110,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const permutations: Permutation[] = permutationsData ?? [];
     const lines = productionLines ?? [];
 
-    // Calcul de disponibilité uniquement en mode "envoyer"
     const unavailableOperatorIds = useMemo(() => {
         if (operationMode === "receive") return new Set<number>();
         
@@ -110,10 +135,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         
         operators.forEach((emp) => {
             if (operationMode === "receive") {
-                // En mode "recevoir", tous les employés de la liste sont libres
                 result.set(emp.id, true);
             } else {
-                // En mode "envoyer", calculer la disponibilité
                 const isUnavailable = unavailableOperatorIds.has(emp.id);
                 const isFreeFromData = emp.free === true;
                 const isFree = !isUnavailable && isFreeFromData;
@@ -128,7 +151,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         const allCount = operators.length;
         
         if (operationMode === "receive") {
-            // En mode "recevoir", tous sont libres
             return { allCount, freeCount: allCount, occupiedCount: 0 };
         }
         
@@ -159,7 +181,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     if (!matchesSearch) return false;
                 }
 
-                // En mode "recevoir", pas de filtre par disponibilité
                 if (operationMode === "receive") return true;
 
                 const isFree = operatorAvailability.get(emp.id) ?? true;
@@ -203,14 +224,19 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     const handleOperationModeChange = (mode: OperationMode) => {
         setOperationMode(mode);
-        setOperatorIds([]); // Réinitialiser la sélection
-        setAvailabilityFilter("all"); // Réinitialiser le filtre
+        setOperatorIds([]);
+        setAvailabilityFilter("all");
         
-        // Rafraîchir les données si nécessaire
         if (mode === "receive") {
             refetchFreeEmployees();
+            // Si l'utilisateur connecté est superviseur, le pré-sélectionner
+            if (connectedUser && isSupervisor) {
+                const userId = Number(connectedUser.id);
+                setReceiverId(userId);
+            }
         } else {
             refetchEmployees();
+            setReceiverId("");
         }
     };
 
@@ -245,58 +271,65 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         );
     }
 
-    const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-
+    // Validation du formulaire adaptée
+    const validateForm = () => {
         if (!receiverId) {
-            await Swal.fire({
+            Swal.fire({
                 icon: "warning",
                 title: "Superviseur manquant",
                 text: "Veuillez sélectionner un superviseur receveur.",
                 confirmButtonColor: "#6b7a12",
             });
-            return;
+            return false;
         }
 
         if (!productionLineId) {
-            await Swal.fire({
+            Swal.fire({
                 icon: "warning",
                 title: "Projet manquant",
                 text: "Veuillez sélectionner le projet / la ligne de production.",
                 confirmButtonColor: "#6b7a12",
             });
-            return;
+            return false;
         }
 
         if (operatorIds.length === 0) {
-            await Swal.fire({
+            Swal.fire({
                 icon: "warning",
                 title: "Aucun opérateur sélectionné",
                 text: "Veuillez sélectionner au moins un opérateur.",
                 confirmButtonColor: "#6b7a12",
             });
-            return;
+            return false;
         }
 
         if (endDate < startDate) {
-            await Swal.fire({
+            Swal.fire({
                 icon: "error",
                 title: "Dates invalides",
                 text: "La date de fin doit être supérieure ou égale à la date de début.",
                 confirmButtonColor: "#ef4444",
             });
-            return;
+            return false;
         }
 
         if (mode === "send" && endTime <= startTime) {
-            await Swal.fire({
+            Swal.fire({
                 icon: "error",
                 title: "Heures invalides",
                 text: "L'heure de fin doit être strictement supérieure à l'heure de début.",
                 confirmButtonColor: "#ef4444",
             });
-            return;
+            return false;
         }
+
+        return true;
+    };
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+
+        if (!validateForm()) return;
 
         const payload: PermutationCreatePayload = {
             receiverId: Number(receiverId),
@@ -319,7 +352,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             });
 
             // Réinitialiser le formulaire
-            setReceiverId("");
+            setReceiverId(operationMode === "receive" && connectedUser && isSupervisor 
+                ? Number(connectedUser.id) 
+                : "");
             setProductionLineId("");
             setOperatorIds([]);
             setStartDate(today);
@@ -401,22 +436,48 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 <div className="grid gap-3 md:grid-cols-2">
                     <div>
                         <label className={labelCls}>
-                            {operationMode === "send" ? "Récepteur (superviseur)" : "Provenance (superviseur)"}
+                            {operationMode === "send" 
+                                ? "Récepteur (superviseur)" 
+                                : "Récepteur (vous)"}
                         </label>
-                        <select
-                            className={`${inputCls} ${receiverId ? "" : ""}`}
-                            value={receiverId}
-                            onChange={(e) =>
-                                setReceiverId(e.target.value ? Number(e.target.value) : ("" as any))
-                            }
-                        >
-                            <option value="">-- Sélectionner --</option>
-                            {supervisors!.map((emp) => (
-                                <option key={emp.id} value={emp.id}>
-                                    {emp.fullName}
-                                </option>
-                            ))}
-                        </select>
+                        
+                        {operationMode === "receive" && currentUserSupervisor ? (
+                            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-slate-900">
+                                        {currentUserSupervisor.fullName}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        Matricule: {currentUserSupervisor.matricule}
+                                    </p>
+                                </div>
+                                <span className="rounded-full bg-[#6b7a12] px-2 py-1 text-xs font-bold text-white">
+                                    Vous
+                                </span>
+                            </div>
+                        ) : (
+                            <select
+                                className={`${inputCls} ${receiverId ? "" : ""}`}
+                                value={receiverId}
+                                onChange={(e) =>
+                                    setReceiverId(e.target.value ? Number(e.target.value) : ("" as any))
+                                }
+                                disabled={operationMode === "receive" && currentUserSupervisor}
+                            >
+                                <option value="">-- Sélectionner --</option>
+                                {supervisors!.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.fullName}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        
+                        {operationMode === "receive" && !currentUserSupervisor && (
+                            <p className="mt-1 text-xs text-amber-600">
+                                Vous n'êtes pas identifié comme superviseur dans la liste.
+                            </p>
+                        )}
                     </div>
 
                     <div>
@@ -494,7 +555,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             <div className={sectionCls}>
                 <div className="mb-3 flex items-center justify-between">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        {operationMode === "send" ? "Opérateurs à envoyer" : "Opérateurs disponibles à recevoir"}
+                        {operationMode === "send" 
+                            ? "Opérateurs à envoyer" 
+                            : "Opérateurs disponibles à recevoir"}
                     </p>
 
                     <span
@@ -519,7 +582,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         className={inputCls}
                     />
                     
-                    {/* Filtres de disponibilité - masqués en mode "recevoir" */}
                     {operationMode === "send" && (
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
@@ -570,7 +632,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </div>
                     )}
                     
-                    {/* Info en mode "recevoir" */}
                     {operationMode === "receive" && (
                         <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3">
                             <CheckCircleIcon className="h-5 w-5 text-green-600" />
