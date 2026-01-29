@@ -1,9 +1,15 @@
 import { useState, useMemo, type FormEvent, useEffect } from "react";
 import Swal from "sweetalert2";
-import { CheckCircleIcon, XCircleIcon, ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/solid";
+import { 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  ArrowRightIcon, 
+  ArrowLeftIcon,
+  UserCircleIcon 
+} from "@heroicons/react/24/solid";
 
 import { useCreatePermutation } from "../hooks/useCreatePermutation";
-import type { PermutationCreatePayload, Permutation } from "../types";
+import type { PermutationCreatePayload, Permutation, TypePermutation } from "../types";
 
 import { useFetchEmployees } from "@/modules/employee/hooks/useFetchEmployees";
 import { useFetchFreeEmployees } from "@/modules/employee/hooks/useFetchFreeEmployees";
@@ -13,7 +19,7 @@ import { useFetchProductionLines } from "@/modules/permutation/hooks/useFetchPro
 
 import { Loader } from "@/components/Loader";
 import { ErrorAlert } from "@/components/ErrorAlert";
-import useAuth from "@/hooks/useAuth"; // Importez useAuth
+import useAuth from "@/hooks/useAuth";
 
 type Props = {
     onCreated?: () => void;
@@ -21,17 +27,23 @@ type Props = {
 };
 
 type AvailabilityFilter = "all" | "free" | "occupied";
-type OperationMode = "send" | "receive";
 
 export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [operatorsSearch, setOperatorsSearch] = useState("");
     const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
-    const [operationMode, setOperationMode] = useState<OperationMode>("send");
+    const [typePermutation, setTypePermutation] = useState<TypePermutation>("ENVOYER");
     
-    // Récupérez l'utilisateur connecté
     const { auth } = useAuth();
-    const connectedUser = auth?.user;
-    const isSupervisor = connectedUser?.role === "SUPERVISOR";
+    const connectedUser = auth.user;
+
+    const [senderId, setSenderId] = useState<number | "">("");
+    const [receiverId, setReceiverId] = useState<number | "">("");
+    const [productionLineId, setProductionLineId] = useState<number | "">("");
+    const [operatorIds, setOperatorIds] = useState<number[]>([]);
+    const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+    const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+    const [startTime, setStartTime] = useState("09:00");
+    const [endTime, setEndTime] = useState("11:00");
 
     const {
         data: employees,
@@ -71,47 +83,33 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     const { mutateAsync, isPending } = useCreatePermutation();
 
-    const today = new Date().toISOString().slice(0, 10);
-
-    const [receiverId, setReceiverId] = useState<number | "">("");
-    const [productionLineId, setProductionLineId] = useState<number | "">("");
-    const [operatorIds, setOperatorIds] = useState<number[]>([]);
-    const [startDate, setStartDate] = useState(today);
-    const [endDate, setEndDate] = useState(today);
-    const [startTime, setStartTime] = useState("09:00");
-    const [endTime, setEndTime] = useState("11:00");
-
-    // Effet pour initialiser le récepteur avec l'utilisateur connecté en mode "recevoir"
-    useEffect(() => {
-        if (operationMode === "receive" && connectedUser && isSupervisor) {
-            // Convertir l'ID de l'utilisateur en nombre
-            const userId = Number(connectedUser.id);
-            setReceiverId(userId);
-        } else if (operationMode === "send") {
-            // Réinitialiser en mode "envoyer"
-            setReceiverId("");
-        }
-    }, [operationMode, connectedUser, isSupervisor]);
-
-    // Trouver si l'utilisateur connecté est dans la liste des superviseurs
-    const currentUserSupervisor = useMemo(() => {
-        if (!connectedUser || !supervisors) return null;
-        
-        const userId = Number(connectedUser.id);
-        return supervisors.find(sup => sup.id === userId);
-    }, [connectedUser, supervisors]);
-
-    // Déterminer quelle liste d'opérateurs utiliser selon le mode
+    // Déterminer quelle liste d'opérateurs utiliser selon le type
     const allOperators = employees ?? [];
     const freeOperatorsList = freeEmployees ?? [];
     
-    const operators = operationMode === "receive" ? freeOperatorsList : allOperators;
+    const operators = typePermutation === "RECEVOIR" ? freeOperatorsList : allOperators;
     
     const permutations: Permutation[] = permutationsData ?? [];
     const lines = productionLines ?? [];
 
+    // Effet pour initialiser les IDs selon le type et l'utilisateur connecté
+    useEffect(() => {
+        if (connectedUser && connectedUser.id) {
+            if (typePermutation === "RECEVOIR") {
+                // En mode "recevoir", le récepteur est l'utilisateur connecté
+                setReceiverId(Number(connectedUser.id));
+                setSenderId(""); // Vide par défaut, à sélectionner
+            } else {
+                // En mode "envoyer", l'émetteur est l'utilisateur connecté
+                setSenderId(Number(connectedUser.id));
+                setReceiverId(""); // Vide par défaut, à sélectionner
+            }
+        }
+    }, [typePermutation, connectedUser]);
+
+    // Calcul de disponibilité uniquement en mode "ENVOYER"
     const unavailableOperatorIds = useMemo(() => {
-        if (operationMode === "receive") return new Set<number>();
+        if (typePermutation === "RECEVOIR") return new Set<number>();
         
         const result = new Set<number>();
         if (!startDate || !endDate || !startTime || !endTime) return result;
@@ -128,13 +126,13 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         });
 
         return result;
-    }, [permutations, startDate, endDate, startTime, endTime, operationMode]);
+    }, [permutations, startDate, endDate, startTime, endTime, typePermutation]);
 
     const operatorAvailability = useMemo(() => {
         const result = new Map<number, boolean>();
         
         operators.forEach((emp) => {
-            if (operationMode === "receive") {
+            if (typePermutation === "RECEVOIR") {
                 result.set(emp.id, true);
             } else {
                 const isUnavailable = unavailableOperatorIds.has(emp.id);
@@ -145,12 +143,12 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         });
         
         return result;
-    }, [operators, unavailableOperatorIds, operationMode]);
+    }, [operators, unavailableOperatorIds, typePermutation]);
 
     const availabilityStats = useMemo(() => {
         const allCount = operators.length;
         
-        if (operationMode === "receive") {
+        if (typePermutation === "RECEVOIR") {
             return { allCount, freeCount: allCount, occupiedCount: 0 };
         }
         
@@ -161,7 +159,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         const occupiedCount = allCount - freeCount;
         
         return { allCount, freeCount, occupiedCount };
-    }, [operators, operatorAvailability, operationMode]);
+    }, [operators, operatorAvailability, typePermutation]);
 
     const searchTerm = operatorsSearch.trim().toLowerCase();
 
@@ -181,7 +179,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     if (!matchesSearch) return false;
                 }
 
-                if (operationMode === "receive") return true;
+                if (typePermutation === "RECEVOIR") return true;
 
                 const isFree = operatorAvailability.get(emp.id) ?? true;
                 
@@ -195,7 +193,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         return true;
                 }
             }),
-        [operators, operatorAvailability, searchTerm, availabilityFilter, operationMode]
+        [operators, operatorAvailability, searchTerm, availabilityFilter, typePermutation]
     );
 
     const toggleOperator = (id: number) => {
@@ -222,27 +220,21 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     const selectedOperatorsCount = operatorIds.length;
 
-    const handleOperationModeChange = (mode: OperationMode) => {
-        setOperationMode(mode);
+    const handleTypePermutationChange = (type: TypePermutation) => {
+        setTypePermutation(type);
         setOperatorIds([]);
         setAvailabilityFilter("all");
         
-        if (mode === "receive") {
+        if (type === "RECEVOIR") {
             refetchFreeEmployees();
-            // Si l'utilisateur connecté est superviseur, le pré-sélectionner
-            if (connectedUser && isSupervisor) {
-                const userId = Number(connectedUser.id);
-                setReceiverId(userId);
-            }
         } else {
             refetchEmployees();
-            setReceiverId("");
         }
     };
 
     const isLoading =
-        (operationMode === "send" && (empLoading || empFetching)) ||
-        (operationMode === "receive" && (freeEmpLoading || freeEmpFetching)) ||
+        (typePermutation === "ENVOYER" && (empLoading || empFetching)) ||
+        (typePermutation === "RECEVOIR" && (freeEmpLoading || freeEmpFetching)) ||
         supLoading ||
         supFetching ||
         permLoading ||
@@ -254,8 +246,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         return <Loader />;
     }
 
-    if ((operationMode === "send" && empError) || 
-        (operationMode === "receive" && freeEmpError) || 
+    if ((typePermutation === "ENVOYER" && empError) || 
+        (typePermutation === "RECEVOIR" && freeEmpError) || 
         supError || 
         plError) {
         return (
@@ -271,75 +263,113 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         );
     }
 
-    // Validation du formulaire adaptée
-    const validateForm = () => {
-        if (!receiverId) {
-            Swal.fire({
-                icon: "warning",
-                title: "Superviseur manquant",
-                text: "Veuillez sélectionner un superviseur receveur.",
-                confirmButtonColor: "#6b7a12",
-            });
-            return false;
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+
+        // Validation spécifique selon le type
+        if (typePermutation === "ENVOYER") {
+            if (!receiverId) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Destinataire manquant",
+                    text: "Veuillez sélectionner un superviseur destinataire.",
+                    confirmButtonColor: "#6b7a12",
+                });
+                return;
+            }
+            
+            if (senderId && receiverId && Number(senderId) === Number(receiverId)) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Destinataire invalide",
+                    text: "Vous ne pouvez pas vous envoyer des opérateurs à vous-même.",
+                    confirmButtonColor: "#6b7a12",
+                });
+                return;
+            }
+        } else {
+            // RECEVOIR
+            if (!senderId) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Émetteur manquant",
+                    text: "Veuillez sélectionner le superviseur émetteur.",
+                    confirmButtonColor: "#6b7a12",
+                });
+                return;
+            }
+            
+            if (senderId && receiverId && Number(senderId) === Number(receiverId)) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Émetteur invalide",
+                    text: "Vous ne pouvez pas recevoir des opérateurs de vous-même.",
+                    confirmButtonColor: "#6b7a12",
+                });
+                return;
+            }
         }
 
         if (!productionLineId) {
-            Swal.fire({
+            await Swal.fire({
                 icon: "warning",
                 title: "Projet manquant",
                 text: "Veuillez sélectionner le projet / la ligne de production.",
                 confirmButtonColor: "#6b7a12",
             });
-            return false;
+            return;
         }
 
         if (operatorIds.length === 0) {
-            Swal.fire({
+            await Swal.fire({
                 icon: "warning",
                 title: "Aucun opérateur sélectionné",
                 text: "Veuillez sélectionner au moins un opérateur.",
                 confirmButtonColor: "#6b7a12",
             });
-            return false;
+            return;
         }
 
         if (endDate < startDate) {
-            Swal.fire({
+            await Swal.fire({
                 icon: "error",
                 title: "Dates invalides",
                 text: "La date de fin doit être supérieure ou égale à la date de début.",
                 confirmButtonColor: "#ef4444",
             });
-            return false;
+            return;
         }
 
         if (mode === "send" && endTime <= startTime) {
-            Swal.fire({
+            await Swal.fire({
                 icon: "error",
                 title: "Heures invalides",
                 text: "L'heure de fin doit être strictement supérieure à l'heure de début.",
                 confirmButtonColor: "#ef4444",
             });
-            return false;
+            return;
         }
 
-        return true;
-    };
-
-    const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-
-        if (!validateForm()) return;
-
+        // Préparer le payload selon le type
         const payload: PermutationCreatePayload = {
-            receiverId: Number(receiverId),
             operatorIds,
             productionLineId: Number(productionLineId),
             startDate,
             endDate,
             startTime,
             endTime,
+            typePermutation,
         };
+
+        // Ajouter les IDs selon le type
+        if (typePermutation === "ENVOYER") {
+            payload.receiverId = receiverId ? Number(receiverId) : null;
+            // senderId n'est pas envoyé au backend pour ENVOYER (c'est l'utilisateur connecté)
+        } else {
+            // RECEVOIR
+            payload.receiverId = null; // Pour RECEVOIR, receiverId doit être null
+            payload.senderId = senderId ? Number(senderId) : undefined;
+        }
 
         try {
             await mutateAsync(payload);
@@ -352,17 +382,20 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             });
 
             // Réinitialiser le formulaire
-            setReceiverId(operationMode === "receive" && connectedUser && isSupervisor 
-                ? Number(connectedUser.id) 
-                : "");
             setProductionLineId("");
             setOperatorIds([]);
-            setStartDate(today);
-            setEndDate(today);
+            setStartDate(new Date().toISOString().slice(0, 10));
+            setEndDate(new Date().toISOString().slice(0, 10));
             setStartTime("09:00");
             setEndTime("11:00");
             setOperatorsSearch("");
             setAvailabilityFilter("all");
+            
+            if (typePermutation === "ENVOYER") {
+                setReceiverId("");
+            } else {
+                setSenderId("");
+            }
 
             onCreated?.();
         } catch (err: any) {
@@ -388,40 +421,53 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
                         Type d'opération
                     </p>
+                    
+                    {/* Affichage de l'utilisateur connecté */}
+                    {connectedUser && (
+                        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
+                            <UserCircleIcon className="h-4 w-4 text-slate-500" />
+                            <span className="text-xs font-medium text-slate-700">
+                                {connectedUser.fullName}
+                            </span>
+                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                {connectedUser.role}
+                            </span>
+                        </div>
+                    )}
                 </div>
                 
                 <div className="flex rounded-xl bg-slate-100 p-1">
                     <button
                         type="button"
-                        onClick={() => handleOperationModeChange("send")}
+                        onClick={() => handleTypePermutationChange("ENVOYER")}
                         className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                            operationMode === "send"
+                            typePermutation === "ENVOYER"
                                 ? "bg-white text-[#6b7a12] shadow-sm"
                                 : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                         <ArrowRightIcon className="h-4 w-4" />
-                        Envoyer un employé
+                        Envoyer
                     </button>
                     
                     <button
                         type="button"
-                        onClick={() => handleOperationModeChange("receive")}
+                        onClick={() => handleTypePermutationChange("RECEVOIR")}
                         className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                            operationMode === "receive"
+                            typePermutation === "RECEVOIR"
                                 ? "bg-white text-[#6b7a12] shadow-sm"
                                 : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                         <ArrowLeftIcon className="h-4 w-4" />
-                        Recevoir un employé
+                        Recevoir
                     </button>
                 </div>
                 
                 <p className="mt-2 text-xs text-slate-500">
-                    {operationMode === "send" 
-                        ? "Sélectionnez les employés à envoyer vers un autre projet"
-                        : "Sélectionnez les employés libres à recevoir sur votre projet"}
+                    {typePermutation === "ENVOYER" 
+                        ? "Vous envoyez vos opérateurs à un autre projet"
+                        : "Vous recevez des opérateurs d'un autre projet"}
                 </p>
             </div>
 
@@ -434,60 +480,68 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                        <label className={labelCls}>
-                            {operationMode === "send" 
-                                ? "Récepteur (superviseur)" 
-                                : "Récepteur (vous)"}
-                        </label>
-                        
-                        {operationMode === "receive" && currentUserSupervisor ? (
-                            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-slate-900">
-                                        {currentUserSupervisor.fullName}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                        Matricule: {currentUserSupervisor.matricule}
-                                    </p>
-                                </div>
-                                <span className="rounded-full bg-[#6b7a12] px-2 py-1 text-xs font-bold text-white">
-                                    Vous
-                                </span>
-                            </div>
-                        ) : (
+                    {/* Champs dynamiques selon le type */}
+                    {typePermutation === "RECEVOIR" ? (
+                        // Mode "Recevoir" : sélection de l'émetteur
+                        <div>
+                            <label className={labelCls}>
+                                Émetteur (superviseur) <span className="text-red-500">*</span>
+                            </label>
                             <select
-                                className={`${inputCls} ${receiverId ? "" : ""}`}
+                                className={`${inputCls} ${!senderId ? "border-red-300" : ""}`}
+                                value={senderId}
+                                onChange={(e) =>
+                                    setSenderId(e.target.value ? Number(e.target.value) : ("" as any))
+                                }
+                                required
+                            >
+                                <option value="">-- Sélectionner --</option>
+                                {supervisors!.filter(emp => 
+                                    connectedUser ? emp.id !== Number(connectedUser.id) : true
+                                ).map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.fullName} (Matricule: {emp.matricule})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        // Mode "Envoyer" : sélection du destinataire
+                        <div>
+                            <label className={labelCls}>
+                                Destinataire (superviseur) <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                className={`${inputCls} ${!receiverId ? "border-red-300" : ""}`}
                                 value={receiverId}
                                 onChange={(e) =>
                                     setReceiverId(e.target.value ? Number(e.target.value) : ("" as any))
                                 }
-                                disabled={operationMode === "receive" && currentUserSupervisor}
+                                required
                             >
                                 <option value="">-- Sélectionner --</option>
-                                {supervisors!.map((emp) => (
+                                {supervisors!.filter(emp => 
+                                    connectedUser ? emp.id !== Number(connectedUser.id) : true
+                                ).map((emp) => (
                                     <option key={emp.id} value={emp.id}>
-                                        {emp.fullName}
+                                        {emp.fullName} (Matricule: {emp.matricule})
                                     </option>
                                 ))}
                             </select>
-                        )}
-                        
-                        {operationMode === "receive" && !currentUserSupervisor && (
-                            <p className="mt-1 text-xs text-amber-600">
-                                Vous n'êtes pas identifié comme superviseur dans la liste.
-                            </p>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     <div>
-                        <label className={labelCls}>Projet / ligne de production</label>
+                        <label className={labelCls}>
+                            Projet / ligne de production <span className="text-red-500">*</span>
+                        </label>
                         <select
-                            className={inputCls}
+                            className={`${inputCls} ${!productionLineId ? "border-red-300" : ""}`}
                             value={productionLineId}
                             onChange={(e) =>
                                 setProductionLineId(e.target.value ? Number(e.target.value) : ("" as any))
                             }
+                            required
                         >
                             <option value="">-- Sélectionner --</option>
                             {lines.map((line) => (
@@ -498,29 +552,50 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </select>
                     </div>
 
+                    {/* Affichage de l'utilisateur connecté */}
                     <div>
-                        <label className={labelCls}>Date de début***</label>
+                        <label className={labelCls}>
+                            {typePermutation === "ENVOYER" ? "Émetteur" : "Destinataire"}
+                            <span className="ml-1 text-[10px] text-slate-400">(vous)</span>
+                        </label>
+                        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                            <UserCircleIcon className="h-5 w-5 text-slate-500" />
+                            <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                    {connectedUser?.fullName || "Utilisateur"}
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                    Matricule: {connectedUser?.matricule || "N/A"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className={labelCls}>Date de début <span className="text-red-500">*</span></label>
                         <input
                             type="date"
                             className={inputCls}
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
+                            required
                         />
                     </div>
 
                     <div>
-                        <label className={labelCls}>Date de fin</label>
+                        <label className={labelCls}>Date de fin <span className="text-red-500">*</span></label>
                         <input
                             type="date"
                             className={inputCls}
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
+                            required
                         />
                     </div>
                 </div>
             </div>
 
-            {/* HORAIRES - Visible seulement en mode "send" */}
+            {/* HORAIRES - Visible seulement si mode = "send" */}
             {mode === "send" && (
                 <div className={sectionCls}>
                     <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -529,22 +604,24 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                     <div className="grid gap-3 md:grid-cols-2">
                         <div>
-                            <label className={labelCls}>Heure de début</label>
+                            <label className={labelCls}>Heure de début <span className="text-red-500">*</span></label>
                             <input
                                 type="time"
                                 className={inputCls}
                                 value={startTime}
                                 onChange={(e) => setStartTime(e.target.value)}
+                                required
                             />
                         </div>
 
                         <div>
-                            <label className={labelCls}>Heure de fin</label>
+                            <label className={labelCls}>Heure de fin <span className="text-red-500">*</span></label>
                             <input
                                 type="time"
                                 className={inputCls}
                                 value={endTime}
                                 onChange={(e) => setEndTime(e.target.value)}
+                                required
                             />
                         </div>
                     </div>
@@ -555,9 +632,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             <div className={sectionCls}>
                 <div className="mb-3 flex items-center justify-between">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        {operationMode === "send" 
-                            ? "Opérateurs à envoyer" 
-                            : "Opérateurs disponibles à recevoir"}
+                        {typePermutation === "ENVOYER" ? "Opérateurs à envoyer" : "Opérateurs disponibles à recevoir"}
                     </p>
 
                     <span
@@ -582,7 +657,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         className={inputCls}
                     />
                     
-                    {operationMode === "send" && (
+                    {/* Filtres de disponibilité - masqués en mode "RECEVOIR" */}
+                    {typePermutation === "ENVOYER" && (
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
                             <div className="flex gap-1">
@@ -632,7 +708,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </div>
                     )}
                     
-                    {operationMode === "receive" && (
+                    {/* Info en mode "RECEVOIR" */}
+                    {typePermutation === "RECEVOIR" && (
                         <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3">
                             <CheckCircleIcon className="h-5 w-5 text-green-600" />
                             <span className="text-xs font-medium text-green-700">
@@ -645,7 +722,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
                     {filteredOperators.length === 0 && (
                         <p className="text-xs text-slate-400">
-                            {operationMode === "send" 
+                            {typePermutation === "ENVOYER" 
                                 ? "Aucun opérateur disponible pour cette période / recherche."
                                 : "Aucun opérateur libre disponible pour le moment."}
                         </p>
@@ -678,7 +755,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                             {emp.fullName}
                                         </p>
                                         
-                                        {operationMode === "send" && (
+                                        {typePermutation === "ENVOYER" && (
                                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                                 isFree
                                                     ? "bg-green-100 text-green-800"
@@ -711,7 +788,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 </div>
 
                 <p className="mt-2 text-[11px] text-slate-500">
-                    {operationMode === "send"
+                    {typePermutation === "ENVOYER"
                         ? "Cochez chaque opérateur concerné par cette permutation."
                         : "Sélectionnez les opérateurs libres que vous souhaitez intégrer à votre projet."}
                 </p>
@@ -726,7 +803,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 >
                     {isPending 
                         ? "Création..." 
-                        : operationMode === "send" 
+                        : typePermutation === "ENVOYER" 
                             ? "Envoyer les opérateurs" 
                             : "Recevoir les opérateurs"}
                 </button>

@@ -1,5 +1,5 @@
 export type PermutationStatus = "EN_ATTENTE" | "ACCEPTEE" | "REFUSEE";
-
+export type TypePermutation = "ENVOYER" | "RECEVOIR";
 export type OperatorMini = {
     id: number;
     fullName: string;
@@ -13,7 +13,6 @@ export type EmployeeFreeRequest = {
 
 export type Permutation = {
     id: number;
-
     senderId: number;
     receiverId: number;
     operatorIds: number[];
@@ -26,7 +25,7 @@ export type Permutation = {
     receiverFullName?: string | null;
     senderMatricule?: string | null;
     receiverMatricule?: string | null;
-
+    typePermutation: TypePermutation;
     startDate: string;
     endDate: string;
     startTime: string;
@@ -45,8 +44,10 @@ export type Permutation = {
 };
 
 export type PermutationCreatePayload = {
+    senderId?: number;  
     operatorIds: number[];
-    receiverId: number;
+   
+    receiverId: number | null;
     productionLineId?: number | null;
     startDate: string;
     endDate: string;

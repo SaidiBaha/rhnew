@@ -3,6 +3,7 @@ package tn.sage.rh.permutations.dto;
 import lombok.*;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import tn.sage.rh.permutations.entity.TypePermutation;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -18,7 +19,9 @@ public class PermutationCreateRequestDTO {
     @NotEmpty
     private List<Long> operatorIds;
 
-    @NotNull
+   // private Long senderId;    // Pour RECEVOIR (optionnel)
+
+    private Long senderId;
     private Long receiverId;
 
     private Long productionLineId;
@@ -34,4 +37,8 @@ public class PermutationCreateRequestDTO {
 
     @NotNull
     private LocalTime endTime;
+    @NotNull
+    @Builder.Default
+    private TypePermutation typePermutation = TypePermutation.ENVOYER;
+
 }

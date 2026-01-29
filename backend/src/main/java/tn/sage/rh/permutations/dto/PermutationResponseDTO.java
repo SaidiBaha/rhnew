@@ -3,6 +3,7 @@ package tn.sage.rh.permutations.dto;
 import lombok.*;
 import tn.sage.rh.employee.dto.EmployeeDto;
 import tn.sage.rh.permutations.entity.PermutationStatus;
+import tn.sage.rh.permutations.entity.TypePermutation;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ public class PermutationResponseDTO {
     private LocalTime endTime;
 
     private PermutationStatus status;
+    private TypePermutation typePermutation;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

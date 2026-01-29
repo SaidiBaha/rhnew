@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import tn.sage.rh.permutations.dto.PermutationCreateRequestDTO;
 import tn.sage.rh.permutations.dto.PermutationResponseDTO;
 import tn.sage.rh.permutations.service.PermutationService;
+import tn.sage.rh.permutations.service.PermutationServiceImpl;
 
 import java.util.List;
 
@@ -15,7 +16,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PermutationController {
 
-    private final PermutationService permutationService;
+    private final PermutationServiceImpl permutationService;
 
     @GetMapping
     public ResponseEntity<List<PermutationResponseDTO>> getForCurrentUser() {

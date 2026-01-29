@@ -46,6 +46,9 @@ public class Permutation {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PermutationStatus status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TypePermutation typePermutation ;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -61,8 +64,8 @@ public class Permutation {
     @Builder.Default
     private Set<Employee> operators = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "emetteur_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "emetteur_id")
     private Employee sender;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

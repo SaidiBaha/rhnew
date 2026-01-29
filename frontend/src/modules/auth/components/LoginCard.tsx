@@ -44,28 +44,31 @@ export const LoginCard = () => {
     },
   });
 
-  async function onSubmit(data: z.infer<typeof LoginSchema>) {
-    setLoading(true);
-    try {
-      const response = await axios.post("/auth/login", data, {
-        baseURL: API_BASE_URL,
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      });
+// LoginCard.tsx - Ajoutez cette ligne après la récupération des données
+async function onSubmit(data: z.infer<typeof LoginSchema>) {
+  setLoading(true);
+  try {
+    const response = await axios.post("/auth/login", data, {
+      baseURL: API_BASE_URL,
+      headers: { "Content-Type": "application/json" },
+      withCredentials: true,
+    });
 
-      const { accessToken, refreshToken, user }: Auth = response.data;
+    const { accessToken, refreshToken, user }: Auth = response.data;
 
-      setAuth({ accessToken, refreshToken, user });
-      localStorage.setItem("refreshToken", refreshToken || "");
+    // Sauvegarder l'utilisateur dans localStorage
+    localStorage.setItem("user", JSON.stringify(user));
+    
+    setAuth({ accessToken, refreshToken, user });
+    localStorage.setItem("refreshToken", refreshToken || "");
 
-      navigate("/", { replace: true });
-      //else navigate("/salary-advances");
-    } catch {
-      setError("Matricule ou mot de passe incorrect");
-    } finally {
-      setLoading(false);
-    }
+    navigate("/", { replace: true });
+  } catch {
+    setError("Matricule ou mot de passe incorrect");
+  } finally {
+    setLoading(false);
   }
+}
   return (
     <Card className="w-full h-full md:w-[487px] border-none shadow-none">
       <CardHeader className="flex flex-col justify-center items-center text-center">

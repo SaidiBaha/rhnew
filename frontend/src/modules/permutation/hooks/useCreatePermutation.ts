@@ -31,7 +31,10 @@ export function useCreatePermutation() {
             return res.data;
         },
         onSuccess: () => {
+            // Invalider les queries pour rafraîchir les données
             queryClient.invalidateQueries({ queryKey: ["permutations"] });
+            queryClient.invalidateQueries({ queryKey: ["employees"] });
+            queryClient.invalidateQueries({ queryKey: ["free-employees"] });
         },
     });
 }
