@@ -244,6 +244,7 @@ public class EmployeeService {
 
         return hireYear < currentYear || (hireYear == currentYear && hireMonth < currentMonth);
     }
+
 /*
     private void setEmployeeFromRequestDTO(Employee employee, EmployeeRequestDto employeeRequest, Context context) {
         Employee supervisor = null;
@@ -392,6 +393,7 @@ public class EmployeeService {
         employeeRepository.saveAll(employees);
     }
 
+
     @Transactional
     public void markOperatorsAsBusy(List<Long> employeeIds) {
         if (employeeIds == null || employeeIds.isEmpty()) {
@@ -412,6 +414,5 @@ public class EmployeeService {
     public List<Employee> findFreeEmployees() {
         return employeeRepository.findByFreeTrueAndDeletedFalse();
     }
-
 
 }
