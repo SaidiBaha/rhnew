@@ -181,7 +181,7 @@ public class FreeOperatorsServiceImpl implements FreeOperatorsService {
         return userRepository.findByEmployee_Matricule(matricule)
                 .orElseThrow(() -> new NoSuchElementException("User not found for matricule: " + matricule));
     }
-
+//updaaatees
     private boolean isSupervisor(User user) {
         return user.getRole() != null && "SUPERVISOR".equals(user.getRole().name());
     }
