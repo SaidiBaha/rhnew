@@ -274,13 +274,19 @@ public class PermutationServiceImpl implements PermutationService {
                 );
                 return dto;
             }
+
+            // ✅ Mettre free = false pour tous les opérateurs concernés
+            for (Employee operator : p.getOperators()) {
+                operator.setFree(false);
+            }
+            // Sauvegarder les modifications des opérateurs
+            employeeRepository.saveAll(p.getOperators());
         }
 
         p.setStatus(status);
         Permutation saved = permutationRepository.save(p);
         return mapper.toDto(saved);
     }
-
     /* ---------- helpers ---------- */
 
     private User getCurrentUser() {
