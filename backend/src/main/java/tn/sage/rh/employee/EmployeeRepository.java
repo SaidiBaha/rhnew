@@ -16,13 +16,24 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @Query("select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc")
     @Override
     List<Employee> findAll();
-
+/*
     @Query("select e " +
             "from Employee e " +
             "where (e.matricule = :matricule or e.supervisor.matricule = :matricule) " +
             "and e.deleted = false  " +
             "order by cast(e.matricule as integer) asc")
     List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
+*/
+@Query("""
+    select e
+    from Employee e
+    where e.deleted = false
+      and e.supervisor is not null
+      and e.supervisor.matricule = :matricule
+      and e.matricule <> :matricule
+    order by cast(e.matricule as integer) asc
+""")
+List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
 
     @Query("""
         select e
@@ -83,6 +94,71 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     // Optionnel: Récupérer par statut free
     List<Employee> findByFree(boolean free);
+    @Query("""
+  select e from Employee e
+  where e.free = true
+    and e.deleted = false
+    and (e.supervisor is null or e.supervisor.matricule <> :supervisorMatricule)
+""")
+    List<Employee> findFreeEmployeesExcludingSupervisorOperators(String supervisorMatricule);
 
+    @Modifying
+    @Query("""
+        update Employee e
+        set e.free = true
+        where e.matricule in :matricules
+    """)
+    int markFreeTrueByMatricules(@Param("matricules") List<String> matricules);
+
+    @Modifying
+    @Query("""
+        update Employee e
+        set e.free = false
+        where e.matricule in :matricules
+    """)
+    int markFreeFalseByMatricules(@Param("matricules") List<String> matricules);
+    @Query("""
+    select e from Employee e
+    where e.free = true
+      and e.deleted = false
+    order by e.fullName asc
+""")
+    List<Employee> findFreeOperators();
+    // tn/sage/rh/employee/EmployeeRepository.java
+    @Query("""
+  select e
+  from Employee e
+  left join fetch e.supervisor s
+  where e.deleted = false
+    and e.free = true
+""")
+    List<Employee> findFreeOperatorsWithSupervisor();
+    @Modifying
+    @Query("update Employee e set e.free = false")
+    int resetFreeFalseForAll();
+    @Query("""
+    select e
+    from Employee e
+    where (e.deleted = false or e.deleted is null)
+      and e.supervisor is not null
+      and e.supervisor.matricule = :supervisorMatricule
+      and e.matricule <> :supervisorMatricule
+      and not exists (
+          select 1
+          from Permutation p
+          join p.operators o
+          where o = e
+            and p.status <> tn.sage.rh.permutations.entity.PermutationStatus.REFUSEE
+            and p.startDate <= :day and p.endDate >= :day
+            and (p.startTime < :endTime and p.endTime > :startTime)
+      )
+    order by cast(e.matricule as integer) asc
+""")
+    List<Employee> findMyOperatorsAvailableForDay(
+            @Param("supervisorMatricule") String supervisorMatricule,
+            @Param("day") LocalDate day,
+            @Param("startTime") java.time.LocalTime startTime,
+            @Param("endTime") java.time.LocalTime endTime
+    );
 
 }

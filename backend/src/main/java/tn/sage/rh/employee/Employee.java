@@ -112,7 +112,7 @@ public class Employee {
         this.fullName = this.fullName.toUpperCase();
     }
 
-    @OneToMany(mappedBy = "sender", fetch = FetchType.LAZY)
+    @ManyToMany(mappedBy = "senders", fetch = FetchType.LAZY)
     private Set<Permutation> sentPermutations = new HashSet<>();
 
     @OneToMany(mappedBy = "receiver", fetch = FetchType.LAZY)

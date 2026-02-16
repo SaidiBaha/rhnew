@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.employee.dto.EmployeeDto;
 import tn.sage.rh.employee.dto.EmployeeRequestDto;
+import tn.sage.rh.employee.dto.OperatorAvailabilityDTO;
 import tn.sage.rh.employee.event.EmployeeBatchSaveEvent;
 import tn.sage.rh.employee.event.EmployeeCreationEvent;
 import tn.sage.rh.organization.entity.*;
@@ -27,6 +28,7 @@ import static tn.sage.rh.user.UserRole.SUPERVISOR;
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
+
     private final EmployeeRepository employeeRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DepartmentService departmentService;
@@ -35,107 +37,36 @@ public class EmployeeService {
     private final ShiftService shiftService;
     private final EmploymentTypeService employmentTypeService;
 
+    // =========================
+    // CREATE / UPDATE / DELETE
+    // =========================
 
     @Transactional
     public void save(EmployeeRequestDto employeeRequest) {
-        employeeRepository
-                .findByMatricule(employeeRequest.getMatricule())
+        employeeRepository.findByMatricule(employeeRequest.getMatricule())
                 .ifPresent(employee -> {
                     throw new IllegalStateException("An employee already exists for this matricule.");
                 });
 
         Employee employee = new Employee();
-
         setEmployeeFromRequestDTO(employee, employeeRequest, null);
 
         employeeRepository.save(employee);
-
         eventPublisher.publishEvent(new EmployeeCreationEvent(employee));
     }
 
- /*   @Transactional
-    public void save(EmployeeRequestDto employeeRequest) {
-        // Vérification du matricule unique
-        employeeRepository
-                .findByMatricule(employeeRequest.getMatricule())
-                .ifPresent(employee -> {
-                    throw new IllegalStateException("Un employé existe déjà avec ce matricule.");
-                });
-
-        // Vérification de l'EmploymentType
-        EmploymentType employmentType = employmentTypeService
-                .findByName(employeeRequest.getEmploymentType())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Le type d'emploi '" + employeeRequest.getEmploymentType() + "' n'existe pas."));
-
-        // Vérification du JobTitle
-        JobTitle jobTitle = jobTitleService
-                .findByTitle(employeeRequest.getJobTitle())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Le poste '" + employeeRequest.getJobTitle() + "' n'existe pas."));
-
-        // Vérification du Department
-        Department department = departmentService
-                .findByName(employeeRequest.getDepartment())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Le département '" + employeeRequest.getDepartment() + "' n'existe pas."));
-
-        // Vérification optionnelle de la ProductionLine
-        ProductionLine productionLine = null;
-        if (employeeRequest.getProductionLine() != null && !employeeRequest.getProductionLine().isEmpty()) {
-            productionLine = productionLineService
-                    .findByName(employeeRequest.getProductionLine())
-                    .orElseThrow(() -> new EntityNotFoundException(
-                            "La ligne de production '" + employeeRequest.getProductionLine() + "' n'existe pas."));
-        }
-
-
-
-        // Vérification optionnelle du superviseur
-        Employee supervisor = null;
-        if (employeeRequest.getSupervisor() != null && !employeeRequest.getSupervisor().isEmpty()) {
-            supervisor = employeeRepository
-                    .findByMatricule(employeeRequest.getSupervisor())
-                    .orElseThrow(() -> new EntityNotFoundException(
-                            "Le superviseur avec matricule '" + employeeRequest.getSupervisor() + "' n'existe pas."));
-        }
-
-        // Création de l'employé
-        Employee employee = Employee.builder()
-                .matricule(employeeRequest.getMatricule())
-                .civility(employeeRequest.getCivility())
-                .fullName(employeeRequest.getFullName())
-                .hireDate(employeeRequest.getHireDate())
-                .hasBankDomiciliation(employeeRequest.isHasBankDomiciliation())
-                .department(department)
-                .jobTitle(jobTitle)
-                .productionLine(productionLine)
-
-                .employmentType(employmentType)
-                .supervisor(supervisor)
-                .build();
-
-        employeeRepository.save(employee);
-
-        eventPublisher.publishEvent(new EmployeeCreationEvent(employee));
-    }*/
-
-
     @Transactional
     public void update(Long id, EmployeeRequestDto employeeRequest) {
-        Employee employee = employeeRepository
-                .findById(id)
+        Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found for this matricule."));
 
         setEmployeeFromRequestDTO(employee, employeeRequest, null);
-
         employeeRepository.save(employee);
     }
 
     @Transactional
     public void delete(Long id) {
-        Employee employee = employeeRepository
-                .findById(id)
+        Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found for this matricule."));
 
         if (employee.getOperators() != null && !employee.getOperators().isEmpty()) {
@@ -146,44 +77,47 @@ public class EmployeeService {
         employeeRepository.save(employee);
     }
 
+    // =========================
+    // LISTING
+    // =========================
+
     public List<Employee> findAll(Principal connectedUser) {
-        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+        User user = getUserFromPrincipal(connectedUser);
 
         if (user.getRole() == SUPERVISOR) {
+            // ton repo actuel : findAllBySupervisor(username)
             return employeeRepository.findAllBySupervisor(user.getUsername());
         }
 
         return employeeRepository.findAll();
     }
+
     public Optional<Employee> findByIdOrMatricule(Long id, String matricule) {
-        if (id != null) {
-            return employeeRepository.findById(id);
-        }
-
-        if (matricule != null) {
-            return employeeRepository.findByMatricule(matricule);
-        }
-
+        if (id != null) return employeeRepository.findById(id);
+        if (matricule != null) return employeeRepository.findByMatricule(matricule);
         throw new IllegalArgumentException("Employee must have either an id or a matricule.");
     }
 
+    // =========================
+    // BATCH SAVE
+    // =========================
+
     @Transactional
     public void batchSave(List<EmployeeRequestDto> employeeRequests) {
-        Map<String, EmployeeRequestDto> employeeRequestsMap = employeeRequests
-                .stream()
-                .collect(Collectors
-                        .toMap(EmployeeRequestDto::getMatricule,
-                                r -> r, (r1, r2) -> {
-                                    throw new IllegalStateException("Duplicate matricule in batch request: " + r1.getMatricule());
-                                }));
+        Map<String, EmployeeRequestDto> employeeRequestsMap = employeeRequests.stream()
+                .collect(Collectors.toMap(
+                        EmployeeRequestDto::getMatricule,
+                        r -> r,
+                        (r1, r2) -> {
+                            throw new IllegalStateException("Duplicate matricule in batch request: " + r1.getMatricule());
+                        }
+                ));
 
         Set<String> matricules = employeeRequestsMap.keySet();
 
-        Map<String, Employee> existingEmployeesMap = employeeRepository
-                .findAllByMatriculeIn(matricules)
+        Map<String, Employee> existingEmployeesMap = employeeRepository.findAllByMatriculeIn(matricules)
                 .stream()
                 .collect(Collectors.toMap(Employee::getMatricule, e -> e));
-
 
         Set<String> supervisorMatricules = employeeRequests.stream()
                 .map(EmployeeRequestDto::getSupervisor)
@@ -204,36 +138,43 @@ public class EmployeeService {
 
             if (employeeRequest.getSupervisor() != null) {
                 Employee supervisor = existingSupervisorsMap.get(employeeRequest.getSupervisor());
-                if (supervisor != null) {
-                    employee.setSupervisor(supervisor);
-                }
+                if (supervisor != null) employee.setSupervisor(supervisor);
             }
 
             processedEmployees.put(employeeRequest.getMatricule(), employee);
         }
 
-
+        // 2ème passe : lier superviseur si pas encore en DB mais présent dans batch
         for (EmployeeRequestDto employeeRequest : employeeRequests) {
             Employee employee = processedEmployees.get(employeeRequest.getMatricule());
 
             if (employee.getSupervisor() == null && employeeRequest.getSupervisor() != null) {
                 Employee supervisor = processedEmployees.get(employeeRequest.getSupervisor());
-                if (supervisor != null) {
-                    employee.setSupervisor(supervisor);
-                }
+                if (supervisor != null) employee.setSupervisor(supervisor);
             }
         }
 
         List<Employee> savedEmployees = employeeRepository.saveAll(processedEmployees.values());
-
         eventPublisher.publishEvent(new EmployeeBatchSaveEvent(savedEmployees));
+    }
 
+    // =========================
+    // HELPERS
+    // =========================
+
+    private User getUserFromPrincipal(Principal connectedUser) {
+        if (!(connectedUser instanceof UsernamePasswordAuthenticationToken token)) {
+            throw new IllegalStateException("Invalid Principal type");
+        }
+        Object principal = token.getPrincipal();
+        if (!(principal instanceof User user)) {
+            throw new IllegalStateException("Principal is not a User");
+        }
+        return user;
     }
 
     public boolean isHireDateBeforeCurrentMonth(LocalDate hireDate) {
-        if (hireDate == null) {
-            return false;
-        }
+        if (hireDate == null) return false;
 
         YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Africa/Tunis"));
         int currentMonth = currentYearMonth.getMonthValue();
@@ -245,7 +186,6 @@ public class EmployeeService {
         return hireYear < currentYear || (hireYear == currentYear && hireMonth < currentMonth);
     }
 
-/*
     private void setEmployeeFromRequestDTO(Employee employee, EmployeeRequestDto employeeRequest, Context context) {
         Employee supervisor = null;
         Department department;
@@ -266,46 +206,7 @@ public class EmployeeService {
             productionLine = productionLineService.findOrCreateProductionLine(employeeRequest.getProductionLine());
             shift = shiftService.findOrCreateShift(employeeRequest.getShift());
             employmentType = employmentTypeService.findOrCreateEmploymentType(employeeRequest.getEmploymentType());
-            if (employeeRequest.getSupervisor() != null) {
-                supervisor = employeeRepository.findByMatricule(employeeRequest.getSupervisor())
-                        .orElseThrow(() -> new EntityNotFoundException("Supervisor not found."));
-            }
-        }
 
-        employee.setMatricule(employeeRequest.getMatricule());
-        employee.setCivility(employeeRequest.getCivility());
-        employee.setFullName(employeeRequest.getFullName());
-        employee.setHireDate(employeeRequest.getHireDate());
-        employee.setHasBankDomiciliation(employeeRequest.isHasBankDomiciliation());
-        employee.setDepartment(department);
-        employee.setJobTitle(jobTitle);
-        employee.setProductionLine(productionLine);
-        employee.setShift(shift);
-        employee.setEmploymentType(employmentType);
-        employee.setSupervisor(supervisor);
-    }*/
-
-    private void setEmployeeFromRequestDTO(Employee employee, EmployeeRequestDto employeeRequest, Context context) {
-        Employee supervisor = null;
-        Department department;
-        JobTitle jobTitle;
-        ProductionLine productionLine;
-        Shift shift;
-        EmploymentType employmentType;
-
-        if (context != null) {
-            department = context.departments.get(employeeRequest.getDepartment());
-            jobTitle = context.jobTitles.get(employeeRequest.getJobTitle());
-            productionLine = context.productionLines.get(employeeRequest.getProductionLine());
-            shift = context.shifts.get(employeeRequest.getShift());
-            employmentType = context.employmentTypes.get(employeeRequest.getEmploymentType());
-        } else {
-            // Pour batchSave, utilisez findOrCreate comme avant
-            department = departmentService.findOrCreateDepartment(employeeRequest.getDepartment());
-            jobTitle = jobTitleService.findOrCreateJobTitle(employeeRequest.getJobTitle());
-            productionLine = productionLineService.findOrCreateProductionLine(employeeRequest.getProductionLine());
-            shift = shiftService.findOrCreateShift(employeeRequest.getShift());
-            employmentType = employmentTypeService.findOrCreateEmploymentType(employeeRequest.getEmploymentType());
             if (employeeRequest.getSupervisor() != null) {
                 supervisor = employeeRepository.findByMatricule(employeeRequest.getSupervisor())
                         .orElseThrow(() -> new EntityNotFoundException("Superviseur non trouvé."));
@@ -335,19 +236,27 @@ public class EmployeeService {
                 .collect(Collectors.toMap(Function.identity(), departmentService::findOrCreateDepartment));
 
         context.jobTitles = requests.stream()
-                .map(EmployeeRequestDto::getJobTitle).filter(Objects::nonNull).distinct()
+                .map(EmployeeRequestDto::getJobTitle)
+                .filter(Objects::nonNull)
+                .distinct()
                 .collect(Collectors.toMap(Function.identity(), jobTitleService::findOrCreateJobTitle));
 
         context.productionLines = requests.stream()
-                .map(EmployeeRequestDto::getProductionLine).filter(Objects::nonNull).distinct()
+                .map(EmployeeRequestDto::getProductionLine)
+                .filter(Objects::nonNull)
+                .distinct()
                 .collect(Collectors.toMap(Function.identity(), productionLineService::findOrCreateProductionLine));
 
         context.shifts = requests.stream()
-                .map(EmployeeRequestDto::getShift).filter(Objects::nonNull).distinct()
+                .map(EmployeeRequestDto::getShift)
+                .filter(Objects::nonNull)
+                .distinct()
                 .collect(Collectors.toMap(Function.identity(), shiftService::findOrCreateShift));
 
         context.employmentTypes = requests.stream()
-                .map(EmployeeRequestDto::getEmploymentType).filter(Objects::nonNull).distinct()
+                .map(EmployeeRequestDto::getEmploymentType)
+                .filter(Objects::nonNull)
+                .distinct()
                 .collect(Collectors.toMap(Function.identity(), employmentTypeService::findOrCreateEmploymentType));
 
         return context;
@@ -367,14 +276,14 @@ public class EmployeeService {
     }
 
     public List<Employee> findAvailableOperators(LocalDate startDate, LocalDate endDate) {
-        if (startDate == null || endDate == null) {
-            throw new IllegalArgumentException("startDate and endDate are required");
-        }
-        if (endDate.isBefore(startDate)) {
-            throw new IllegalArgumentException("End date must be after start date");
-        }
+        if (startDate == null || endDate == null) throw new IllegalArgumentException("startDate and endDate are required");
+        if (endDate.isBefore(startDate)) throw new IllegalArgumentException("End date must be after start date");
         return employeeRepository.findAvailableOperators(startDate, endDate);
     }
+
+    // =========================
+    // FREE / BUSY
+    // =========================
 
     @Transactional
     public void markOperatorsAsFree(List<Long> employeeIds) {
@@ -389,10 +298,8 @@ public class EmployeeService {
         }
 
         employees.forEach(employee -> employee.setFree(true));
-
         employeeRepository.saveAll(employees);
     }
-
 
     @Transactional
     public void markOperatorsAsBusy(List<Long> employeeIds) {
@@ -407,12 +314,80 @@ public class EmployeeService {
         }
 
         employees.forEach(employee -> employee.setFree(false));
-
         employeeRepository.saveAll(employees);
     }
+
+    /**
+     * ✅ Pool "free" GLOBAL (si tu veux encore l'utiliser en ADMIN par ex.)
+     */
     @Transactional(readOnly = true)
     public List<Employee> findFreeEmployees() {
         return employeeRepository.findByFreeTrueAndDeletedFalse();
+    }
+
+    /**
+     * ✅ Pool "free" filtré pour le SUPERVISOR connecté :
+     * il ne doit pas voir ses propres opérateurs.
+     */
+    @Transactional(readOnly = true)
+    public List<Employee> findFreeEmployeesForCurrentSupervisor(Principal connectedUser) {
+        User user = getUserFromPrincipal(connectedUser);
+
+        // si pas supervisor → renvoyer tout (ou tu peux restreindre selon ton besoin)
+        if (user.getRole() != SUPERVISOR) {
+            return employeeRepository.findByFreeTrueAndDeletedFalse();
+        }
+
+        // IMPORTANT: ici on utilise username comme matricule (vu ton code findAllBySupervisor(user.getUsername()))
+        String supervisorMatricule = user.getUsername();
+
+        return employeeRepository.findFreeEmployeesExcludingSupervisorOperators(supervisorMatricule);
+    }
+    public List<EmployeeDto> getFreeOperators() {
+        return employeeRepository.findFreeOperators()
+                .stream()
+                .map(e -> EmployeeDto.builder()
+                        .id(e.getId())
+                        .fullName(e.getFullName())
+                        .matricule(e.getMatricule())
+                        .free(e.isFree())
+                        .build())
+                .toList();
+    }
+    // tn/sage/rh/employee/EmployeeServiceImpl.java (ou un service dédié)
+    public List<OperatorAvailabilityDTO> getFreeOperatorsForOperationalManager() {
+        return employeeRepository.findFreeOperatorsWithSupervisor()
+                .stream()
+                .map(op -> {
+                    Employee sup = op.getSupervisor();
+                    return OperatorAvailabilityDTO.builder()
+                            .id(op.getId())
+                            .fullName(op.getFullName())
+                            .matricule(op.getMatricule())
+                            .free(op.isFree())
+                            .supervisorId(sup != null ? sup.getId() : null)
+                            .supervisorFullName(sup != null ? sup.getFullName() : null)
+                            .supervisorMatricule(sup != null ? sup.getMatricule() : null)
+                            .build();
+                })
+                .toList();
+    }
+    @Transactional(readOnly = true)
+    public List<Employee> findMyOperatorsEligibleForFreeToday(Principal connectedUser, LocalDate day, java.time.LocalTime start, java.time.LocalTime end) {
+        User user = getUserFromPrincipal(connectedUser);
+
+        if (user.getRole() != SUPERVISOR) {
+            throw new org.springframework.security.access.AccessDeniedException("Only SUPERVISOR");
+        }
+
+        String supervisorMatricule = user.getUsername();
+
+        return employeeRepository.findMyOperatorsAvailableForDay(
+                supervisorMatricule,
+                day,
+                start,
+                end
+        );
     }
 
 }

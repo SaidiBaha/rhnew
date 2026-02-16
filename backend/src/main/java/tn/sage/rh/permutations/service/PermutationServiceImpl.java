@@ -19,6 +19,7 @@ import tn.sage.rh.permutations.repository.PermutationRepository;
 import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserRepository;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -33,38 +34,37 @@ public class PermutationServiceImpl implements PermutationService {
     private final EmployeeRepository employeeRepository;
     private final ProductionLineRepository productionLineRepository;
 
-@Override
-public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
-    User current = getCurrentUser();
+    @Override
+    public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
+        User current = getCurrentUser();
 
-    if (isOperationalManger(current)) {
-        return permutationRepository.findAllOrdered()
-                .stream()
-                .map(p -> toDtoWithRoleFlags(p, null))
-                .toList();
+        if (isOperationalManger(current)) {
+            return permutationRepository.findAllOrdered()
+                    .stream()
+                    .map(p -> toDtoWithRoleFlags(p, null))
+                    .toList();
+        }
+
+        if (isSupervisor(current)) {
+            Employee me = getCurrentEmployee(current);
+            Long meId = me.getId();
+
+            return permutationRepository.findInvolved(meId)
+                    .stream()
+                    .map(p -> toDtoWithRoleFlags(p, meId))
+                    .toList();
+        }
+
+        throw new AccessDeniedException("Role not allowed");
     }
 
-    if (isSupervisor(current)) {
-        Employee me = getCurrentEmployee(current);
-        Long meId = me.getId();
-
-        return permutationRepository.findInvolved(meId)
-                .stream()
-                .map(p -> toDtoWithRoleFlags(p, meId))
-                .toList();
-    }
-
-    throw new AccessDeniedException("Role not allowed");
-}
-    /**
-     * Enrichit le DTO avec des flags asSender / asReceiver
-     */
     private PermutationResponseDTO toDtoWithRoleFlags(Permutation p, Long currentEmployeeId) {
         PermutationResponseDTO dto = mapper.toDto(p);
 
         if (currentEmployeeId != null) {
-            boolean asSender = p.getSender() != null
-                    && Objects.equals(p.getSender().getId(), currentEmployeeId);
+            boolean asSender = p.getSenders() != null &&
+                    p.getSenders().stream().anyMatch(s -> s != null && Objects.equals(s.getId(), currentEmployeeId));
+
             boolean asReceiver = p.getReceiver() != null
                     && Objects.equals(p.getReceiver().getId(), currentEmployeeId);
 
@@ -80,144 +80,143 @@ public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
 
     @Override
     public List<PermutationResponseDTO> create(PermutationCreateRequestDTO dto) {
-        User current = getCurrentUser();
 
+        User current = getCurrentUser();
         if (!isSupervisor(current)) {
             throw new AccessDeniedException("Only SUPERVISOR can create permutations");
         }
 
-        Employee currentEmployee = getCurrentEmployee(current);
+        Employee me = getCurrentEmployee(current);
 
-        // Validation des dates
-        if (dto.getEndDate().isBefore(dto.getStartDate())) {
-            throw new IllegalArgumentException("endDate must be >= startDate");
+        if (dto.getStartTime() == null || dto.getEndTime() == null) {
+            throw new IllegalArgumentException("startTime and endTime are required");
         }
         if (!dto.getEndTime().isAfter(dto.getStartTime())) {
             throw new IllegalArgumentException("endTime must be > startTime");
         }
 
-        // Détermination du sender et receiver selon le type
-        Employee sender;
-        Employee receiver;
-
-        if (dto.getTypePermutation() == TypePermutation.RECEVOIR) {
-            // POUR RECEVOIR : Je demande à recevoir des opérateurs
-
-            // Le receiver est l'utilisateur connecté
-            receiver = currentEmployee;
-
-            // Le sender est celui qui nous envoie les opérateurs (senderId)
-            if (dto.getSenderId() == null) {
-                throw new IllegalArgumentException("senderId is required for RECEVOIR type");
-            }
-
-            if (Objects.equals(dto.getSenderId(), currentEmployee.getId())) {
-                throw new IllegalArgumentException("Sender cannot be the same as receiver for RECEVOIR type");
-            }
-
-            sender = employeeRepository.findById(dto.getSenderId())
-                    .orElseThrow(() -> new NoSuchElementException("Sender not found: " + dto.getSenderId()));
-
-            // Validation : receiverId doit être null pour RECEVOIR
-            if (dto.getReceiverId() != null) {
-                throw new IllegalArgumentException("receiverId must be null for RECEVOIR type");
-            }
-
-        } else {
-            // POUR ENVOYER : J'envoie mes opérateurs à quelqu'un
-
-            // L'utilisateur connecté est le sender
-            sender = currentEmployee;
-
-            // Validation : receiverId est obligatoire pour ENVOYER
-            if (dto.getReceiverId() == null) {
-                throw new IllegalArgumentException("receiverId is required for ENVOYER type");
-            }
-
-            // Validation : receiver ne peut pas être le même que sender
-            if (Objects.equals(dto.getReceiverId(), currentEmployee.getId())) {
-                throw new IllegalArgumentException("Receiver cannot be the same as sender");
-            }
-
-            // Récupération du receiver
-            receiver = employeeRepository.findById(dto.getReceiverId())
-                    .orElseThrow(() -> new NoSuchElementException("Receiver not found: " + dto.getReceiverId()));
-
-            // Validation : senderId doit être null pour ENVOYER
-            if (dto.getSenderId() != null) {
-                throw new IllegalArgumentException("senderId must be null for ENVOYER type");
-            }
-        }
-
-        // Récupération de la ligne de production (optionnelle)
-        ProductionLine productionLine = null;
-        if (dto.getProductionLineId() != null) {
-            productionLine = productionLineRepository.findById(dto.getProductionLineId())
-                    .orElseThrow(() -> new NoSuchElementException(
-                            "Production line not found: " + dto.getProductionLineId()));
-        }
-
-        // Validation des opérateurs
         List<Long> operatorIds = dto.getOperatorIds();
         if (operatorIds == null || operatorIds.isEmpty()) {
             throw new IllegalArgumentException("operatorIds is required");
         }
+        if (operatorIds.contains(me.getId())) {
+            throw new IllegalArgumentException("Supervisor cannot be included in operatorIds.");
+        }
 
-        // Récupération des opérateurs
         Map<Long, Employee> operatorMap = employeeRepository.findAllById(operatorIds)
                 .stream()
                 .collect(Collectors.toMap(Employee::getId, e -> e));
 
-        // Vérification que tous les opérateurs existent
         for (Long opId : operatorIds) {
             if (!operatorMap.containsKey(opId)) {
                 throw new NoSuchElementException("Operator not found: " + opId);
             }
         }
 
-        // Vérification des chevauchements pour chaque opérateur
-        for (Long opId : operatorIds) {
-            Employee operator = operatorMap.get(opId);
+        Set<Employee> operators = new HashSet<>(operatorMap.values());
 
+        ProductionLine productionLine = null;
+        if (dto.getProductionLineId() != null) {
+            productionLine = productionLineRepository.findById(dto.getProductionLineId())
+                    .orElseThrow(() -> new NoSuchElementException("Production line not found: " + dto.getProductionLineId()));
+        }
+
+        if (dto.getTypePermutation() == TypePermutation.RECEVOIR) {
+
+            LocalDate today = LocalDate.now();
+            Employee receiver = me;
+
+            // ✅ déduire senders depuis opérateurs.supervisor
+            boolean hasNullSupervisor = operators.stream().anyMatch(op -> op.getSupervisor() == null);
+            if (hasNullSupervisor) {
+                throw new IllegalArgumentException("Certains opérateurs n'ont pas de superviseur.");
+            }
+
+            Set<Employee> senders = operators.stream()
+                    .map(Employee::getSupervisor)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            // ✅ overlap check
+            for (Employee op : operators) {
+                boolean overlap = permutationRepository.existsOverlap(
+                        op.getId(),
+                        PermutationStatus.ACCEPTEE,
+                        today,
+                        today,
+                        dto.getStartTime(),
+                        dto.getEndTime()
+                );
+                if (overlap) {
+                    throw new IllegalArgumentException("Operator " + op.getId() + " is not available in this period");
+                }
+            }
+
+            Permutation p = Permutation.builder()
+                    .receiver(receiver)
+                    .senders(senders)
+                    .operators(operators)
+                    .productionLine(productionLine)
+                    .startDate(today)
+                    .endDate(today)
+                    .startTime(dto.getStartTime())
+                    .endTime(dto.getEndTime())
+                    .status(PermutationStatus.EN_ATTENTE)
+                    .typePermutation(TypePermutation.RECEVOIR)
+                    .build();
+
+            return List.of(mapper.toDto(permutationRepository.save(p)));
+        }
+
+        // ================= ENVOYER =================
+        if (dto.getStartDate() == null || dto.getEndDate() == null) {
+            throw new IllegalArgumentException("startDate and endDate are required for ENVOYER");
+        }
+        if (dto.getEndDate().isBefore(dto.getStartDate())) {
+            throw new IllegalArgumentException("endDate must be >= startDate");
+        }
+        if (dto.getReceiverId() == null) {
+            throw new IllegalArgumentException("receiverId is required for ENVOYER");
+        }
+        if (Objects.equals(dto.getReceiverId(), me.getId())) {
+            throw new IllegalArgumentException("Receiver cannot be the same as sender");
+        }
+
+        Employee receiver = employeeRepository.findById(dto.getReceiverId())
+                .orElseThrow(() -> new NoSuchElementException("Receiver not found: " + dto.getReceiverId()));
+
+        for (Employee op : operators) {
             boolean overlap = permutationRepository.existsOverlap(
-                    operator.getId(),
+                    op.getId(),
                     PermutationStatus.ACCEPTEE,
                     dto.getStartDate(),
                     dto.getEndDate(),
                     dto.getStartTime(),
                     dto.getEndTime()
             );
-
             if (overlap) {
-                throw new IllegalArgumentException(
-                        "Operator " + operator.getId() + " is not available in this period");
+                throw new IllegalArgumentException("Operator " + op.getId() + " is not available in this period");
             }
         }
 
-        // Création de l'ensemble des opérateurs
-        Set<Employee> operators = new HashSet<>(operatorMap.values());
+        Set<Employee> senders = new HashSet<>();
+        senders.add(me);
 
-        // Construction de la permutation
-        Permutation permutation = Permutation.builder()
-                .sender(sender)
+        Permutation p = Permutation.builder()
                 .receiver(receiver)
+                .senders(senders)
+                .operators(operators)
                 .productionLine(productionLine)
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
                 .startTime(dto.getStartTime())
                 .endTime(dto.getEndTime())
                 .status(PermutationStatus.EN_ATTENTE)
-                .typePermutation(dto.getTypePermutation())
-                .operators(operators)
+                .typePermutation(TypePermutation.ENVOYER)
                 .build();
 
-        // Sauvegarde
-        Permutation saved = permutationRepository.save(permutation);
-
-        // Retour du DTO
-        return List.of(mapper.toDto(saved));
+        return List.of(mapper.toDto(permutationRepository.save(p)));
     }
-
 
     @Override
     public PermutationResponseDTO accept(Long id) {
@@ -240,16 +239,9 @@ public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
         Permutation p = permutationRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Permutation not found"));
 
-        // Pour les permutations de type RECEVOIR, seul le receiver (qui est aussi le sender) peut valider
-        if (p.getTypePermutation() == TypePermutation.RECEVOIR) {
-            if (!Objects.equals(p.getReceiver().getId(), me.getId())) {
-                throw new AccessDeniedException("Only the concerned employee can validate RECEVOIR permutation");
-            }
-        } else {
-            // Pour ENVOYER, seule le receiver peut valider
-            if (!Objects.equals(p.getReceiver().getId(), me.getId())) {
-                throw new AccessDeniedException("Only receiver can validate this permutation");
-            }
+        // ✅ receiver validates
+        if (!Objects.equals(p.getReceiver().getId(), me.getId())) {
+            throw new AccessDeniedException("Only receiver can validate this permutation");
         }
 
         if (p.getStatus() != PermutationStatus.EN_ATTENTE) {
@@ -258,7 +250,6 @@ public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
 
         if (status == PermutationStatus.ACCEPTEE) {
             List<Long> blocked = new ArrayList<>();
-
             for (Employee op : p.getOperators()) {
                 boolean overlap = permutationRepository.existsOverlap(
                         op.getId(),
@@ -268,7 +259,6 @@ public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
                         p.getStartTime(),
                         p.getEndTime()
                 );
-
                 if (overlap) blocked.add(op.getId());
             }
 
@@ -309,15 +299,11 @@ public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
         return user.getEmployee();
     }
 
-    private boolean isAdmin(User user) {
-        return user.getRole() != null && "ADMIN".equals(user.getRole().name());
-    }
-
     private boolean isSupervisor(User user) {
         return user.getRole() != null && "SUPERVISOR".equals(user.getRole().name());
     }
-private boolean isOperationalManger(User user) {
+
+    private boolean isOperationalManger(User user) {
         return user.getRole() != null && "OPERATIONAL_MANAGER".equals(user.getRole().name());
     }
-
 }

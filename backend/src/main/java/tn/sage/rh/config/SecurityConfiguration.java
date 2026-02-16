@@ -55,12 +55,29 @@ public class SecurityConfiguration {
                                 .requestMatchers(POST, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_CREATE.name())
                                 .requestMatchers(PUT, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_UPDATE.name())
                                 .requestMatchers(DELETE, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_DELETE.name())
+// ✅ READ (GET) : ADMIN + SUPERVISOR + OPERATIONAL_MANAGER + permission READ
+                                .requestMatchers(GET, "/api/v1/employees/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
+                                .requestMatchers(GET, "/api/v1/employees/**")
+                                .hasAnyAuthority(EMPLOYEE_READ.name())
 
-                                .requestMatchers("/api/v1/employees/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(GET, "/api/v1/employees/**").hasAnyAuthority(EMPLOYEE_READ.name())
-                                .requestMatchers(POST, "/api/v1/employees/**").hasAnyAuthority(EMPLOYEE_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/employees/**").hasAnyAuthority(EMPLOYEE_UPDATE.name())
-                                .requestMatchers(DELETE, "/api/v1/employees/**").hasAnyAuthority(EMPLOYEE_DELETE.name())
+// ✅ WRITE : seulement ADMIN + SUPERVISOR + permissions
+                                .requestMatchers(POST, "/api/v1/employees/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name())
+                                .requestMatchers(POST, "/api/v1/employees/**")
+                                .hasAnyAuthority(EMPLOYEE_CREATE.name())
+
+                                .requestMatchers(PUT, "/api/v1/employees/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name())
+                                .requestMatchers(PUT, "/api/v1/employees/**")
+                                .hasAnyAuthority(EMPLOYEE_UPDATE.name())
+
+                                .requestMatchers(DELETE, "/api/v1/employees/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name())
+                                .requestMatchers(DELETE, "/api/v1/employees/**")
+                                .hasAnyAuthority(EMPLOYEE_DELETE.name())
+                                .requestMatchers(GET, "/api/v1/employees/operators/free")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
 
                                 .requestMatchers("/api/v1/salary-advance-deadlines/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
                                 .requestMatchers(GET, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_READ.name())

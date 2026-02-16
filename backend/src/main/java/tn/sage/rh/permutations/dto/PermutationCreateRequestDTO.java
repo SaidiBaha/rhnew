@@ -1,44 +1,38 @@
+// =======================================================
+// 1) PermutationCreateRequestDTO.java  ✅ (RECEVOIR: pas de senderId)
+// =======================================================
 package tn.sage.rh.permutations.dto;
 
-import lombok.*;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import lombok.*;
 import tn.sage.rh.permutations.entity.TypePermutation;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @Builder
 public class PermutationCreateRequestDTO {
 
     @NotEmpty
     private List<Long> operatorIds;
 
-   // private Long senderId;    // Pour RECEVOIR (optionnel)
-
-    private Long senderId;
-    private Long receiverId;
+    private Long receiverId; // ENVOYER seulement (receiver)
 
     private Long productionLineId;
 
-    @NotNull
-    private LocalDate startDate;
-
-    @NotNull
-    private LocalDate endDate;
+    private LocalDate startDate; // ENVOYER seulement
+    private LocalDate endDate;   // ENVOYER seulement
 
     @NotNull
     private LocalTime startTime;
 
     @NotNull
     private LocalTime endTime;
+
     @NotNull
     @Builder.Default
     private TypePermutation typePermutation = TypePermutation.ENVOYER;
-
 }

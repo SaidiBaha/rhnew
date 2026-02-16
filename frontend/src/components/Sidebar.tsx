@@ -64,7 +64,7 @@ export const Sidebar = () => {
   };
 
   const navigationItems: NavigationItem[] = [
-    { label: "Acceuil", icon: "home", path: "/", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
+    { label: "Accueil", icon: "home", path: "/", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
     { label: "Employés", icon: "users", path: "/employees", allowedRoles: ["ADMIN"] },
     { label: "Création d'Employés", icon: "user-plus", path: "/addEmployee", allowedRoles: ["ADMIN"] },
     { label: "Avances", icon: "hand-coins", path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
