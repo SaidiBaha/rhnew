@@ -3,9 +3,7 @@ import type { UserRole } from "@/modules/auth/types";
 import {
   createContext,
   useState,
-  type Dispatch,
   type ReactNode,
-  type SetStateAction,
 } from "react";
 
 // Interface étendue pour inclure tous les champs
@@ -24,7 +22,7 @@ export interface Auth {
 
 export interface AuthContextProps {
   auth: Auth;
-  setAuth: Dispatch<SetStateAction<Auth>>;
+ setAuth: (auth: Auth) => void; // ⬅️ remplacer Dispatch<SetStateAction<Auth>>
 }
 
 const AuthContext = createContext<AuthContextProps>({

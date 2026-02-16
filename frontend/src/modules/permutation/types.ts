@@ -46,7 +46,7 @@ export type Permutation = {
 export type PermutationCreatePayload = {
     senderId?: number;  
     operatorIds: number[];
-   
+    typePermutation: TypePermutation;
     receiverId: number | null;
     productionLineId?: number | null;
     startDate: string;

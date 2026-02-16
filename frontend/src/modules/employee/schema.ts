@@ -51,7 +51,7 @@ export const EmployeeSchema = z
       .optional()
       .default(false),
     free: z.coerce
-      .boolean("Champ invalide")
+      .boolean()
       .optional()
       .default(false),
   })
