@@ -16,7 +16,7 @@ import { useFetchFreeEmployees } from "@/modules/employee/hooks/useFetchFreeEmpl
 import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
 import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
 import { useFetchProductionLines } from "@/modules/permutation/hooks/useFetchProductionLines";
-
+import type { Employee } from "@/modules/employee/types";
 import { Loader } from "@/components/Loader";
 import { ErrorAlert } from "@/components/ErrorAlert";
 import useAuth from "@/hooks/useAuth";
@@ -152,17 +152,19 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const operatorAvailability = useMemo(() => {
         const result = new Map<number, boolean>();
 
-        operators.forEach((emp) => {
-            if (typePermutation === "RECEVOIR") {
-                // ✅ tous les freeEmployees sont déjà libres
-                result.set(emp.id, true);
-            } else {
-                const isUnavailable = unavailableOperatorIds.has(emp.id);
-                const isFreeFromData = (emp as any).free === true;
-                const isFree = !isUnavailable && isFreeFromData;
-                result.set(emp.id, isFree);
-            }
-        });
+    // Version corrigée
+    operators.forEach((emp: Employee) => {
+        const empId = Number(emp.id); // Convertir en nombre
+        if (typePermutation === "RECEVOIR") {
+            // ✅ tous les freeEmployees sont déjà libres
+            result.set(empId, true);
+        } else {
+            const isUnavailable = unavailableOperatorIds.has(empId);
+            const isFreeFromData = (emp as any).free === true;
+            const isFree = !isUnavailable && isFreeFromData;
+            result.set(empId, isFree);
+        }
+    });
 
         return result;
     }, [operators, unavailableOperatorIds, typePermutation]);
@@ -174,10 +176,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             return { allCount, freeCount: allCount, occupiedCount: 0 };
         }
 
-        const freeCount = operators.filter((emp) => {
-            const isFree = operatorAvailability.get(emp.id) ?? true;
-            return isFree;
-        }).length;
+    const freeCount = operators.filter((emp: Employee) => {
+        const isFree = operatorAvailability.get(Number(emp.id)) ?? true;
+        return isFree;
+    }).length;
 
         const occupiedCount = allCount - freeCount;
         return { allCount, freeCount, occupiedCount };
@@ -187,7 +189,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     const filteredOperators = useMemo(
         () =>
-            operators.filter((emp) => {
+            operators.filter((emp: Employee) => {
                 if (searchTerm) {
                     const fullName = (emp.fullName ?? "").toLowerCase();
                     const matricule = (emp.matricule ?? "").toLowerCase();
@@ -203,7 +205,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                 if (typePermutation === "RECEVOIR") return true;
 
-                const isFree = operatorAvailability.get(emp.id) ?? true;
+                 const isFree = operatorAvailability.get(Number(emp.id)) ?? true;
 
                 switch (availabilityFilter) {
                     case "free":
@@ -218,10 +220,12 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         [operators, operatorAvailability, searchTerm, availabilityFilter, typePermutation]
     );
 
-    const toggleOperator = (id: number) => {
-        setOperatorIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-    };
-
+        const toggleOperator = (id: number | string) => {
+            const numId = Number(id);
+            setOperatorIds((prev) => 
+                prev.includes(numId) ? prev.filter((x) => x !== numId) : [...prev, numId]
+            );
+        };
     const labelCls = "mb-1 block text-xs font-semibold text-slate-600";
     const inputCls =
         "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
@@ -716,10 +720,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </p>
                     )}
 
-                    {filteredOperators.map((emp) => {
-                        const checked = operatorIds.includes(emp.id);
-                        const matricule = emp.matricule ?? "";
-                        const isFree = operatorAvailability.get(emp.id) ?? true;
+                            {filteredOperators.map((emp: Employee) => {
+                                const checked = operatorIds.includes(Number(emp.id));
+                                const matricule = emp.matricule ?? "";
+                                const isFree = operatorAvailability.get(Number(emp.id)) ?? true;
 
                         return (
                             <label

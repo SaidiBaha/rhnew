@@ -5,6 +5,7 @@ services:
     build: ./backend
     ports:
       - "9000:9000"
+      #- "8080:8080"
     depends_on:
       postgresql:
         condition: service_healthy
@@ -13,6 +14,7 @@ services:
     build: ./frontend
     ports:
       - "5173:5173"
+      #- "3000:80"
     depends_on:
       - backend
 

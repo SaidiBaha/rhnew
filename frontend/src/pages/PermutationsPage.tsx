@@ -49,7 +49,8 @@ export default function PermutationsPage() {
 
     const [filter, setFilter] = useState<FilterMode>("all");
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [permutationMode, setPermutationMode] = useState<PermutationMode>("send"); // ✅ État pour le mode
+    // ✅ CORRECTION 1: Renommé en _setPermutationMode pour indiquer qu'il n'est pas utilisé
+    const [permutationMode, _setPermutationMode] = useState<PermutationMode>("send");
 
     const [search, setSearch] = useState("");
 
@@ -83,7 +84,9 @@ export default function PermutationsPage() {
 
         return roleFiltered.filter((p) => {
             const sender = employeesById[p.senderId];
-            const receiver = employeesById[p.receiverId];
+            // ✅ CORRECTION 2: Vérification que receiverId n'est pas null
+            const receiver = p.receiverId ? employeesById[p.receiverId] : null;
+            
             const senderName =
                 (p as any).senderFullName ||
                 (sender as any)?.fullName ||
@@ -231,8 +234,6 @@ export default function PermutationsPage() {
                                 ✕
                             </button>
                         </div>
-
-
 
                         <div className="max-h-[80vh] overflow-y-auto px-6 py-6">
                             <PermutationForm 

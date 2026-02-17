@@ -39,8 +39,6 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [auth, setAuth] = useState<Auth>(() => {
     const refreshToken = localStorage.getItem("refreshToken");
-    
-    // Récupérer aussi l'utilisateur depuis localStorage si disponible
     const userStr = localStorage.getItem("user");
     const user = userStr ? JSON.parse(userStr) : undefined;
     
@@ -50,15 +48,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   });
 
-  // Fonction pour mettre à jour l'auth et sauvegarder dans localStorage
-  const updateAuth = (newAuth: Auth) => {
-    if (newAuth.user) {
-      localStorage.setItem("user", JSON.stringify(newAuth.user));
-    }
-    if (newAuth.refreshToken) {
-      localStorage.setItem("refreshToken", newAuth.refreshToken);
-    }
-    setAuth(newAuth);
+  // Updated function to handle both direct values and updater functions
+  const updateAuth: Dispatch<SetStateAction<Auth>> = (newAuth) => {
+    setAuth((prevAuth) => {
+      // Handle function updater
+      const authToSet = typeof newAuth === 'function' ? newAuth(prevAuth) : newAuth;
+      
+      // Save to localStorage
+      if (authToSet.user) {
+        localStorage.setItem("user", JSON.stringify(authToSet.user));
+      }
+      if (authToSet.refreshToken) {
+        localStorage.setItem("refreshToken", authToSet.refreshToken);
+      }
+      
+      return authToSet;
+    });
   };
 
   return (
