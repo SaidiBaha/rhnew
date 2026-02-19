@@ -52,6 +52,7 @@ interface NavigationItem {
 
 export const Sidebar = () => {
   const [expanded, setExpanded] = useState(true);
+ 
   const location = useLocation();
   const navigate = useNavigate();
   const { auth } = useAuth();
@@ -64,9 +65,9 @@ export const Sidebar = () => {
   };
 
   const navigationItems: NavigationItem[] = [
-    { label: "Acceuil", icon: "home", path: "/", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
+    { label: "Accueil", icon: "home", path: "/", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
     { label: "Employés", icon: "users", path: "/employees", allowedRoles: ["ADMIN"] },
-    { label: "Création d'Employés", icon: "user-plus", path: "/addEmployee", allowedRoles: ["ADMIN"] },
+    { label: "Création d'Employés", icon: "user-plus", path: "", allowedRoles: ["ADMIN"] },
     { label: "Avances", icon: "hand-coins", path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
     { label: "Pointage", icon: "clipboard-clock", path: "/attendances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
     { label: "Correction Pointage", icon: "search-check", path: "", allowedRoles: ["ADMIN", "SUPERVISOR"] },

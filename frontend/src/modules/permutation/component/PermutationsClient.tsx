@@ -1,6 +1,7 @@
 // src/modules/permutation/component/PermutationsClient.tsx
 
 import Swal from "sweetalert2";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatPermutation } from "../utils/formatPermutation";
 import { useUpdatePermutationStatus } from "../hooks/useUpdatePermutationStatus";
@@ -8,7 +9,9 @@ import { useUpdatePermutationStatus } from "../hooks/useUpdatePermutationStatus"
 import type { Permutation } from "../types";
 import type { Employee } from "@/modules/employee/hooks/useFetchEmployees";
 import type { ProductionLine } from "@/modules/permutation/hooks/useFetchProductionLines";
-import { useEffect, useMemo, useState } from "react";
+
+// ✅ fetch supervisors from backend
+import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
 
 const ITEMS_PER_PAGE = 7;
 
@@ -16,12 +19,17 @@ type Props = {
     data: Permutation[];
     employeesById: Record<number, Employee>;
     productionLinesById: Record<number, ProductionLine>;
-
-    // ✅ si true => affiche bouton "En cours (aujourd'hui)" (Operational Manager)
     showTodayOnlyToggle?: boolean;
-
-    // ✅ pour forcer le rendu UI style “Demandes”
     uiVariant?: "demandes" | "default";
+};
+
+type OperatorWithSupervisor = {
+    operatorId: number;
+    operatorFullName?: string | null;
+    operatorMatricule?: string | null;
+    supervisorId?: number | null;
+    supervisorFullName?: string | null;
+    supervisorMatricule?: string | null;
 };
 
 export function PermutationsClient({
@@ -34,19 +42,24 @@ export function PermutationsClient({
     const { mutateAsync } = useUpdatePermutationStatus();
     const [loadingId, setLoadingId] = useState<number | null>(null);
 
-    // ✅ Pagination
+    const { data: supervisors = [], isLoading: supervisorsLoading } =
+        useFetchSupervisors();
+
     const [page, setPage] = useState(1);
 
-    // ✅ Filtres (frontend)
-    const [supervisorFilter, setSupervisorFilter] = useState<number | "">(""); // sender/receiver
+    const [supervisorFilter, setSupervisorFilter] = useState<number | "">("");
     const [productionLineFilter, setProductionLineFilter] = useState<number | "">(
         ""
     );
-    const [dateFrom, setDateFrom] = useState<string>(""); // start date filter
-    const [dateTo, setDateTo] = useState<string>(""); // end date filter
+    const [dateFrom, setDateFrom] = useState<string>("");
+    const [dateTo, setDateTo] = useState<string>("");
 
-    // ✅ option "aujourd'hui" (permutation en cours)
     const [todayOnly, setTodayOnly] = useState(false);
+
+    // ✅ NEW: expand/collapse operators per row
+    const [expandedOps, setExpandedOps] = useState<Record<number, boolean>>({});
+    const toggleOps = (id: number) =>
+        setExpandedOps((m) => ({ ...m, [id]: !m[id] }));
 
     // === HELPERS =============================================================
     const getEmployeeName = (emp?: Employee | null) => {
@@ -57,18 +70,17 @@ export function PermutationsClient({
         return `${first} ${last}`.trim();
     };
 
-    // ✅ opérateurs affichés SANS /employees (fallback)
+    // ✅ Operators fallback label
     const getOperatorsLabel = (perm: Permutation) => {
-        // 1) si backend renvoie operatorNames
         const namesFromBackend = (perm as any).operatorNames as string[] | undefined;
         if (namesFromBackend && namesFromBackend.length > 0) {
             return namesFromBackend.join(", ");
         }
 
-        // 2) si backend renvoie operators = [{id, fullName}]
         const opsFromBackend = (perm as any).operators as
             | Array<{ id: number; fullName?: string; matricule?: string | null }>
             | undefined;
+
         if (opsFromBackend && opsFromBackend.length > 0) {
             const n = opsFromBackend
                 .map((o) => (o.fullName ?? "").trim())
@@ -77,7 +89,6 @@ export function PermutationsClient({
             return `${opsFromBackend.length} opérateur(s)`;
         }
 
-        // 3) fallback via employeesById (si dispo)
         const fallbackNames =
             perm.operatorIds
                 ?.map((id) => employeesById[id])
@@ -91,48 +102,123 @@ export function PermutationsClient({
             : "-";
     };
 
-    // ✅ superviseurs (sender/receiver présents dans data)
+    // ✅ Operator -> Supervisor rows
+    const getOperatorsWithSupervisorsLabel = (perm: Permutation) => {
+        const list = (perm as any).operatorsWithSupervisors as
+            | OperatorWithSupervisor[]
+            | undefined;
+
+        if (!Array.isArray(list) || list.length === 0) return null;
+
+        const rows = list
+            .map((x) => {
+                const op =
+                    (x.operatorFullName ?? "").trim() ||
+                    (x.operatorMatricule
+                        ? `#${x.operatorMatricule}`
+                        : x.operatorId
+                            ? `#${x.operatorId}`
+                            : "");
+
+                const sup =
+                    (x.supervisorFullName ?? "").trim() ||
+                    (x.supervisorMatricule
+                        ? `#${x.supervisorMatricule}`
+                        : x.supervisorId
+                            ? `#${x.supervisorId}`
+                            : "—");
+
+                if (!op) return null;
+                return `${op} → ${sup}`;
+            })
+            .filter(Boolean) as string[];
+
+        return rows.length > 0 ? rows : null;
+    };
+
+    // ✅ Senders as LIST
+    const getSendersList = (perm: any) => {
+        const names = (perm.senderFullNames as string[] | undefined)
+            ?.map((x) => (x ?? "").trim())
+            .filter(Boolean);
+
+        const mats = (perm.senderMatricules as string[] | undefined)
+            ?.map((x) => (x ?? "").trim())
+            .filter(Boolean);
+
+        if (names && names.length > 0) {
+            return { names, matricules: mats ?? [] };
+        }
+
+        // old format
+        const oldName = (perm.senderFullName as string | undefined)?.trim();
+        const oldMat = (perm.senderMatricule as string | undefined)?.trim();
+        if (oldName)
+            return { names: [oldName], matricules: oldMat ? [oldMat] : [] };
+
+        // ids fallback
+        const ids = perm.senderIds as number[] | undefined;
+        if (Array.isArray(ids) && ids.length > 0) {
+            const resolved = ids
+                .map((id) => employeesById[id])
+                .filter(Boolean)
+                .map((e) => getEmployeeName(e))
+                .filter(Boolean);
+
+            return {
+                names: resolved.length > 0 ? resolved : ids.map((id) => `#${id}`),
+                matricules: [],
+            };
+        }
+
+        return { names: ["-"], matricules: [] };
+    };
+
+    // ✅ receiver label fallback
+    const getReceiverLabel = (perm: any) => {
+        const name = (perm.receiverFullName as string | undefined)?.trim();
+        if (name) return name;
+
+        const id = perm.receiverId as number | undefined;
+        if (typeof id === "number") {
+            const e = employeesById[id];
+            const n = getEmployeeName(e);
+            return n || `#${id}`;
+        }
+        return "-";
+    };
+
+    // ✅ supervisors options from API
     const supervisorOptions = useMemo(() => {
-        const map = new Map<number, string>();
-
-        data.forEach((p) => {
-            const sId = p.senderId;
-            const rId = p.receiverId;
-
-            const sName =
-                p.senderFullName ||
-                getEmployeeName(employeesById[sId]) ||
-                (p.senderMatricule ? `#${p.senderMatricule}` : `#${sId}`);
-
-            const rName =
-                p.receiverFullName ||
-                getEmployeeName(employeesById[rId]) ||
-                (p.receiverMatricule ? `#${p.receiverMatricule}` : `#${rId}`);
-
-            if (sId != null) map.set(sId, sName);
-            if (rId != null) map.set(rId, rName);
-        });
-
-        return Array.from(map.entries())
-            .map(([id, name]) => ({ id, name }))
+        return (supervisors as any[])
+            .map((s) => ({
+                id: Number(s.id),
+                name:
+                    (s.fullName as string) ||
+                    (s.matricule ? `#${s.matricule}` : `#${s.id}`),
+            }))
+            .filter((x) => Number.isFinite(x.id))
             .sort((a, b) => a.name.localeCompare(b.name));
-    }, [data, employeesById]);
+    }, [supervisors]);
 
     // ✅ production lines options
     const productionLineOptions = useMemo(() => {
         const map = new Map<number, string>();
 
-        data.forEach((p) => {
+        data.forEach((p: any) => {
             if (p.productionLineId == null) return;
-            const pl = productionLinesById[p.productionLineId];
-            const name = (pl as any)?.name ?? (pl as any)?.label ?? `Ligne #${p.productionLineId}`;
-            map.set(p.productionLineId, name);
+            const id = Number(p.productionLineId);
+            const pl = productionLinesById[id];
+            const name =
+                (pl as any)?.name ?? (pl as any)?.label ?? `Ligne #${id}`;
+            map.set(id, name);
         });
 
         return Array.from(map.entries())
             .map(([id, name]) => ({ id, name }))
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [data, productionLinesById]);
+
     useEffect(() => {
         if (dateFrom && dateTo && dateFrom > dateTo) {
             Swal.fire({
@@ -141,41 +227,50 @@ export function PermutationsClient({
                 text: "La date de début ne peut pas être postérieure à la date de fin.",
                 confirmButtonColor: "#ef4444",
             });
-
-            // 🔁 Reset intelligent (on garde le UI propre)
             setDateFrom("");
             setDateTo("");
             setPage(1);
         }
     }, [dateFrom, dateTo]);
 
-    // ✅ Filtrage frontend (rapide)
+    // ✅ filtering
     const filteredData = useMemo(() => {
         const todayStr = new Date().toISOString().slice(0, 10);
 
-        return data.filter((p) => {
-            // todayOnly => permutation en cours aujourd'hui : startDate <= today <= endDate
+        return data.filter((p: any) => {
+            const startDate = p.startDate as string;
+            const endDate = p.endDate as string;
+
             if (showTodayOnlyToggle && todayOnly) {
-                if (!(p.startDate <= todayStr && p.endDate >= todayStr)) return false;
+                if (!(startDate <= todayStr && endDate >= todayStr)) return false;
             }
 
-            // superviseur (sender OU receiver)
             if (supervisorFilter !== "") {
                 const supId = Number(supervisorFilter);
-                if (p.senderId !== supId && p.receiverId !== supId) return false;
+
+                const receiverId = Number(p.receiverId ?? p.receiver?.id);
+                const senderIds = p.senderIds as number[] | undefined;
+                const oldSenderId = p.senderId as number | undefined;
+
+                const senderMatch =
+                    (Array.isArray(senderIds) && senderIds.includes(supId)) ||
+                    (typeof oldSenderId === "number" && oldSenderId === supId);
+
+                const receiverMatch = Number.isFinite(receiverId) && receiverId === supId;
+
+                if (!senderMatch && !receiverMatch) return false;
             }
 
-            // production line
             if (productionLineFilter !== "") {
                 const plId = Number(productionLineFilter);
-                if ((p.productionLineId ?? null) !== plId) return false;
+                const pid = Number(p.productionLineId ?? -1);
+                if (pid !== plId) return false;
             }
 
-            // date range overlap: [p.startDate, p.endDate] chevauche [dateFrom, dateTo]
             if (dateFrom || dateTo) {
                 const from = dateFrom || "0000-01-01";
                 const to = dateTo || "9999-12-31";
-                const overlaps = p.startDate <= to && p.endDate >= from;
+                const overlaps = startDate <= to && endDate >= from;
                 if (!overlaps) return false;
             }
 
@@ -191,7 +286,7 @@ export function PermutationsClient({
         showTodayOnlyToggle,
     ]);
 
-    // ✅ Pagination
+    // ✅ pagination
     const totalItems = filteredData.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
 
@@ -208,25 +303,24 @@ export function PermutationsClient({
     const fromItem = totalItems === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1;
     const toItem = Math.min(page * ITEMS_PER_PAGE, totalItems);
 
-    // ✅ status badges (propre)
     const statusBadge = (status: string) => {
         if (status === "ACCEPTEE") {
             return (
-                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
-          ● Acceptée
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+          <span className="text-[10px]">●</span> Acceptée
         </span>
             );
         }
         if (status === "REFUSEE") {
             return (
-                <span className="inline-flex items-center rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-800">
-          ● Refusée
+                <span className="inline-flex items-center gap-2 rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-800">
+          <span className="text-[10px]">●</span> Refusée
         </span>
             );
         }
         return (
-            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-900">
-        ● En attente
+            <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-900">
+        <span className="text-[10px]">●</span> En attente
       </span>
         );
     };
@@ -243,38 +337,41 @@ export function PermutationsClient({
     const handleAction = async (perm: Permutation, action: "accept" | "refuse") => {
         const f = formatPermutation(perm);
 
-        const sender = employeesById[perm.senderId];
-        const receiver = employeesById[perm.receiverId];
+        const senders = getSendersList(perm as any);
+        const receiverLabel = getReceiverLabel(perm as any);
 
-        const senderName =
-            perm.senderFullName ||
-            getEmployeeName(sender) ||
-            (perm.senderMatricule ? `#${perm.senderMatricule}` : `#${perm.senderId}`);
-
-        const receiverName =
-            perm.receiverFullName ||
-            getEmployeeName(receiver) ||
-            (perm.receiverMatricule ? `#${perm.receiverMatricule}` : `#${perm.receiverId}`);
-
-        const operatorsLabel = getOperatorsLabel(perm);
+        const pairs = getOperatorsWithSupervisorsLabel(perm);
+        const operatorsHtml = pairs ? pairs.join("<br/>") : getOperatorsLabel(perm);
 
         const project =
-            perm.productionLineId != null ? productionLinesById[perm.productionLineId] : undefined;
+            (perm as any).productionLineId != null
+                ? productionLinesById[Number((perm as any).productionLineId)]
+                : undefined;
 
         const projectName = (project as any)?.name ?? "—";
 
-        const title = action === "accept" ? "Confirmer l'acceptation" : "Confirmer le refus";
+        const title =
+            action === "accept" ? "Confirmer l'acceptation" : "Confirmer le refus";
         const confirmText = action === "accept" ? "Oui, accepter" : "Oui, refuser";
         const confirmColor = action === "accept" ? "#10b981" : "#ef4444";
+
+        const sendersHtml = senders.names
+            .map((n: string, i: number) => {
+                const m = senders.matricules[i];
+                return m
+                    ? `${n} <span style="color:#94a3b8;font-size:11px">(Matricule: ${m})</span>`
+                    : n;
+            })
+            .join("<br/>");
 
         const html = `
       <div style="text-align:left;font-size:13px">
         <p><strong>Projet :</strong> ${projectName}</p>
-        <p><strong>Émetteur :</strong> ${senderName}</p>
-        <p><strong>Récepteur :</strong> ${receiverName}</p>
+        <p><strong>Émetteur(s) :</strong><br/> ${sendersHtml}</p>
+        <p><strong>Récepteur :</strong> ${receiverLabel}</p>
         <p><strong>Période :</strong> ${f.dateRange}</p>
         <p><strong>Horaires :</strong> ${f.timeRange}</p>
-        <p><strong>Opérateurs :</strong> ${operatorsLabel}</p>
+        <p><strong>Opérateurs :</strong><br/> ${operatorsHtml}</p>
       </div>
     `;
 
@@ -293,10 +390,10 @@ export function PermutationsClient({
         if (!result.isConfirmed) return;
 
         try {
-            setLoadingId(perm.id);
+            setLoadingId((perm as any).id);
 
-            const updated = await mutateAsync({ id: perm.id, action });
-            const newStatus = updated?.status;
+            const updated = await mutateAsync({ id: (perm as any).id, action });
+            const newStatus = (updated as any)?.status;
 
             const autoMsg =
                 (updated as any)?.autoRefusedMessage ||
@@ -320,7 +417,9 @@ export function PermutationsClient({
             });
         } catch (err: any) {
             const backendMessage =
-                err?.response?.data?.message || err?.message || "Une erreur est survenue lors de la mise à jour.";
+                err?.response?.data?.message ||
+                err?.message ||
+                "Une erreur est survenue lors de la mise à jour.";
 
             await Swal.fire({
                 icon: "error",
@@ -333,28 +432,23 @@ export function PermutationsClient({
         }
     };
 
-    // === EMPTY ===============================================================
-    if (data.length === 0) {
-        return (
-            <div className="w-full rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-                Aucune permutation pour le moment.
-            </div>
-        );
-    }
-
-    // === UI ==================================================================
     const isDemandesUI = uiVariant === "demandes";
 
     return (
         <div className="w-full">
-            {/* ✅ Table container (flat like “Demandes”) */}
-            <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-                {/* Top bar: reset + todayOnly */}
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                    <div className="text-sm text-slate-500">
-                        Affichage de <span className="font-semibold text-slate-700">{fromItem}</span> à{" "}
-                        <span className="font-semibold text-slate-700">{toItem}</span> sur{" "}
-                        <span className="font-semibold text-slate-700">{totalItems}</span> permutations
+            <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                {/* ===== Top bar ===== */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                    <div className="flex flex-col">
+                        <div className="text-sm font-semibold text-slate-900">
+                            Permutations
+                        </div>
+                        <div className="text-xs text-slate-500">
+                            Affichage de{" "}
+                            <span className="font-semibold text-slate-700">{fromItem}</span> à{" "}
+                            <span className="font-semibold text-slate-700">{toItem}</span> sur{" "}
+                            <span className="font-semibold text-slate-700">{totalItems}</span>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -365,10 +459,10 @@ export function PermutationsClient({
                                     setTodayOnly((v) => !v);
                                     setPage(1);
                                 }}
-                                className={`rounded-lg border px-3 py-2 text-xs font-medium ${
+                                className={`rounded-xl px-3 py-2 text-xs font-semibold ring-1 transition ${
                                     todayOnly
-                                        ? "border-[#6b7a12] bg-[#6b7a12]/10 text-[#6b7a12]"
-                                        : "border-slate-200 bg-white text-slate-600"
+                                        ? "bg-[#6b7a12]/10 text-[#6b7a12] ring-[#6b7a12]/30"
+                                        : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
                                 }`}
                             >
                                 En cours (aujourd&apos;hui)
@@ -378,20 +472,19 @@ export function PermutationsClient({
                         <button
                             type="button"
                             onClick={resetFilters}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"
+                            className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                         >
                             Réinitialiser
                         </button>
                     </div>
                 </div>
 
-                {/* Filters row (like your screenshot “Permutations”) */}
-                <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+                {/* ===== Filters ===== */}
+                <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
                     <div className="grid gap-3 md:grid-cols-4">
-                        {/* superviseur */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
-                                Superviseur (émetteur ou récepteur)
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                            <label className="mb-2 block text-[11px] font-semibold text-slate-600">
+                                Superviseur (émetteur(s) ou récepteur)
                             </label>
                             <select
                                 value={supervisorFilter}
@@ -400,7 +493,9 @@ export function PermutationsClient({
                                 }
                                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#6b7a12]"
                             >
-                                <option value="">Tous</option>
+                                <option value="">
+                                    {supervisorsLoading ? "Chargement..." : "Tous"}
+                                </option>
                                 {supervisorOptions.map((s) => (
                                     <option key={s.id} value={s.id}>
                                         {s.name}
@@ -409,9 +504,8 @@ export function PermutationsClient({
                             </select>
                         </div>
 
-                        {/* production line */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                            <label className="mb-2 block text-[11px] font-semibold text-slate-600">
                                 Ligne de production
                             </label>
                             <select
@@ -430,9 +524,8 @@ export function PermutationsClient({
                             </select>
                         </div>
 
-                        {/* date from */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                            <label className="mb-2 block text-[11px] font-semibold text-slate-600">
                                 Date début (range)
                             </label>
                             <input
@@ -443,9 +536,8 @@ export function PermutationsClient({
                             />
                         </div>
 
-                        {/* date to */}
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-slate-600">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                            <label className="mb-2 block text-[11px] font-semibold text-slate-600">
                                 Date fin (range)
                             </label>
                             <input
@@ -458,149 +550,311 @@ export function PermutationsClient({
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead>
-                        <tr
-                            className={
-                                isDemandesUI
-                                    ? "bg-[#6b7a12] text-white text-xs font-semibold"
-                                    : "border-b border-slate-100 bg-slate-50/70 text-xs font-semibold uppercase tracking-wide text-slate-500"
-                            }
-                        >
-                            <th className="px-4 py-3 text-left">Émetteur</th>
-                            <th className="px-4 py-3 text-left">Récepteur</th>
-                            <th className="px-4 py-3 text-left">Projet</th>
-                            <th className="px-4 py-3 text-left">Opérateurs</th>
-                            <th className="px-4 py-3 text-left">Dates</th>
-                            <th className="px-4 py-3 text-left">Horaires</th>
-                            <th className="px-4 py-3 text-left">Statut</th>
-                            <th className="px-4 py-3 text-left">Actions</th>
-                        </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-slate-100">
-                        {paginatedData.map((p) => {
-                            const f = formatPermutation(p);
-
-                            const sender = employeesById[p.senderId];
-                            const receiver = employeesById[p.receiverId];
-
-                            const senderName =
-                                p.senderFullName ||
-                                getEmployeeName(sender) ||
-                                (p.senderMatricule ? `#${p.senderMatricule}` : `#${p.senderId}`);
-
-                            const receiverName =
-                                p.receiverFullName ||
-                                getEmployeeName(receiver) ||
-                                (p.receiverMatricule ? `#${p.receiverMatricule}` : `#${p.receiverId}`);
-
-                            const operatorsLabel = getOperatorsLabel(p);
-
-                            const project =
-                                p.productionLineId != null ? productionLinesById[p.productionLineId] : undefined;
-                            const projectName = (project as any)?.name ?? "—";
-
-                            const isPending = p.status === "EN_ATTENTE";
-                            const isRowLoading = loadingId === p.id;
-
-                            // ✅ Actions seulement pour receiver en attente
-                            const canValidate = isPending && !!p.asReceiver;
-
-                            return (
-                                <tr key={p.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 align-top">
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-slate-900">{senderName}</span>
-                                            {p.senderMatricule && (
-                                                <span className="text-[11px] uppercase text-slate-400">
-                            Matricule : {p.senderMatricule}
-                          </span>
-                                            )}
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top">
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-slate-900">{receiverName}</span>
-                                            {p.receiverMatricule && (
-                                                <span className="text-[11px] uppercase text-slate-400">
-                            Matricule : {p.receiverMatricule}
-                          </span>
-                                            )}
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top text-xs font-semibold text-slate-700">
-                                        {projectName}
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top text-xs text-slate-700">
-                                        <span className="whitespace-normal">{operatorsLabel}</span>
-                                    </td>
-
-                                    <td className="px-4 py-3 align-top text-xs text-slate-700">{f.dateRange}</td>
-                                    <td className="px-4 py-3 align-top text-xs text-slate-700">{f.timeRange}</td>
-
-                                    <td className="px-4 py-3 align-top">{statusBadge(p.status)}</td>
-
-                                    <td className="px-4 py-3 align-top text-right">
-                                        {canValidate ? (
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    disabled={isRowLoading}
-                                                    onClick={() => handleAction(p, "accept")}
-                                                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                                                >
-                                                    {isRowLoading ? "..." : "Accepter"}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    disabled={isRowLoading}
-                                                    onClick={() => handleAction(p, "refuse")}
-                                                    className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                                                >
-                                                    {isRowLoading ? "..." : "Refuser"}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-400">—</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination (like “Demandes”: 1 of N) */}
-                <div className="flex items-center justify-end gap-3 px-4 py-3">
-                    <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs disabled:opacity-40"
-                    >
-                        ‹
-                    </button>
-
-                    <div className="text-xs text-slate-600">
-                        {page} of {totalPages}
+                {/* ===== Empty state ===== */}
+                {filteredData.length === 0 ? (
+                    <div className="w-full p-10 text-center">
+                        <div className="mx-auto max-w-md rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8">
+                            <div className="text-sm font-semibold text-slate-900">
+                                Aucune permutation
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                                Essayez de modifier les filtres ou réinitialiser.
+                            </div>
+                        </div>
                     </div>
+                ) : (
+                    <>
+                        {/* ===== Desktop table ===== */}
+                        <div className="hidden overflow-x-auto md:block">
+                            <table className="min-w-full text-sm">
+                                <thead className="sticky top-0 z-10">
+                                <tr
+                                    className={
+                                        isDemandesUI
+                                            ? "bg-[#6b7a12] text-white text-xs font-semibold"
+                                            : "border-b border-slate-100 bg-slate-50/70 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                                    }
+                                >
+                                    <th className="px-5 py-3 text-left">Émetteur(s)</th>
+                                    <th className="px-5 py-3 text-left">Récepteur</th>
+                                    <th className="px-5 py-3 text-left">Projet</th>
+                                    <th className="px-5 py-3 text-left">Opérateurs</th>
+                                    <th className="px-5 py-3 text-left">Dates</th>
+                                    <th className="px-5 py-3 text-left">Horaires</th>
+                                    <th className="px-5 py-3 text-left">Statut</th>
+                                    <th className="px-5 py-3 text-right">Actions</th>
+                                </tr>
+                                </thead>
 
-                    <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs disabled:opacity-40"
-                    >
-                        ›
-                    </button>
-                </div>
+                                <tbody className="divide-y divide-slate-100">
+                                {paginatedData.map((p: any, index) => {
+                                    const f = formatPermutation(p);
+
+                                    const senders = getSendersList(p);
+                                    const receiverLabel = getReceiverLabel(p);
+
+                                    const pairs = getOperatorsWithSupervisorsLabel(p);
+
+                                    const project =
+                                        p.productionLineId != null
+                                            ? productionLinesById[Number(p.productionLineId)]
+                                            : undefined;
+                                    const projectName = (project as any)?.name ?? "—";
+
+                                    const isPending = p.status === "EN_ATTENTE";
+                                    const isRowLoading = loadingId === p.id;
+                                    const canValidate = isPending && !!p.asReceiver;
+
+                                    const opsLines = pairs ?? [getOperatorsLabel(p)];
+                                    const isExpanded = !!expandedOps[p.id];
+                                    const maxLines = 3;
+                                    const showToggle = opsLines.length > maxLines;
+
+                                    return (
+                                        <tr
+                                            key={p.id}
+                                            className={`transition hover:bg-slate-50 ${
+                                                index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                                            }`}
+                                        >
+                                            {/* EMETTEURS */}
+                                            <td className="px-5 py-4 align-top">
+                                                <div className="flex flex-col gap-1">
+                                                    {senders.names.map((name: string, idx: number) => (
+                                                        <div key={`${p.id}-sender-${idx}`} className="leading-5">
+                                <span className="font-semibold text-slate-900">
+                                  {name}
+                                </span>
+                                                            {senders.matricules[idx] && (
+                                                                <span className="ml-2 text-[11px] uppercase text-slate-400">
+                                    (Matricule: {senders.matricules[idx]})
+                                  </span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+
+                                            {/* RECEPTEUR */}
+                                            <td className="px-5 py-4 align-top">
+                                                <div className="flex flex-col">
+                            <span className="font-semibold text-slate-900">
+                              {receiverLabel}
+                            </span>
+                                                    {p.receiverMatricule && (
+                                                        <span className="text-[11px] uppercase text-slate-400">
+                                Matricule : {p.receiverMatricule}
+                              </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* PROJET */}
+                                            <td className="px-5 py-4 align-top">
+                          <span className="inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                            {projectName}
+                          </span>
+                                            </td>
+
+                                            {/* OPERATEURS */}
+                                            <td className="px-5 py-4 align-top text-xs text-slate-700">
+                                                <div className="space-y-1">
+                                                    {(isExpanded ? opsLines : opsLines.slice(0, maxLines)).map(
+                                                        (line: string, idx: number) => (
+                                                            <div key={idx} className="whitespace-normal leading-5">
+                                                                {line}
+                                                            </div>
+                                                        )
+                                                    )}
+
+                                                    {showToggle && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleOps(p.id)}
+                                                            className="mt-1 text-[11px] font-semibold text-[#6b7a12] hover:underline"
+                                                        >
+                                                            {isExpanded
+                                                                ? "Voir moins"
+                                                                : `Voir plus (+${opsLines.length - maxLines})`}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* DATES */}
+                                            <td className="px-5 py-4 align-top text-xs text-slate-700">
+                                                {f.dateRange}
+                                            </td>
+
+                                            {/* HORAIRES */}
+                                            <td className="px-5 py-4 align-top text-xs text-slate-700">
+                                                {f.timeRange}
+                                            </td>
+
+                                            {/* STATUT */}
+                                            <td className="px-5 py-4 align-top">
+                                                {statusBadge(p.status)}
+                                            </td>
+
+                                            {/* ACTIONS */}
+                                            <td className="px-5 py-4 align-top text-right">
+                                                {canValidate ? (
+                                                    <div className="inline-flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isRowLoading}
+                                                            onClick={() => handleAction(p, "accept")}
+                                                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                                                        >
+                                                            {isRowLoading ? "..." : "Accepter"}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isRowLoading}
+                                                            onClick={() => handleAction(p, "refuse")}
+                                                            className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+                                                        >
+                                                            {isRowLoading ? "..." : "Refuser"}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400">—</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* ===== Mobile cards ===== */}
+                        <div className="block md:hidden">
+                            <div className="space-y-3 p-4">
+                                {paginatedData.map((p: any) => {
+                                    const f = formatPermutation(p);
+                                    const senders = getSendersList(p);
+                                    const receiverLabel = getReceiverLabel(p);
+                                    const pairs = getOperatorsWithSupervisorsLabel(p);
+
+                                    const project =
+                                        p.productionLineId != null
+                                            ? productionLinesById[Number(p.productionLineId)]
+                                            : undefined;
+                                    const projectName = (project as any)?.name ?? "—";
+
+                                    const isPending = p.status === "EN_ATTENTE";
+                                    const isRowLoading = loadingId === p.id;
+                                    const canValidate = isPending && !!p.asReceiver;
+
+                                    return (
+                                        <div
+                                            key={p.id}
+                                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <div className="text-xs text-slate-500">Projet</div>
+                                                    <div className="mt-1 inline-flex rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                                                        {projectName}
+                                                    </div>
+                                                </div>
+                                                <div>{statusBadge(p.status)}</div>
+                                            </div>
+
+                                            <div className="mt-3 space-y-2 text-xs">
+                                                <div>
+                                                    <div className="text-slate-500">Émetteur(s)</div>
+                                                    <div className="mt-1 space-y-1">
+                                                        {senders.names.map((n: string, i: number) => (
+                                                            <div key={i} className="font-semibold text-slate-900">
+                                                                {n}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="text-slate-500">Récepteur</div>
+                                                    <div className="mt-1 font-semibold text-slate-900">
+                                                        {receiverLabel}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <div className="text-slate-500">Dates</div>
+                                                        <div className="mt-1 text-slate-700">{f.dateRange}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-slate-500">Horaires</div>
+                                                        <div className="mt-1 text-slate-700">{f.timeRange}</div>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="text-slate-500">Opérateurs</div>
+                                                    <div className="mt-1 text-slate-700">
+                                                        {pairs ? pairs.slice(0, 3).join(" • ") : getOperatorsLabel(p)}
+                                                    </div>
+                                                </div>
+
+                                                {canValidate && (
+                                                    <div className="mt-3 flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isRowLoading}
+                                                            onClick={() => handleAction(p, "accept")}
+                                                            className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
+                                                        >
+                                                            {isRowLoading ? "..." : "Accepter"}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isRowLoading}
+                                                            onClick={() => handleAction(p, "refuse")}
+                                                            className="flex-1 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white"
+                                                        >
+                                                            {isRowLoading ? "..." : "Refuser"}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ===== Pagination ===== */}
+                        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
+                            <div className="text-xs text-slate-500">
+                                Page <span className="font-semibold text-slate-700">{page}</span> /{" "}
+                                <span className="font-semibold text-slate-700">{totalPages}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                                >
+                                    ‹
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                                >
+                                    ›
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

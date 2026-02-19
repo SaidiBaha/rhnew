@@ -1,4 +1,5 @@
 package tn.sage.rh.permutations.entity;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
@@ -19,10 +20,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
 public class Permutation {
@@ -46,9 +45,10 @@ public class Permutation {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PermutationStatus status;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TypePermutation typePermutation ;
+    private TypePermutation typePermutation;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -60,13 +60,22 @@ public class Permutation {
                     columnNames = {"permutation_id", "employee_id"}
             )
     )
-
     @Builder.Default
     private Set<Employee> operators = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "emetteur_id")
-    private Employee sender;
+    // ✅ Plusieurs superviseurs émetteurs
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "permutation_senders",
+            joinColumns = @JoinColumn(name = "permutation_id"),
+            inverseJoinColumns = @JoinColumn(name = "employee_id"),
+            uniqueConstraints = @UniqueConstraint(
+                    name = "uk_permutation_sender",
+                    columnNames = {"permutation_id", "employee_id"}
+            )
+    )
+    @Builder.Default
+    private Set<Employee> senders = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recepteur_id", nullable = false)

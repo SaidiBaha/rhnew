@@ -12,7 +12,7 @@ import AttendancesPage from "@/pages/AttendancesPage";
 import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
-import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
+// import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
 
 function App() {
   return (
@@ -43,7 +43,7 @@ function App() {
         </Route>
 
         {/* Routes accessibles uniquement par ADMIN */}
-        <Route
+        {/* <Route
           element={<ProtectedRoute allowedRoles={["ADMIN"]} />}
         >
           <Route
@@ -54,7 +54,7 @@ function App() {
               </Layout>
             }
           />
-        </Route>
+        </Route> */}
 
         {/* Routes accessibles par ADMIN et SUPERVISOR */}
         <Route

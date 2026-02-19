@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Upload, Plus } from "lucide-react"; // Ajout de l'icône Plus
-import { useNavigate } from "react-router-dom"; // Ajout de useNavigate
+import { Upload } from "lucide-react"; // Retirer Plus car non utilisé
+// Retirer useNavigate car non utilisé
 import z from "zod";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -27,7 +27,6 @@ export function EmployeesClient({ data }: EmployeesClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
   const batchSaveEmployees = useBatchSaveEmployees();
-  const navigate = useNavigate(); // Hook pour la navigation
 
   async function onSubmit(data: z.infer<typeof UploadEmployeeSchema>) {
     setIsLoading(true);
@@ -75,16 +74,6 @@ export function EmployeesClient({ data }: EmployeesClientProps) {
         />
 
         <div className="flex items-center justify-center gap-x-4">
-          {/* Bouton Ajouter un employé */}
-          <Button
-            onClick={() => navigate("/addEmployee")} // Navigation vers la page d'ajout
-            variant="default"
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Plus className="mr-2 size-4" />
-            Ajouter un employé
-          </Button>
-          
           <Button
             onClick={() => setIsFileUploadOpen(true)}
             variant="outline"

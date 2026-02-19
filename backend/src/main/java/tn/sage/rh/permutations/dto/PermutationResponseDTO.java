@@ -1,3 +1,4 @@
+// tn/sage/rh/permutations/dto/PermutationResponseDTO.java
 package tn.sage.rh.permutations.dto;
 
 import lombok.*;
@@ -10,26 +11,29 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @Builder
-
 public class PermutationResponseDTO {
 
     private Long id;
 
     private List<Long> operatorIds;
+    private List<String> operatorNames;
+    private List<EmployeeDto> operators;
 
-    private Long senderId;
+    // ✅ NEW: operator -> supervisor mapping
+    private List<OperatorWithSupervisorDTO> operatorsWithSupervisors;
+
+    // ✅ receiver
     private Long receiverId;
-
-    private String senderFullName;
     private String receiverFullName;
-
-    private String senderMatricule;
     private String receiverMatricule;
+
+    // ✅ senders list
+    private List<Long> senderIds;
+    private List<String> senderFullNames;
+    private List<String> senderMatricules;
 
     private Long productionLineId;
 
@@ -50,11 +54,20 @@ public class PermutationResponseDTO {
 
     private boolean asSender;
     private boolean asReceiver;
+
     private String autoRefusedMessage;
-    private List<String> operatorNames;
 
-    private List<EmployeeDto> operators;
+    // ✅ Inner DTO (ou fichier séparé si tu préfères)
+    @Getter @Setter
+    @NoArgsConstructor @AllArgsConstructor
+    @Builder
+    public static class OperatorWithSupervisorDTO {
+        private Long operatorId;
+        private String operatorFullName;
+        private String operatorMatricule;
 
-
+        private Long supervisorId;
+        private String supervisorFullName;
+        private String supervisorMatricule;
+    }
 }
-
