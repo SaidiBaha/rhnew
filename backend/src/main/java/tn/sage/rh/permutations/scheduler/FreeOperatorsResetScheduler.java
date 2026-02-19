@@ -19,7 +19,6 @@ public class FreeOperatorsResetScheduler {
     private final EmployeeRepository employeeRepository;
     @Scheduled(cron = "0 5 0 * * *", zone = "Africa/Tunis")
 
-//    @Scheduled(cron = "0 */1 * * * *", zone = "Africa/Tunis") // ✅ test: chaque minute
     @Transactional
     public void resetExpiredFreeOperators() {
 
