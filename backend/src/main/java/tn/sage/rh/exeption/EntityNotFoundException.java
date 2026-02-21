@@ -1,6 +1,6 @@
 package tn.sage.rh.exeption;
 
-import ch.qos.logback.core.spi.ErrorCodes;
+
 import lombok.Getter;
 
 public class EntityNotFoundException extends RuntimeException{

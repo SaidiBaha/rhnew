@@ -4,7 +4,7 @@ import org.mapstruct.Mapper;
 import tn.sage.rh.organization.dto.DepartmentMinimalDto;
 import tn.sage.rh.organization.entity.Department;
 
-@Mapper
+@Mapper()
 public interface DepartmentMapper {
     DepartmentMinimalDto toMinimalDTO(Department department);
 }

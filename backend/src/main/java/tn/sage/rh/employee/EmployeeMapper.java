@@ -17,14 +17,7 @@ import tn.sage.rh.request.mapper.RequestMapper;
 })
 public interface EmployeeMapper {
 
-    //wissem
-   EmployeeDto toDTO(Employee employee);
-
-    EmployeeMinimalDto toMinimalDTO(Employee employee);
-    //baha
- /*   @Mapping(source = "free", target = "isFree")
     EmployeeDto toDTO(Employee employee);
 
-    @Mapping(source = "free", target = "isFree")
-    EmployeeMinimalDto toMinimalDTO(Employee employee);*/
+    EmployeeMinimalDto toMinimalDTO(Employee employee);
 }
