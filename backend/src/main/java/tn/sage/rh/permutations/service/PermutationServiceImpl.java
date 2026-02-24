@@ -228,62 +228,6 @@ public class PermutationServiceImpl implements PermutationService {
     public PermutationResponseDTO refuse(Long id) {
         return updateStatus(id, PermutationStatus.REFUSEE);
     }
-/*
-    private PermutationResponseDTO updateStatus(Long id, PermutationStatus status) {
-        User current = getCurrentUser();
-        if (!isSupervisor(current)) {
-            throw new AccessDeniedException("Only SUPERVISOR can validate permutations");
-        }
-
-        Employee me = getCurrentEmployee(current);
-
-        Permutation p = permutationRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Permutation not found"));
-
-        // ✅ receiver validates
-        if (!Objects.equals(p.getReceiver().getId(), me.getId())) {
-            throw new AccessDeniedException("Only receiver can validate this permutation");
-        }
-
-        if (p.getStatus() != PermutationStatus.EN_ATTENTE) {
-            throw new IllegalArgumentException("Only EN_ATTENTE permutations can be updated");
-        }
-
-        if (status == PermutationStatus.ACCEPTEE) {
-            List<Long> blocked = new ArrayList<>();
-            for (Employee op : p.getOperators()) {
-                boolean overlap = permutationRepository.existsOverlap(
-                        op.getId(),
-                        PermutationStatus.ACCEPTEE,
-                        p.getStartDate(),
-                        p.getEndDate(),
-                        p.getStartTime(),
-                        p.getEndTime()
-                );
-                if (overlap) blocked.add(op.getId());
-            }
-
-            if (!blocked.isEmpty()) {
-                p.setStatus(PermutationStatus.REFUSEE);
-                Permutation saved = permutationRepository.save(p);
-
-                PermutationResponseDTO dto = mapper.toDto(saved);
-                dto.setAutoRefusedMessage(
-                        "Impossible d'accepter : opérateur(s) déjà pris sur cette période : "
-                                + blocked
-                                + ". La permutation a été automatiquement refusée."
-                );
-                return dto;
-            }
-        }
-
-        p.setStatus(status);
-        Permutation saved = permutationRepository.save(p);
-        return mapper.toDto(saved);
-    }
-*/
-
-    // tn/sage/rh/permutations/service/PermutationServiceImpl.java
 
     private PermutationResponseDTO updateStatus(Long id, PermutationStatus status) {
 
