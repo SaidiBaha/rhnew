@@ -8,6 +8,7 @@ import tn.sage.rh.employee.Employee;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
@@ -48,4 +49,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
                                                        LocalDate endDate,
                                                        Collection<Employee> employees
     );
+
+
+
+
 }

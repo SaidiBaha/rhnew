@@ -18,6 +18,7 @@ import {
 } from "@/modules/attendance/components/columns";
 import { DataTable } from "@/components/ui/DataTable";
 import { parseAttendance } from "../utils";
+import { logError, showErrorToast } from "@/modules/employee/api-error";
 
 interface AttendancesClientProps {
   data: EmployeeAttendanceColumn[];
@@ -50,8 +51,16 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
 
       await batchSaveAttendances.mutateAsync(attendances);
       setIsFileUploadOpen(false);
+      toast.success("Import réussi !", {
+        duration: 4000,
+        icon: '✅',
+      });
     } catch (error) {
-      toast.error(`${error}`, { duration: 6000 });
+      // Logger l'erreur dans la console avec le contexte
+      logError("Import des pointages", error);
+      
+      // Afficher un toast d'erreur avec les détails
+      showErrorToast(error, "Erreur lors de l'import");
     } finally {
       setIsLoading(false);
     }
@@ -62,8 +71,8 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
       <FileUploadModal
         isOpen={isFileUploadOpen}
         onClose={() => setIsFileUploadOpen(false)}
-        title="Importer"
-        description="Importer le pointage des employés"
+        title="Importer les pointages"
+        description="Importer le pointage des employés depuis un fichier Excel"
         onSubmit={onSubmit}
         isLoading={isLoading}
       />
