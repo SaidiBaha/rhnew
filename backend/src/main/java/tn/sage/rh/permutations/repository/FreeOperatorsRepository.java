@@ -1,6 +1,7 @@
 package tn.sage.rh.permutations.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import tn.sage.rh.permutations.entity.FreeOperators;
@@ -28,4 +29,9 @@ public interface FreeOperatorsRepository extends JpaRepository<FreeOperators, Lo
         where fo.startDate <= :day and fo.endDate >= :day
     """)
     List<FreeOperators> findActiveForDay(@Param("day") LocalDate day);
+
+
+    @Modifying
+    @Query("delete from FreeOperators fo where fo.matricule in :matricules")
+    int deleteByMatricules(@Param("matricules") List<String> matricules);
 }

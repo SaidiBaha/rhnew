@@ -28,6 +28,55 @@ type Props = {
 
 type AvailabilityFilter = "all" | "free" | "occupied";
 
+/* =========================
+   ✅ Helpers (LOCAL DATE + SHIFT)
+   ========================= */
+function pad2(n: number) {
+    return String(n).padStart(2, "0");
+}
+
+function toDateStrLocal(d: Date) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Règles horaires (selon heure actuelle):
+ * - 06:00 <= now < 14:00 => 06:00 → 14:00 (today → today)
+ * - 14:00 <= now < 22:00 => 14:00 → 22:00 (today → today)
+ * - sinon => 22:00 → 06:00 (today → tomorrow)
+ */
+function getTodayShiftWindow(now = new Date()) {
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const minutes = h * 60 + m;
+
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const todayStr = toDateStrLocal(today);
+    const tomorrowStr = toDateStrLocal(tomorrow);
+
+    if (minutes >= 6 * 60 && minutes < 14 * 60) {
+        return { startDate: todayStr, endDate: todayStr, startTime: "06:00", endTime: "14:00" };
+    }
+    if (minutes >= 14 * 60 && minutes < 22 * 60) {
+        return { startDate: todayStr, endDate: todayStr, startTime: "14:00", endTime: "22:00" };
+    }
+    return { startDate: todayStr, endDate: tomorrowStr, startTime: "22:00", endTime: "06:00" };
+}
+
+function splitTimeRangeByMidnight(startTime: string, endTime: string) {
+    // ex: 06:00 -> 14:00
+    if (endTime > startTime) return [{ startTime, endTime }];
+
+    // overnight: 22:00 -> 06:00
+    return [
+        { startTime, endTime: "23:59" },
+        { startTime: "00:00", endTime },
+    ];
+}
+
 export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [operatorsSearch, setOperatorsSearch] = useState("");
     const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
@@ -36,21 +85,21 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const { auth } = useAuth();
     const connectedUser = auth.user;
 
-    // ✅ Sender/Receiver: on garde receiverId/senderId pour ENVOYER uniquement.
-    // ✅ Pour RECEVOIR: on n'affiche plus le choix du superviseur, senderId reste toujours null.
     const [senderId, setSenderId] = useState<number | "">("");
     const [receiverId, setReceiverId] = useState<number | "">("");
 
     const [productionLineId, setProductionLineId] = useState<number | "">("");
     const [operatorIds, setOperatorIds] = useState<number[]>([]);
 
-    // ✅ RECEVOIR = uniquement aujourd'hui (date figée)
-    const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
-    const [startDate, setStartDate] = useState(todayStr);
-    const [endDate, setEndDate] = useState(todayStr);
+    // ✅ Today (LOCAL) + shift (used for ENVOYER auto)
+    const todayStr = useMemo(() => toDateStrLocal(new Date()), []);
+    const initialShift = useMemo(() => getTodayShiftWindow(new Date()), []);
 
-    const [startTime, setStartTime] = useState("09:00");
-    const [endTime, setEndTime] = useState("11:00");
+    const [startDate, setStartDate] = useState(initialShift.startDate);
+    const [endDate, setEndDate] = useState(initialShift.endDate);
+
+    const [startTime, setStartTime] = useState(initialShift.startTime);
+    const [endTime, setEndTime] = useState(initialShift.endTime);
 
     const {
         data: employees,
@@ -105,20 +154,25 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         if (typePermutation === "RECEVOIR") {
             // receiver = moi (affichage seulement)
             setReceiverId(Number(connectedUser.id));
-
-            // ✅ senderId supprimé: pas de superviseur à choisir
             setSenderId("");
 
-            // ✅ dates figées = aujourd'hui
+            // ✅ RECEVOIR = uniquement aujourd'hui
             setStartDate(todayStr);
             setEndDate(todayStr);
 
-            // ✅ refresh free list
+            // (heures: on garde, car pas nécessaires côté RECEVOIR, mais on peut les laisser telles quelles)
             refetchFreeEmployees();
         } else {
-            // ENVOYER
+            // ✅ ENVOYER = uniquement aujourd'hui + horaires auto-shift (et fin demain si 22->06)
             setSenderId(Number(connectedUser.id));
             setReceiverId("");
+
+            const w = getTodayShiftWindow(new Date());
+            setStartDate(w.startDate); // always today
+            setEndDate(w.endDate);     // today OR tomorrow (overnight)
+            setStartTime(w.startTime); // 06/14/22
+            setEndTime(w.endTime);     // 14/22/06
+
             refetchEmployees();
         }
 
@@ -128,20 +182,24 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         setOperatorsSearch("");
     }, [typePermutation, connectedUser, todayStr, refetchEmployees, refetchFreeEmployees]);
 
-    // Calcul de disponibilité uniquement en mode "ENVOYER"
+    // ✅ Disponibilité uniquement en ENVOYER (avec support overnight)
     const unavailableOperatorIds = useMemo(() => {
         if (typePermutation === "RECEVOIR") return new Set<number>();
 
         const result = new Set<number>();
         if (!startDate || !endDate || !startTime || !endTime) return result;
 
+        const ranges = splitTimeRangeByMidnight(startTime, endTime);
+
         permutations.forEach((p) => {
             if (p.status !== "ACCEPTEE") return;
 
             const datesOverlap = p.startDate <= endDate && p.endDate >= startDate;
-            const timesOverlap = p.startTime < endTime && p.endTime > startTime;
+            if (!datesOverlap) return;
 
-            if (datesOverlap && timesOverlap) {
+            const timesOverlap = ranges.some((r) => p.startTime < r.endTime && p.endTime > r.startTime);
+
+            if (timesOverlap) {
                 p.operatorIds.forEach((opId) => result.add(opId));
             }
         });
@@ -154,7 +212,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
         operators.forEach((emp) => {
             if (typePermutation === "RECEVOIR") {
-                // ✅ tous les freeEmployees sont déjà libres
                 result.set(emp.id, true);
             } else {
                 const isUnavailable = unavailableOperatorIds.has(emp.id);
@@ -174,12 +231,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             return { allCount, freeCount: allCount, occupiedCount: 0 };
         }
 
-        const freeCount = operators.filter((emp) => {
-            const isFree = operatorAvailability.get(emp.id) ?? true;
-            return isFree;
-        }).length;
-
+        const freeCount = operators.filter((emp) => (operatorAvailability.get(emp.id) ?? true)).length;
         const occupiedCount = allCount - freeCount;
+
         return { allCount, freeCount, occupiedCount };
     }, [operators, operatorAvailability, typePermutation]);
 
@@ -194,9 +248,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     const idStr = String(emp.id);
 
                     const matchesSearch =
-                        fullName.includes(searchTerm) ||
-                        matricule.includes(searchTerm) ||
-                        idStr.includes(searchTerm);
+                        fullName.includes(searchTerm) || matricule.includes(searchTerm) || idStr.includes(searchTerm);
 
                     if (!matchesSearch) return false;
                 }
@@ -298,9 +350,29 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 });
                 return;
             }
+
+            // ✅ ENVOYER = uniquement aujourd'hui + shift auto (sécurité)
+            const w = getTodayShiftWindow(new Date());
+
+            const okDates = startDate === w.startDate && endDate === w.endDate;
+            const okTimes = startTime === w.startTime && endTime === w.endTime;
+
+            if (!okDates || !okTimes) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Période invalide",
+                    text: "En mode ENVOYER, la période est automatiquement définie pour le shift actuel (aujourd'hui).",
+                    confirmButtonColor: "#ef4444",
+                });
+                // on re-force la bonne période
+                setStartDate(w.startDate);
+                setEndDate(w.endDate);
+                setStartTime(w.startTime);
+                setEndTime(w.endTime);
+                return;
+            }
         } else {
-            // ✅ RECEVOIR : plus de sender à choisir (donc pas de validation senderId)
-            // ✅ et la date doit être aujourd'hui
+            // ✅ RECEVOIR : uniquement aujourd'hui
             if (startDate !== todayStr || endDate !== todayStr) {
                 await Swal.fire({
                     icon: "warning",
@@ -308,6 +380,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     text: "En mode RECEVOIR, la permutation est autorisée uniquement pour aujourd'hui.",
                     confirmButtonColor: "#ef4444",
                 });
+                setStartDate(todayStr);
+                setEndDate(todayStr);
                 return;
             }
         }
@@ -332,7 +406,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             return;
         }
 
-        // ✅ bloque aussi la modification de dates en RECEVOIR (sécurité UI)
+        // ✅ dates globales
         if (endDate < startDate) {
             await Swal.fire({
                 icon: "error",
@@ -343,15 +417,31 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             return;
         }
 
-        // Horaires requis en mode send
-        if (mode === "send" && endTime <= startTime) {
-            await Swal.fire({
-                icon: "error",
-                title: "Heures invalides",
-                text: "L'heure de fin doit être strictement supérieure à l'heure de début.",
-                confirmButtonColor: "#ef4444",
-            });
-            return;
+        // ✅ Horaires (mode send uniquement)
+        if (mode === "send") {
+            const sameDay = startDate === endDate;
+
+            // si même jour => endTime > startTime
+            if (sameDay && endTime <= startTime) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Heures invalides",
+                    text: "L'heure de fin doit être strictement supérieure à l'heure de début.",
+                    confirmButtonColor: "#ef4444",
+                });
+                return;
+            }
+
+            // si overnight => endDate > startDate (autorisé même si endTime <= startTime)
+            if (!sameDay && endDate <= startDate) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Dates invalides",
+                    text: "En cas de shift nuit, la date de fin doit être demain.",
+                    confirmButtonColor: "#ef4444",
+                });
+                return;
+            }
         }
 
         const payload: PermutationCreatePayload = {
@@ -362,17 +452,13 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             startTime,
             endTime,
             typePermutation,
-            receiverId: null, // default
+            receiverId: null,
         };
 
         if (typePermutation === "ENVOYER") {
             payload.receiverId = receiverId ? Number(receiverId) : null;
-            // senderId non envoyé (backend: current user)
         } else {
-            // ✅ RECEVOIR : senderId supprimé / receiverId = null
             payload.receiverId = null;
-            // payload.senderId = undefined (ne pas envoyer)
-            // ✅ dates déjà fixées aujourd'hui
         }
 
         try {
@@ -388,23 +474,26 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             // Reset
             setProductionLineId("");
             setOperatorIds([]);
-            setStartTime("09:00");
-            setEndTime("11:00");
             setOperatorsSearch("");
             setAvailabilityFilter("all");
 
-            // ✅ reset dates
-            setStartDate(todayStr);
-            setEndDate(todayStr);
-
-            if (typePermutation === "ENVOYER") setReceiverId("");
+            // ✅ reset dates/heures selon type (ENVOYER => shift auto / RECEVOIR => today)
+            if (typePermutation === "ENVOYER") {
+                const w = getTodayShiftWindow(new Date());
+                setStartDate(w.startDate);
+                setEndDate(w.endDate);
+                setStartTime(w.startTime);
+                setEndTime(w.endTime);
+                setReceiverId("");
+            } else {
+                setStartDate(todayStr);
+                setEndDate(todayStr);
+            }
 
             onCreated?.();
         } catch (err: any) {
             const backendMessage =
-                err?.response?.data?.message ||
-                err?.message ||
-                "Erreur lors de la création de la permutation.";
+                err?.response?.data?.message || err?.message || "Erreur lors de la création de la permutation.";
 
             await Swal.fire({
                 icon: "error",
@@ -415,16 +504,16 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         }
     };
 
-    const canEditDates = typePermutation === "ENVOYER"; // ✅ RECEVOIR: dates bloquées
+    // ✅ dates/heures verrouillées (ENVOYER et RECEVOIR)
+    const canEditDates = false;
+    const canEditTimes = true;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-2">
             {/* SWITCH ENVOYER/RECEVOIR */}
             <div className={sectionCls}>
                 <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        Type d'opération
-                    </p>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Type d'opération</p>
 
                     {connectedUser && (
                         <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
@@ -467,7 +556,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                 <p className="mt-2 text-xs text-slate-500">
                     {typePermutation === "ENVOYER"
-                        ? "Vous envoyez vos opérateurs à un autre projet"
+                        ? "Vous envoyez vos opérateurs à un autre projet (uniquement aujourd'hui, selon le shift actuel)"
                         : "Vous recevez des opérateurs libres (uniquement aujourd'hui)"}
                 </p>
             </div>
@@ -475,9 +564,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             {/* INFORMATIONS GENERALES */}
             <div className={sectionCls}>
                 <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        Informations générales
-                    </p>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Informations générales</p>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
@@ -534,12 +621,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                             <UserCircleIcon className="h-5 w-5 text-slate-500" />
                             <div>
-                                <p className="text-sm font-semibold text-slate-900">
-                                    {connectedUser?.fullName || "Utilisateur"}
-                                </p>
-                                <p className="text-[11px] text-slate-500">
-                                    Matricule: {connectedUser?.matricule || "N/A"}
-                                </p>
+                                <p className="text-sm font-semibold text-slate-900">{connectedUser?.fullName || "Utilisateur"}</p>
+                                <p className="text-[11px] text-slate-500">Matricule: {connectedUser?.matricule || "N/A"}</p>
                             </div>
                         </div>
                     </div>
@@ -548,9 +631,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     <div>
                         <label className={labelCls}>
                             Date de début <span className="text-red-500">*</span>
-                            {typePermutation === "RECEVOIR" && (
-                                <span className="ml-2 text-[10px] font-semibold text-slate-400">(aujourd&apos;hui)</span>
-                            )}
+                            <span className="ml-2 text-[10px] font-semibold text-slate-400">(aujourd&apos;hui)</span>
                         </label>
                         <input
                             type="date"
@@ -565,7 +646,11 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     <div>
                         <label className={labelCls}>
                             Date de fin <span className="text-red-500">*</span>
-                            {typePermutation === "RECEVOIR" && (
+                            {typePermutation === "ENVOYER" ? (
+                                <span className="ml-2 text-[10px] font-semibold text-slate-400">
+                  (aujourd&apos;hui ou demain si shift nuit)
+                </span>
+                            ) : (
                                 <span className="ml-2 text-[10px] font-semibold text-slate-400">(aujourd&apos;hui)</span>
                             )}
                         </label>
@@ -584,9 +669,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             {/* HORAIRES - Visible seulement si mode = "send" */}
             {mode === "send" && (
                 <div className={sectionCls}>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        Horaires
-                    </p>
+                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Horaires</p>
 
                     <div className="grid gap-3 md:grid-cols-2">
                         <div>
@@ -595,10 +678,11 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             </label>
                             <input
                                 type="time"
-                                className={inputCls}
+                                className={`${inputCls} ${!canEditTimes ? "bg-slate-100 text-slate-500" : ""}`}
                                 value={startTime}
                                 onChange={(e) => setStartTime(e.target.value)}
                                 required
+                                disabled={!canEditTimes}
                             />
                         </div>
 
@@ -608,10 +692,11 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             </label>
                             <input
                                 type="time"
-                                className={inputCls}
+                                className={`${inputCls} ${!canEditTimes ? "bg-slate-100 text-slate-500" : ""}`}
                                 value={endTime}
                                 onChange={(e) => setEndTime(e.target.value)}
                                 required
+                                disabled={!canEditTimes}
                             />
                         </div>
                     </div>
@@ -672,9 +757,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                     Libre
                                     <span
                                         className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
-                                            availabilityFilter === "free"
-                                                ? "bg-white/20"
-                                                : "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                            availabilityFilter === "free" ? "bg-white/20" : "bg-[#6b7a12]/10 text-[#6b7a12]"
                                         }`}
                                     >
                     {availabilityStats.freeCount}
@@ -725,7 +808,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             <label
                                 key={emp.id}
                                 className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
-                                    checked ? "border-[#6b7a12] bg-[#6b7a12]/5" : "border-slate-200 bg-white hover:bg-slate-50"
+                                    checked
+                                        ? "border-[#6b7a12] bg-[#6b7a12]/5"
+                                        : "border-slate-200 bg-white hover:bg-slate-50"
                                 }`}
                             >
                                 <input
@@ -761,9 +846,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                     </div>
 
                                     {matricule && (
-                                        <p className="text-[11px] font-semibold uppercase text-slate-400">
-                                            Matricule : {matricule}
-                                        </p>
+                                        <p className="text-[11px] font-semibold uppercase text-slate-400">Matricule : {matricule}</p>
                                     )}
                                 </div>
                             </label>

@@ -15,6 +15,7 @@ import tn.sage.rh.permutations.entity.Permutation;
 import tn.sage.rh.permutations.entity.PermutationStatus;
 import tn.sage.rh.permutations.entity.TypePermutation;
 import tn.sage.rh.permutations.mapper.PermutationMapper;
+import tn.sage.rh.permutations.repository.FreeOperatorsRepository;
 import tn.sage.rh.permutations.repository.PermutationRepository;
 import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserRepository;
@@ -33,7 +34,7 @@ public class PermutationServiceImpl implements PermutationService {
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
     private final ProductionLineRepository productionLineRepository;
-
+    private final FreeOperatorsRepository freeOperatorsRepository;
     @Override
     public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
         User current = getCurrentUser();
@@ -227,7 +228,7 @@ public class PermutationServiceImpl implements PermutationService {
     public PermutationResponseDTO refuse(Long id) {
         return updateStatus(id, PermutationStatus.REFUSEE);
     }
-
+/*
     private PermutationResponseDTO updateStatus(Long id, PermutationStatus status) {
         User current = getCurrentUser();
         if (!isSupervisor(current)) {
@@ -280,7 +281,79 @@ public class PermutationServiceImpl implements PermutationService {
         Permutation saved = permutationRepository.save(p);
         return mapper.toDto(saved);
     }
+*/
 
+    // tn/sage/rh/permutations/service/PermutationServiceImpl.java
+
+    private PermutationResponseDTO updateStatus(Long id, PermutationStatus status) {
+
+        User current = getCurrentUser();
+        if (!isSupervisor(current)) {
+            throw new AccessDeniedException("Only SUPERVISOR can validate permutations");
+        }
+
+        Employee me = getCurrentEmployee(current);
+
+        Permutation p = permutationRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Permutation not found"));
+
+        if (!Objects.equals(p.getReceiver().getId(), me.getId())) {
+            throw new AccessDeniedException("Only receiver can validate this permutation");
+        }
+
+        if (p.getStatus() != PermutationStatus.EN_ATTENTE) {
+            throw new IllegalArgumentException("Only EN_ATTENTE permutations can be updated");
+        }
+
+        if (status == PermutationStatus.ACCEPTEE) {
+
+            // ✅ 1) Concurrency safety: re-check overlaps
+            List<Long> blocked = new ArrayList<>();
+            for (Employee op : p.getOperators()) {
+                boolean overlap = permutationRepository.existsOverlap(
+                        op.getId(),
+                        PermutationStatus.ACCEPTEE,
+                        p.getStartDate(),
+                        p.getEndDate(),
+                        p.getStartTime(),
+                        p.getEndTime()
+                );
+                if (overlap) blocked.add(op.getId());
+            }
+
+            if (!blocked.isEmpty()) {
+                p.setStatus(PermutationStatus.REFUSEE);
+                Permutation saved = permutationRepository.save(p);
+
+                PermutationResponseDTO dto = mapper.toDto(saved);
+                dto.setAutoRefusedMessage(
+                        "Impossible d'accepter : opérateur(s) déjà pris sur cette période : "
+                                + blocked
+                                + ". La permutation a été automatiquement refusée."
+                );
+                return dto;
+            }
+
+            // ✅ 2) IMPORTANT: operators become BUSY immediately
+            List<String> matricules = p.getOperators().stream()
+                    .map(Employee::getMatricule)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+
+            if (!matricules.isEmpty()) {
+                // employee.free = false
+                employeeRepository.markFreeFalseByMatricules(matricules);
+
+                // remove from FreeOperators table => they disappear from "free pool"
+                freeOperatorsRepository.deleteByMatricules(matricules);
+            }
+        }
+
+        p.setStatus(status);
+        Permutation saved = permutationRepository.save(p);
+        return mapper.toDto(saved);
+    }
     /* ---------- helpers ---------- */
 
     private User getCurrentUser() {
@@ -306,4 +379,5 @@ public class PermutationServiceImpl implements PermutationService {
     private boolean isOperationalManger(User user) {
         return user.getRole() != null && "OPERATIONAL_MANAGER".equals(user.getRole().name());
     }
+
 }

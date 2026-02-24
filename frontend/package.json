@@ -30,6 +30,8 @@
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.552.0",
     "react": "^19.1.1",
     "react-day-picker": "^9.11.1",

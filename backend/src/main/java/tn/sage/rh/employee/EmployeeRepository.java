@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import tn.sage.rh.employee.projection.ProjectBestSupervisorRow;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -161,4 +162,20 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
             @Param("endTime") java.time.LocalTime endTime
     );
 
+    @Query("""
+    select
+        pl.id as projectId,
+        sup.id as supervisorId,
+        sup.fullName as supervisorFullName,
+        sup.matricule as supervisorMatricule,
+        count(op.id) as operatorsCount
+    from Employee op
+    join op.productionLine pl
+    join op.supervisor sup
+    where (op.deleted = false or op.deleted is null)
+      and (sup.deleted = false or sup.deleted is null)
+    group by pl.id, sup.id, sup.fullName, sup.matricule
+    order by pl.id asc, count(op.id) desc
+""")
+    List<ProjectBestSupervisorRow> findSupervisorCountsByProject();
 }
