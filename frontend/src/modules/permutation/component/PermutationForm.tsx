@@ -128,8 +128,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
   const rawOperators: OperatorRow[] =
     (typePermutation === "RECEVOIR"
       ? ((freeEmployees ?? []) as OperatorRow[])
-      : ((employees ?? []) as OperatorRow[]));
-
+     : ((employees ?? []) as unknown as OperatorRow[]));
   /**
    * ✅ NORMALISATION GARANTIE :
    * - récupère supervisorId/fullName/matricule même si les clés sont différentes
@@ -317,7 +316,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         : "bg-slate-100 text-slate-700 hover:bg-slate-200"
     }`;
 
-  const selectedOperatorsCount = operatorIds.length;
+  
 
   const handleTypePermutationChange = (type: TypePermutation) => {
     setTypePermutation(type);

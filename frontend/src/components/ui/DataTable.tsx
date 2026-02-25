@@ -56,6 +56,7 @@ interface DataTableProps<TData, TValue> {
   globalFilterFn?: FilterFnOption<TData>;
   meta?: TableMeta;
   showExport?: boolean;
+  showPagination?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -68,18 +69,15 @@ export function DataTable<TData, TValue>({
   globalFilterFn,
   meta,
   showExport = false,
+  showPagination = true,
 }: DataTableProps<TData, TValue>) {
   const [expanded, setExpanded] = React.useState({});
-
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  );
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
   function useSkipper() {
     const shouldSkipRef = useRef(true);
     const shouldSkip = shouldSkipRef.current;
 
-    // Wrap a function with this to skip a pagination reset temporarily
     const skip = useCallback(() => {
       shouldSkipRef.current = false;
     }, []);
@@ -155,7 +153,6 @@ export function DataTable<TData, TValue>({
       const values = exportCols.map((h) => {
         return row.getValue(h.id) ?? "";
       });
-
       ws.addRow(values);
     });
 
@@ -284,27 +281,30 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <strong className="text-sm font-medium">
-          {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-        </strong>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
+
+      {showPagination && (
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <strong className="text-sm font-medium">
+            {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+          </strong>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+         
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,6 +24,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static tn.sage.rh.user.UserRole.SUPERVISOR;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @Service
 @RequiredArgsConstructor
@@ -91,7 +94,28 @@ public class EmployeeService {
 
         return employeeRepository.findAll();
     }
+    public Page<Employee> search(Principal connectedUser, String query, int page, int size) {
+        User user = getUserFromPrincipal(connectedUser);
+        Pageable pageable = PageRequest.of(page, size);
 
+        if (user.getRole() == SUPERVISOR) {
+            return employeeRepository.findAllBySupervisorWithSearch(user.getUsername(), query, pageable);
+        }
+
+        return employeeRepository.findAllWithSearch(query, pageable);
+    }
+
+
+    public Page<Employee> findAll(Principal connectedUser, int page, int size) {
+        User user = getUserFromPrincipal(connectedUser);
+        Pageable pageable = PageRequest.of(page, size);
+
+        if (user.getRole() == SUPERVISOR) {
+            return employeeRepository.findAllBySupervisor(user.getUsername(), pageable);
+        }
+
+        return employeeRepository.findAll(pageable);
+    }
     public Optional<Employee> findByIdOrMatricule(Long id, String matricule) {
         if (id != null) return employeeRepository.findById(id);
         if (matricule != null) return employeeRepository.findByMatricule(matricule);

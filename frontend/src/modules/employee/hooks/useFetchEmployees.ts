@@ -9,7 +9,7 @@ export type Employee = {
   id: number;
   fullName: string;
   matricule: string;
-  free?: boolean; // Ajoutez ce champ si votre API le renvoie
+  free?: boolean;
 };
 
 type UseFetchEmployeesParams = {
@@ -26,22 +26,19 @@ export function useFetchEmployees(params?: UseFetchEmployeesParams) {
       null;
 
   return useQuery({
-    queryKey: ["employees", params], // Inclure les params dans la clé
+    queryKey: ["employees-hook", params],
     enabled: !!token,
     queryFn: async () => {
-      const url = params?.includeAll 
-        ? `${API_BASE_URL}/employees`
-        : `${API_BASE_URL}/employees`;
-      
-      const res = await axios.get<Employee[]>(
-          url,
+      const res = await axios.get(
+          `${API_BASE_URL}/employees`,
           {
+            params: { page: 0, size: 1000 },
             headers: token
                 ? { Authorization: `Bearer ${token}` }
                 : undefined,
           }
       );
-      return res.data;
+      return res.data?.content ?? res.data ?? [];
     },
   });
 }

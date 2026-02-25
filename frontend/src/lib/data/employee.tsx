@@ -1,49 +1,55 @@
+// src/lib/data/employee.tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import * as z from "zod";
 import toast from "react-hot-toast";
 
 import useAuth from "@/hooks/useAuth";
 import type { Employee, EmployeeRequest } from "@/modules/employee/types";
 import { isEmpty } from "@/lib/utils";
-import type { EmployeeSchema } from "@/modules/employee/schema";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export const useFetchEmployees = () => {
+export const useFetchEmployees = (page: number = 0) => {
   const { auth } = useAuth();
 
   return useQuery({
-    queryKey: ["employees", auth.user?.id],
+    queryKey: ["employees", auth.user?.id, page],
     queryFn: async () => {
-      const { data } = await axios.get<Employee[]>("/employees", {
+      const { data } = await axios.get("/employees", {
         baseURL: API_BASE_URL,
+        params: { page, size: 25 },
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${auth.accessToken}`,
         },
       });
-
       return data;
     },
     enabled: !!auth.user?.id,
+    placeholderData: (previousData) => previousData,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
-export const useFetchEmployee = (id: string) => {
+export const useSearchEmployees = (query: string, page: number = 0) => {
   const { auth } = useAuth();
 
   return useQuery({
-    queryKey: ["employee", id],
-    queryFn: () => {
-      return axios.get<Employee>(`/employees/${id}`, {
+    queryKey: ["employees-search", auth.user?.id, query, page],
+    queryFn: async () => {
+      const { data } = await axios.get("/employees/search", {
         baseURL: API_BASE_URL,
+        params: { query, page, size: 25 },
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${auth.accessToken}`,
         },
       });
+      return data;
     },
+    enabled: !!auth.user?.id && query.length > 0,
+    placeholderData: (previousData) => previousData,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -52,7 +58,7 @@ export const useCreateEmployee = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: z.infer<typeof EmployeeSchema>) => {
+    mutationFn: (data: EmployeeRequest) => {
       if (isEmpty(data.supervisor)) {
         delete data.supervisor;
       }
@@ -113,7 +119,7 @@ export const useUpdateEmployee = () => {
       data,
     }: {
       id: string;
-      data: z.infer<typeof EmployeeSchema>;
+      data: EmployeeRequest;
     }) => {
       if (isEmpty(data.supervisor)) {
         delete data.supervisor;

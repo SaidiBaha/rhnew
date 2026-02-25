@@ -3,12 +3,13 @@ import type { UserRole } from "@/modules/auth/types";
 import {
   createContext,
   useState,
+  type Dispatch,
+  type SetStateAction,
   type ReactNode,
 } from "react";
 
-// Interface étendue pour inclure tous les champs
 export interface User {
-  id: number; // Changé de string à number pour correspondre à l'ID de votre backend
+  id: number;
   matricule: string;
   role: UserRole;
   fullName: string;
@@ -22,7 +23,7 @@ export interface Auth {
 
 export interface AuthContextProps {
   auth: Auth;
- setAuth: (auth: Auth) => void; // ⬅️ remplacer Dispatch<SetStateAction<Auth>>
+  setAuth: (auth: Auth) => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
@@ -39,27 +40,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const refreshToken = localStorage.getItem("refreshToken");
     const userStr = localStorage.getItem("user");
     const user = userStr ? JSON.parse(userStr) : undefined;
-    
+
     return {
       user,
-      refreshToken: refreshToken || undefined
+      refreshToken: refreshToken || undefined,
     };
   });
 
-  // Updated function to handle both direct values and updater functions
   const updateAuth: Dispatch<SetStateAction<Auth>> = (newAuth) => {
     setAuth((prevAuth) => {
-      // Handle function updater
-      const authToSet = typeof newAuth === 'function' ? newAuth(prevAuth) : newAuth;
-      
-      // Save to localStorage
+      const authToSet = typeof newAuth === "function" ? newAuth(prevAuth) : newAuth;
+
       if (authToSet.user) {
         localStorage.setItem("user", JSON.stringify(authToSet.user));
       }
       if (authToSet.refreshToken) {
         localStorage.setItem("refreshToken", authToSet.refreshToken);
       }
-      
+
       return authToSet;
     });
   };

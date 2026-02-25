@@ -15,6 +15,7 @@ import tn.sage.rh.employee.dto.OperatorAvailabilityDTO;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/api/v1/employees")
@@ -50,12 +51,27 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmployeeDto>> findAll(Principal connectedUser) {
+    public ResponseEntity<Page<EmployeeDto>> findAll(
+            Principal connectedUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "") String search
+    ) {
         return ResponseEntity.ok(
-                employeeService.findAll(connectedUser)
-                        .stream()
+                employeeService.search(connectedUser, search, page, size)
                         .map(employeeMapper::toDTO)
-                        .toList()
+        );
+    }
+    @GetMapping("/search")
+    public ResponseEntity<Page<EmployeeDto>> search(
+            Principal connectedUser,
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size
+    ) {
+        return ResponseEntity.ok(
+                employeeService.search(connectedUser, query, page, size)
+                        .map(employeeMapper::toDTO)
         );
     }
 
@@ -101,10 +117,6 @@ public class EmployeeController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * ✅ Pool des employés "free" (opérateurs disponibles)
-     * ✅ IMPORTANT: le superviseur connecté ne voit pas ses propres opérateurs
-     */
     @GetMapping("/free")
     public ResponseEntity<List<EmployeeDto>> getFreeEmployees(Principal connectedUser) {
         return ResponseEntity.ok(
@@ -114,16 +126,9 @@ public class EmployeeController {
                         .toList()
         );
     }
-    /*
-    @GetMapping("/operators/free")
-    public ResponseEntity<List<EmployeeDto>> getFreeOperators() {
-        return ResponseEntity.ok(employeeService.getFreeOperators());
-    }
-    */
-    // tn/sage/rh/employee/EmployeeController.java
+
     @GetMapping("/operators/free")
     public ResponseEntity<List<OperatorAvailabilityDTO>> freeOperators() {
         return ResponseEntity.ok(employeeService.getFreeOperatorsForOperationalManager());
     }
-
 }
