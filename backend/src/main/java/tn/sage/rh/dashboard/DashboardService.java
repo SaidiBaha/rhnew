@@ -4,14 +4,16 @@ package tn.sage.rh.dashboard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tn.sage.rh.dashboard.dto.BestSupervisorDTO;
+import tn.sage.rh.dashboard.dto.ProjectHoursAggDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursRowDTO;
 import tn.sage.rh.employee.EmployeeRepository;
-import tn.sage.rh.employee.projection.ProjectBestSupervisorRow;
 import tn.sage.rh.organization.entity.ProductionLine;
 import tn.sage.rh.organization.repository.ProductionLineRepository;
 import tn.sage.rh.permutations.entity.Permutation;
 import tn.sage.rh.permutations.entity.PermutationStatus;
 import tn.sage.rh.permutations.repository.PermutationRepository;
+import tn.sage.rh.employee.projection.ProjectBestSupervisorRow;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -23,68 +25,35 @@ import java.util.*;
 public class DashboardService {
 
     private final PermutationRepository permutationRepository;
-
-    // ✅ NEW (méthode 1) : superviseur calculé depuis Employee (prodLine + supervisor)
     private final EmployeeRepository employeeRepository;
-
-    // ✅ Recommandé : pour afficher aussi les projets sans permutation (heures=0)
     private final ProductionLineRepository productionLineRepository;
-
-    /**
-     * Agrégation par projet :
-     * - Heures ajoutées / transférées (via permutations ACCEPTÉES)
-     * - Superviseur affiché = superviseur ayant le PLUS d'opérateurs (distincts) dont productionLine = ce projet
-     *   ✅ calculé depuis EmployeeRepository (pas dépendant des permutations)
-     */
-    private static class Agg {
-        double ajoutees = 0.0;
-        double transferees = 0.0;
-
-        void addAjoutees(double h) { ajoutees += h; }
-        void addTransferees(double h) { transferees += h; }
-    }
-
-    private static class BestSup {
-        final Long id;
-        final String nom;
-        final String matricule;
-        final long count;
-
-        BestSup(Long id, String nom, String matricule, long count) {
-            this.id = id;
-            this.nom = nom;
-            this.matricule = matricule;
-            this.count = count;
-        }
-    }
 
     @Transactional(readOnly = true)
     public List<ProjectHoursRowDTO> computeProjectHours(LocalDate from, LocalDate to) {
         if (from == null || to == null) return List.of();
         if (to.isBefore(from)) return List.of();
 
-        // ✅ 0) best supervisor per project (source = Employee)
-        final Map<Long, BestSup> bestSupByProject = bestSupervisorByProjectFromEmployees();
+        // 0) Best supervisor per project (source = Employee)
+        final Map<Long, BestSupervisorDTO> bestSupByProject = bestSupervisorByProjectFromEmployees();
 
-        // ✅ 1) permutations ACCEPTÉES qui overlap la période (repo fait déjà le status)
+        // 1) Permutations acceptées overlapping
         List<Permutation> perms = permutationRepository.findAcceptedOverlapping(from, to);
 
-        // ✅ 1 ligne par projet
-        Map<Long, Agg> aggByProject = new HashMap<>();
+        // 1 ligne par projet
+        Map<Long, ProjectHoursAggDTO> aggByProject = new HashMap<>();
         Map<Long, String> projectNameById = new HashMap<>();
 
         for (Permutation p : perms) {
             if (p == null) continue;
             if (p.getStatus() != PermutationStatus.ACCEPTEE) continue;
 
-            // destination project
             ProductionLine destPl = p.getProductionLine();
             if (destPl == null) continue;
 
             Long destProjectId = destPl.getId();
             projectNameById.putIfAbsent(destProjectId, resolveProjectName(destPl));
 
-            // dates overlap clamp
+            // overlap clamp
             LocalDate start = p.getStartDate();
             LocalDate end = p.getEndDate();
             if (start == null || end == null) continue;
@@ -108,16 +77,12 @@ public class DashboardService {
             var ops = (p.getOperators() == null) ? Set.<tn.sage.rh.employee.Employee>of() : p.getOperators();
             if (ops.isEmpty()) continue;
 
-            Agg destAgg = aggByProject.computeIfAbsent(destProjectId, k -> new Agg());
+            ProjectHoursAggDTO destAgg = aggByProject.computeIfAbsent(destProjectId, k -> new ProjectHoursAggDTO());
 
-            // =========================
             // (A) Heures ajoutées (IN) : projet destination
-            // =========================
             destAgg.addAjoutees(ops.size() * hoursPerOperator);
 
-            // =========================
             // (B) Heures transférées (OUT) : projet source de chaque opérateur
-            // =========================
             for (var op : ops) {
                 if (op == null) continue;
 
@@ -128,61 +93,53 @@ public class DashboardService {
 
                 if (!Objects.equals(sourceProjectId, destProjectId)) {
                     projectNameById.putIfAbsent(sourceProjectId, resolveProjectName(sourcePl));
-                    Agg sourceAgg = aggByProject.computeIfAbsent(sourceProjectId, k -> new Agg());
+                    ProjectHoursAggDTO sourceAgg =
+                            aggByProject.computeIfAbsent(sourceProjectId, k -> new ProjectHoursAggDTO());
                     sourceAgg.addTransferees(hoursPerOperator);
-                } else {
-                    // même projet => pas de "transfert"
                 }
             }
         }
 
-        // ✅ 2) (Recommandé) Ajouter tous les projets même sans permutations
-        //     => permet d'afficher superviseur + heures=0
+        // 2) Ajouter tous les projets même sans permutations (heures=0 mais superviseur affichable)
         List<ProductionLine> allProjects = productionLineRepository.findAll();
         for (ProductionLine pl : allProjects) {
             if (pl == null) continue;
             projectNameById.putIfAbsent(pl.getId(), resolveProjectName(pl));
-            aggByProject.putIfAbsent(pl.getId(), new Agg());
+            aggByProject.putIfAbsent(pl.getId(), new ProjectHoursAggDTO());
         }
 
-        // ✅ 3) Build DTOs
-        List<ProjectHoursRowDTO> out = new ArrayList<>();
+        // 3) Build DTOs
+        List<ProjectHoursRowDTO> out = new ArrayList<>(aggByProject.size());
 
         for (var entry : aggByProject.entrySet()) {
             Long projectId = entry.getKey();
-            Agg a = entry.getValue();
+            ProjectHoursAggDTO a = entry.getValue();
 
             String projectName = projectNameById.getOrDefault(projectId, "Projet #" + projectId);
-
-            // ✅ Superviseur depuis Employee (max opérateurs sur ce projet)
-            BestSup best = bestSupByProject.get(projectId);
+            BestSupervisorDTO best = bestSupByProject.get(projectId);
 
             out.add(ProjectHoursRowDTO.builder()
                     .idProjet(projectId)
                     .nomProjet(projectName)
 
-                    .idSuperviseur(best != null ? best.id : null)
-                    .nomSuperviseur(best != null ? safe(best.nom) : "")
-                    .matriculeSuperviseur(best != null ? safe(best.matricule) : null)
+                    .idSuperviseur(best != null ? best.getId() : null)
+                    .nomSuperviseur(best != null ? safe(best.getFullName()) : "")
+                    .matriculeSuperviseur(best != null ? best.getMatricule() : null) // ✅ garde null si null
 
-                    .heuresAjoutees(round2(a.ajoutees))
-                    .heuresTransferees(round2(a.transferees))
+                    .heuresAjoutees(round2(a.getHeuresAjoutees()))
+                    .heuresTransferees(round2(a.getHeuresTransferees()))
                     .build());
         }
 
-        out.sort(Comparator.comparing(
-                (ProjectHoursRowDTO r) -> safe(r.getNomProjet()),
-                String.CASE_INSENSITIVE_ORDER
-        ));
-
+        out.sort(Comparator.comparing(r -> safe(r.getNomProjet()), String.CASE_INSENSITIVE_ORDER));
         return out;
     }
 
     // ======================================================
-    // ✅ Best supervisor per project (Employee -> ProductionLine + Supervisor)
+    // Best supervisor per project (Employee -> ProductionLine + Supervisor)
     // ======================================================
-    private Map<Long, BestSup> bestSupervisorByProjectFromEmployees() {
-        Map<Long, BestSup> map = new HashMap<>();
+    private Map<Long, BestSupervisorDTO> bestSupervisorByProjectFromEmployees() {
+        Map<Long, BestSupervisorDTO> map = new HashMap<>();
 
         List<ProjectBestSupervisorRow> rows = employeeRepository.findSupervisorCountsByProject();
         for (ProjectBestSupervisorRow r : rows) {
@@ -194,33 +151,32 @@ public class DashboardService {
             Long supId = r.getSupervisorId();
             long cnt = (r.getOperatorsCount() == null) ? 0 : r.getOperatorsCount();
 
-            BestSup current = map.get(projectId);
-            if (current == null || cnt > current.count) {
-                map.put(projectId, new BestSup(
+            BestSupervisorDTO current = map.get(projectId);
+
+            boolean replace = false;
+            if (current == null) {
+                replace = true;
+            } else if (cnt > current.getOperatorsCount()) {
+                replace = true;
+            } else if (cnt == current.getOperatorsCount()) {
+                // tie-breaker stable: plus petit supervisorId (nulls last)
+                Long curId = current.getId();
+                if (curId == null && supId != null) replace = true;
+                else if (curId != null && supId != null && supId < curId) replace = true;
+            }
+
+            if (replace) {
+                map.put(projectId, new BestSupervisorDTO(
                         supId,
                         safe(r.getSupervisorFullName()),
-                        safe(r.getSupervisorMatricule()),
+                        nullIfBlank(r.getSupervisorMatricule()),
                         cnt
                 ));
-            } else if (cnt == current.count) {
-                // tie-breaker stable: plus petit supervisorId
-                if (supId != null && current.id != null && supId < current.id) {
-                    map.put(projectId, new BestSup(
-                            supId,
-                            safe(r.getSupervisorFullName()),
-                            safe(r.getSupervisorMatricule()),
-                            cnt
-                    ));
-                }
             }
         }
-
         return map;
     }
 
-    // ======================================================
-    // Helpers
-    // ======================================================
     private static String resolveProjectName(ProductionLine pl) {
         String name = pl.getName();
         if (name != null && !name.isBlank()) return name.trim();
@@ -229,6 +185,12 @@ public class DashboardService {
 
     private static String safe(String s) {
         return (s == null) ? "" : s;
+    }
+
+    private static String nullIfBlank(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     private static double round2(double v) {
