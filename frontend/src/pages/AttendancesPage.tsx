@@ -4,6 +4,9 @@ import { AttendancesClient } from "@/modules/attendance/components/AttendancesCl
 import type { EmployeeAttendanceColumn } from "@/modules/attendance/components/columns";
 import { formatEmployee } from "@/modules/employee/utils";
 import { useFetchEmployeeAttendancesForCurrentMonth } from "@/lib/data/attendance";
+import { useEffect } from "react";
+import { displayError, logError } from "@/modules/employee/api-error";
+
 
 function AttendancesPage() {
   const {
@@ -12,6 +15,13 @@ function AttendancesPage() {
     isLoading,
     isFetching,
   } = useFetchEmployeeAttendancesForCurrentMonth();
+
+  // Logger l'erreur dans la console quand elle survient
+  useEffect(() => {
+    if (error) {
+      logError("AttendancesPage - fetch", error);
+    }
+  }, [error]);
 
   const formattedAttendances: EmployeeAttendanceColumn[] = (
     employeeAttendances ?? []
@@ -25,9 +35,8 @@ function AttendancesPage() {
   }
 
   if (error) {
-    return (
-      <ErrorAlert error={error?.message || "Une erreur s'est produite."} />
-    );
+    const errorMessage = displayError(error, "Erreur lors du chargement des pointages");
+    return <ErrorAlert error={errorMessage} />;
   }
 
   return <AttendancesClient data={formattedAttendances} />;
