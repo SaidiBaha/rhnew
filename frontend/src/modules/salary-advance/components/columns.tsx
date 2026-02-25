@@ -73,6 +73,7 @@ export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
     meta: {
       type: "text",
     },
+    
   },
   {
     accessorKey: "updatedAt",

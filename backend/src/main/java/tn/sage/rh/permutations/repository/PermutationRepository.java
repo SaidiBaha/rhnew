@@ -1,3 +1,4 @@
+// tn/sage/rh/permutations/repository/PermutationRepository.java
 package tn.sage.rh.permutations.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,7 +14,6 @@ import java.util.List;
 
 public interface PermutationRepository extends JpaRepository<Permutation, Long> {
 
-    // ✅ IMPORTANT: fetch senders/receiver/operators/productionLine
     @Query("""
         select distinct p
         from Permutation p
@@ -25,7 +25,6 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
     """)
     List<Permutation> findAllOrdered();
 
-    // ✅ IMPORTANT: join fetch pour éviter senders vides
     @Query("""
         select distinct p
         from Permutation p
@@ -57,7 +56,6 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
             @Param("endTime") LocalTime endTime
     );
 
-    // ✅ petit fix: ajouter @Param + éviter bug binding
     @Query("""
         select e from Employee e
         where e.free = true
@@ -65,4 +63,27 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
           and (e.supervisor is null or e.supervisor.id <> :supervisorId)
     """)
     List<Employee> findFreeOperatorsExcludingMyOperators(@Param("supervisorId") Long supervisorId);
+
+    // ✅ Dashboard: ACCEPTÉE + overlap + fetch complet
+    @Query("""
+        select distinct p
+        from Permutation p
+        join fetch p.receiver r
+        left join fetch p.productionLine pl
+        join fetch p.operators op
+        left join fetch op.supervisor sup
+        left join fetch op.productionLine opPl
+        where p.status = :status
+          and p.startDate <= :to
+          and p.endDate >= :from
+    """)
+    List<Permutation> findAcceptedOverlapping(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("status") PermutationStatus status
+    );
+
+    default List<Permutation> findAcceptedOverlapping(LocalDate from, LocalDate to) {
+        return findAcceptedOverlapping(from, to, PermutationStatus.ACCEPTEE);
+    }
 }

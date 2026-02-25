@@ -78,7 +78,11 @@ public class SecurityConfiguration {
                                 .hasAnyAuthority(EMPLOYEE_DELETE.name())
                                 .requestMatchers(GET, "/api/v1/employees/operators/free")
                                 .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-
+//DASHBOARD
+                                .requestMatchers(GET, "/api/v1/dashboard/**")
+                                .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name())
+                                .requestMatchers(GET, "/api/v1/dashboard/**")
+                                .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name())
                                 .requestMatchers("/api/v1/salary-advance-deadlines/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
                                 .requestMatchers(GET, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_READ.name())
                                 .requestMatchers(POST, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_CREATE.name())
