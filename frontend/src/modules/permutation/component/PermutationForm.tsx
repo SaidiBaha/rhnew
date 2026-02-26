@@ -799,37 +799,56 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </p>
                     )}
 
-                    {filteredOperators.map((emp) => {
-                        const checked = operatorIds.includes(emp.id);
-                        const matricule = emp.matricule ?? "";
-                        const isFree = operatorAvailability.get(emp.id) ?? true;
+{filteredOperators.map((emp) => {
+    const checked = operatorIds.includes(emp.id);
+    const matricule = emp.matricule ?? "";
+    const isFree = operatorAvailability.get(emp.id) ?? true;
+    
+    // ✅ Récupération des informations du superviseur
+    const supervisorName = (emp as any).supervisorFullName || (emp as any).supervisor?.fullName;
 
-                        return (
-                            <label
-                                key={emp.id}
-                                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
-                                    checked
-                                        ? "border-[#6b7a12] bg-[#6b7a12]/5"
-                                        : "border-slate-200 bg-white hover:bg-slate-50"
-                                }`}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => toggleOperator(emp.id)}
-                                    className="h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
-                                />
+    return (
+        <label
+            key={emp.id}
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
+                checked
+                    ? "border-[#6b7a12] bg-[#6b7a12]/5"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+            }`}
+        >
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => toggleOperator(emp.id)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
+            />
 
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="truncate text-sm font-bold text-slate-900">{emp.fullName}</p>
+            <div className="min-w-0 flex-1">
+                {/* Nom de l'opérateur */}
+                <p className="truncate text-sm font-bold text-slate-900">{emp.fullName}</p>
 
-                                        {typePermutation === "ENVOYER" && (
-                                            <span
-                                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                                    isFree ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                                                }`}
-                                            >
+                {/* Matricule de l'opérateur */}
+                {matricule && (
+                    <p className="text-[11px] font-semibold uppercase text-slate-400">
+                        Matricule : {matricule}
+                    </p>
+                )}
+
+                {/* ✅ Superviseur actuel (mode RECEVOIR uniquement) */}
+                {typePermutation === "RECEVOIR" && supervisorName && (
+                    <p className="mt-1 text-[11px] text-slate-600">
+                        <span className="font-medium text-slate-500">Superviseur actuel :</span>{' '}
+                        <span className="font-semibold">{supervisorName}</span>
+                    </p>
+                )}
+
+                {/* Statut (mode ENVOYER uniquement) */}
+                {typePermutation === "ENVOYER" && (
+                    <span
+                        className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            isFree ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}
+                    >
                         {isFree ? (
                             <>
                                 <CheckCircleIcon className="h-3 w-3" />
@@ -841,17 +860,12 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 Occupé
                             </>
                         )}
-                      </span>
-                                        )}
-                                    </div>
-
-                                    {matricule && (
-                                        <p className="text-[11px] font-semibold uppercase text-slate-400">Matricule : {matricule}</p>
-                                    )}
-                                </div>
-                            </label>
-                        );
-                    })}
+                    </span>
+                )}
+            </div>
+        </label>
+    );
+})}
                 </div>
 
                 <p className="mt-2 text-[11px] text-slate-500">
