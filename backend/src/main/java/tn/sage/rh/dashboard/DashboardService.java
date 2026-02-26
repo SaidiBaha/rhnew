@@ -8,8 +8,10 @@ import tn.sage.rh.dashboard.dto.BestSupervisorDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursAggDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursRowDTO;
 import tn.sage.rh.employee.EmployeeRepository;
+import tn.sage.rh.organization.dto.ProductionLineMinimalDto;
 import tn.sage.rh.organization.entity.ProductionLine;
 import tn.sage.rh.organization.repository.ProductionLineRepository;
+import tn.sage.rh.organization.service.ProductionLineService;
 import tn.sage.rh.permutations.entity.Permutation;
 import tn.sage.rh.permutations.entity.PermutationStatus;
 import tn.sage.rh.permutations.repository.PermutationRepository;
@@ -23,10 +25,10 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
-
     private final PermutationRepository permutationRepository;
     private final EmployeeRepository employeeRepository;
-    private final ProductionLineRepository productionLineRepository;
+    private final ProductionLineRepository productionLineRepository; // Gardé car utilisé dans resolveProjectName() pour les entités
+    private final ProductionLineService productionLineService;
 
     @Transactional(readOnly = true)
     public List<ProjectHoursRowDTO> computeProjectHours(LocalDate from, LocalDate to) {
@@ -101,11 +103,18 @@ public class DashboardService {
         }
 
         // 2) Ajouter tous les projets même sans permutations (heures=0 mais superviseur affichable)
-        List<ProductionLine> allProjects = productionLineRepository.findAll();
-        for (ProductionLine pl : allProjects) {
-            if (pl == null) continue;
-            projectNameById.putIfAbsent(pl.getId(), resolveProjectName(pl));
-            aggByProject.putIfAbsent(pl.getId(), new ProjectHoursAggDTO());
+        // Utilisation de ProductionLineService.findAll() qui retourne des ProductionLineMinimalDto
+        List<ProductionLineMinimalDto> allProjectsDTO = productionLineService.findAll();
+        for (ProductionLineMinimalDto plDTO : allProjectsDTO) {
+            if (plDTO == null) continue;
+
+            Long projectId = plDTO.getId();
+            String projectName = plDTO.getName() != null && !plDTO.getName().isBlank()
+                    ? plDTO.getName().trim()
+                    : "Projet #" + projectId;
+
+            projectNameById.putIfAbsent(projectId, projectName);
+            aggByProject.putIfAbsent(projectId, new ProjectHoursAggDTO());
         }
 
         // 3) Build DTOs
@@ -121,11 +130,9 @@ public class DashboardService {
             out.add(ProjectHoursRowDTO.builder()
                     .idProjet(projectId)
                     .nomProjet(projectName)
-
                     .idSuperviseur(best != null ? best.getId() : null)
                     .nomSuperviseur(best != null ? safe(best.getFullName()) : "")
-                    .matriculeSuperviseur(best != null ? best.getMatricule() : null) // ✅ garde null si null
-
+                    .matriculeSuperviseur(best != null ? best.getMatricule() : null)
                     .heuresAjoutees(round2(a.getHeuresAjoutees()))
                     .heuresTransferees(round2(a.getHeuresTransferees()))
                     .build());
@@ -178,6 +185,7 @@ public class DashboardService {
     }
 
     private static String resolveProjectName(ProductionLine pl) {
+        if (pl == null) return "";
         String name = pl.getName();
         if (name != null && !name.isBlank()) return name.trim();
         return "Projet #" + pl.getId();

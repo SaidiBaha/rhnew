@@ -3,6 +3,7 @@ package tn.sage.rh.organization.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import tn.sage.rh.organization.dto.ProductionLineMinimalDto;
 import tn.sage.rh.organization.entity.ProductionLine;
 import tn.sage.rh.organization.repository.ProductionLineRepository;
 
@@ -26,13 +27,34 @@ public class ProductionLineService {
         return null;
     }
 
-    public List<ProductionLine> findAll() {
-        return productionLineRepository.findAll();
+    public List<ProductionLineMinimalDto> findAll() {
+
+        List<String> excludedNames = List.of(
+                "FORMATRICE",
+                "MAINTENANCE",
+                "FORMATION"
+        );
+
+        return productionLineRepository.findByNameNotIn(excludedNames)
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
-    public ProductionLine getByIdOrThrow(Long id) {
-        return productionLineRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Production line not found for id " + id));
+    private ProductionLineMinimalDto toDto(ProductionLine entity) {
+        return ProductionLineMinimalDto.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .build();
+    }
+
+    public ProductionLineMinimalDto findById(Long id) {
+        ProductionLine entity = productionLineRepository.findById(id)
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Production line not found for id " + id)
+                );
+
+        return toDto(entity);
     }
  /*   public Optional<ProductionLine> findByName(String name) {
         return productionLineRepository.findByNameIgnoreCase(name.toUpperCase());
