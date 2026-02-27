@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.dashboard.dto.BestSupervisorDTO;
+import tn.sage.rh.dashboard.dto.PermutationsDailyDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursAggDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursRowDTO;
 import tn.sage.rh.employee.EmployeeRepository;
@@ -195,5 +196,21 @@ public class DashboardService {
 
     private static double round2(double v) {
         return Math.round(v * 100.0) / 100.0;
+    }
+    @Transactional(readOnly = true)
+    public List<PermutationsDailyDTO> getPermutationsDaily(LocalDate from, LocalDate to) {
+        if (from == null || to == null) return List.of();
+        if (to.isBefore(from)) return List.of();
+
+        List<PermutationsDailyDTO> out = new ArrayList<>();
+
+        LocalDate day = from;
+        while (!day.isAfter(to)) {
+            long cnt = permutationRepository.countAcceptedOverlappingDay(day);
+            out.add(new PermutationsDailyDTO(day, cnt));
+            day = day.plusDays(1);
+        }
+
+        return out;
     }
 }

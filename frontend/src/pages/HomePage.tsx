@@ -1,4 +1,3 @@
-// src/pages/HomePage.tsx
 import { useMemo, useState } from "react";
 import { Loader } from "@/components/Loader";
 import { ErrorAlert } from "@/components/ErrorAlert";
@@ -8,6 +7,16 @@ import useAuth from "@/hooks/useAuth";
 // ✅ exports
 import { exportProjectHoursToExcel } from "@/modules/dashboard/utils/exportProjectHoursExcel";
 import { exportProjectHoursToPdf } from "@/modules/dashboard/utils/exportProjectHoursPdf";
+
+// ✅ NEW: weekly permutations
+import { useFetchPermutationsDaily } from "@/modules/dashboard/hooks/useFetchPermutationsDaily";
+import {
+    getWeekRangeFrom,
+    addWeeks,
+    toYmd,
+    buildWeekDays,
+    dayLabelFR,
+} from "@/modules/dashboard/utils/week";
 
 // ✅ charts
 import {
@@ -71,31 +80,44 @@ function formatH(n: number) {
     return `${v.toFixed(2)} h`;
 }
 
-/** ✅ Gauge semi-cercle “créatif” */
+/** ✅ Gauge semi-cercle “créatif” + tooltip heures exactes */
 function GaugeCard({
                        title,
                        subtitle,
                        percent,
                        legendLeft,
                        legendRight,
+                       hoursLeft,
+                       hoursRight,
                    }: {
     title: string;
     subtitle?: string;
     percent: number; // 0..100 (part left)
     legendLeft: string;
     legendRight: string;
+    hoursLeft: number;
+    hoursRight: number;
 }) {
-    const p = Math.max(0, Math.min(100, percent));
+    const safeLeft = Number.isFinite(hoursLeft) ? Math.max(0, hoursLeft) : 0;
+    const safeRight = Number.isFinite(hoursRight) ? Math.max(0, hoursRight) : 0;
 
-    // 2 segments + reste (gris)
-    const data = [
-        { name: "left", value: p },
-        { name: "right", value: 100 - p },
-        { name: "rest", value: 0 }, // garde structure stable
-    ];
+    const total = safeLeft + safeRight;
 
-    // couleurs: left / right / gris
-    const COLORS = ["#3b82f6", "#f59e0b", "#e5e7eb"];
+    // si total=0, on garde un rendu stable (50/50 visuel)
+    const data =
+        total > 0
+            ? [
+                { name: legendLeft, value: safeLeft },
+                { name: legendRight, value: safeRight },
+            ]
+            : [
+                { name: legendLeft, value: 1 },
+                { name: legendRight, value: 1 },
+            ];
+
+    const p = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
+
+    const COLORS = ["#3b82f6", "#f59e0b"];
 
     return (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -113,6 +135,20 @@ function GaugeCard({
             <div className="mt-3 h-[120px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+                        <Tooltip
+                            isAnimationActive={false}
+                            formatter={(v: any, name: any) => {
+                                // ✅ afficher heures exactes
+                                const vv = Number(v);
+                                const hh = Number.isFinite(vv) ? vv : 0;
+
+                                // si total=0, on veut afficher 0h même si on a mis 1/1 pour le rendu
+                                if (total <= 0) return ["0.00 h", String(name)];
+
+                                return [`${hh.toFixed(2)} h`, String(name)];
+                            }}
+                            labelFormatter={() => ""}
+                        />
                         <Pie
                             data={data}
                             dataKey="value"
@@ -138,47 +174,70 @@ function GaugeCard({
                 <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full" style={{ background: "#3b82f6" }} />
                     <span className="text-slate-700">{legendLeft}</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="font-semibold text-slate-700">{formatH(safeLeft)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full" style={{ background: "#f59e0b" }} />
                     <span className="text-slate-700">{legendRight}</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="font-semibold text-slate-700">{formatH(safeRight)}</span>
                 </div>
             </div>
         </div>
     );
 }
 
-/** ✅ Bar chart “créatif” (Top projets) */
-function TopProjectsBars({
-                             title,
-                             subtitle,
-                             data,
-                         }: {
+/** ✅ Bar chart “Permutations par jour (semaine)” + boutons semaine */
+function PermutationsWeekBars({
+                                  title,
+                                  subtitle,
+                                  rangeLabel,
+                                  data,
+                                  onPrev,
+                                  onNext,
+                              }: {
     title: string;
     subtitle?: string;
+    rangeLabel: string; // "YYYY-MM-DD → YYYY-MM-DD"
     data: { name: string; total: number }[];
+    onPrev: () => void;
+    onNext: () => void;
 }) {
     return (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div className="text-sm font-semibold text-slate-900">{title}</div>
                     {subtitle ? <div className="text-xs text-slate-500 mt-1">{subtitle}</div> : null}
+                    <div className="mt-2 text-[11px] text-slate-500">Semaine: {rangeLabel}</div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={onPrev}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                    >
+                        ← Semaine précédente
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onNext}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                    >
+                        Semaine suivante →
+                    </button>
                 </div>
             </div>
 
             <div className="mt-4 h-[190px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data}>
-                        <XAxis
-                            dataKey="name"
-                            tick={{ fontSize: 11 }}
-                            interval={0}
-                            height={48}
-                        />
-                        <YAxis tick={{ fontSize: 11 }} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} height={40} />
+                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                         <Tooltip
-                            formatter={(v: any) => formatH(Number(v))}
+                            formatter={(v: any) => [`${Number(v)} permutations`, ""]}
                             labelFormatter={(l: any) => String(l)}
                         />
                         <Bar dataKey="total" radius={[10, 10, 0, 0]} />
@@ -187,7 +246,7 @@ function TopProjectsBars({
             </div>
 
             <div className="mt-2 text-[11px] text-slate-500">
-                Astuce : c’est le total (ajoutées + transférées).
+                Astuce : Lun → Dim. Les jours vides = 0.
             </div>
         </div>
     );
@@ -204,6 +263,31 @@ export default function HomePage() {
     const [au, setAu] = useState(today);
 
     const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au);
+
+    // ✅ NEW: week navigation for permutations
+    const [weekCursor, setWeekCursor] = useState<Date>(() => new Date());
+
+    const { monday, sunday } = useMemo(() => getWeekRangeFrom(weekCursor), [weekCursor]);
+    const weekFrom = useMemo(() => toYmd(monday), [monday]);
+    const weekTo = useMemo(() => toYmd(sunday), [sunday]);
+
+    const { data: permsDaily, isLoading: permsLoading } = useFetchPermutationsDaily(weekFrom, weekTo);
+
+    // ✅ bars (7 days always)
+    const permsWeekBars = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const r of permsDaily ?? []) {
+            if (r?.date) map.set(r.date, Number(r.count ?? 0));
+        }
+
+        return buildWeekDays(monday).map((d) => {
+            const ymd = toYmd(d);
+            return {
+                name: dayLabelFR(d),
+                total: Number(map.get(ymd) ?? 0),
+            };
+        });
+    }, [permsDaily, monday]);
 
     // ✅ build rows 1 ligne / projet (best superviseur = max score)
     const rowsByProject: RowProjet[] = useMemo(() => {
@@ -224,7 +308,8 @@ export default function HomePage() {
             const idProjet = Number(r.idProjet);
             if (!Number.isFinite(idProjet)) continue;
 
-            const nomProjet = (r.nomProjet ?? `Projet #${idProjet}`).toString().trim() || `Projet #${idProjet}`;
+            const nomProjet =
+                (r.nomProjet ?? `Projet #${idProjet}`).toString().trim() || `Projet #${idProjet}`;
 
             const supId =
                 r.idSuperviseur === undefined || r.idSuperviseur === null ? null : Number(r.idSuperviseur);
@@ -290,25 +375,11 @@ export default function HomePage() {
         [rowsByProject]
     );
 
-    // ✅ chart data
     const percentAdded = useMemo(() => {
         const tot = Number(totalAjoutees) + Number(totalTransferees);
         if (!Number.isFinite(tot) || tot <= 0) return 0;
         return (Number(totalAjoutees) / tot) * 100;
     }, [totalAjoutees, totalTransferees]);
-
-    const topProjects = useMemo(() => {
-        const sorted = [...rowsByProject]
-            .map((r) => ({
-                name: (r.nomProjet ?? "").toString().slice(0, 10) || `#${r.idProjet}`, // compact like sample
-                total: round2(Number(r.heuresAjoutees ?? 0) + Number(r.heuresTransferees ?? 0)),
-            }))
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 7);
-
-        // si tout est 0, on garde quand même des barres “propres”
-        return sorted.length ? sorted : [];
-    }, [rowsByProject]);
 
     if (!isOpManager) {
         return (
@@ -378,12 +449,17 @@ export default function HomePage() {
                     percent={percentAdded}
                     legendLeft="Ajoutées"
                     legendRight="Transférées"
+                    hoursLeft={totalAjoutees}
+                    hoursRight={totalTransferees}
                 />
 
-                <TopProjectsBars
-                    title="Top projets (total heures)"
-                    subtitle="Top 7 (ajoutées + transférées)"
-                    data={topProjects}
+                <PermutationsWeekBars
+                    title="Permutations par jour"
+                    subtitle={permsLoading ? "Chargement..." : "Nombre de permutations (semaine)"}
+                    rangeLabel={`${weekFrom} → ${weekTo}`}
+                    data={permsWeekBars}
+                    onPrev={() => setWeekCursor((d) => addWeeks(d, -1))}
+                    onNext={() => setWeekCursor((d) => addWeeks(d, 1))}
                 />
             </div>
 
@@ -439,7 +515,9 @@ export default function HomePage() {
                                     <td className="px-5 py-4">
                                         <div className="font-semibold text-slate-900">{r.nomSuperviseur}</div>
                                         {r.matriculeSuperviseur && (
-                                            <div className="text-xs text-slate-400">Matricule: {r.matriculeSuperviseur}</div>
+                                            <div className="text-xs text-slate-400">
+                                                Matricule: {r.matriculeSuperviseur}
+                                            </div>
                                         )}
                                     </td>
 
