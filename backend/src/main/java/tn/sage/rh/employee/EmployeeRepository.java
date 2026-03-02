@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import tn.sage.rh.employee.dto.SupervisorDto;
 import tn.sage.rh.employee.projection.ProjectBestSupervisorRow;
 
 import java.time.LocalDate;
@@ -37,13 +38,25 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
 
     @Query("""
-        select e
-        from Employee e
-        join e.jobTitle jt
-        where (e.deleted = false or e.deleted is null)
-          and jt.title like '%SUPERVISEUR%'
-    """)
-    List<Employee> findAllSupervisors();
+    select new tn.sage.rh.employee.dto.SupervisorDto(
+        e.id,
+        e.matricule,
+        e.fullName,
+        d.name,
+        jt.title
+    )
+    from Employee e
+    join e.department d
+    join e.jobTitle jt
+    where e.deleted = false
+      and exists (
+          select 1
+          from Employee op
+          where op.supervisor = e
+      )
+      and d.name not in ('RESSOURCES HUMAINES','IT','MAINTENANCE')
+""")
+    List<SupervisorDto> findAllSupervisors();
     List<Employee> findAllByMatriculeIn(Collection<String> matricules);
     @Query("""
     select e

@@ -7,10 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import tn.sage.rh.employee.dto.EmployeeDto;
-import tn.sage.rh.employee.dto.EmployeeFreeRequestDto;
-import tn.sage.rh.employee.dto.EmployeeRequestDto;
-import tn.sage.rh.employee.dto.OperatorAvailabilityDTO;
+import tn.sage.rh.employee.dto.*;
 
 import java.security.Principal;
 import java.time.LocalDate;
@@ -60,13 +57,8 @@ public class EmployeeController {
     }
 
     @GetMapping("/supervisors")
-    public ResponseEntity<List<EmployeeDto>> findAllSupervisors() {
-        return ResponseEntity.ok(
-                employeeService.findAllSupervisors()
-                        .stream()
-                        .map(employeeMapper::toDTO)
-                        .toList()
-        );
+    public ResponseEntity<List<SupervisorDto>> findAllSupervisors() {
+        return ResponseEntity.ok(employeeService.findAllSupervisors());
     }
 
     @GetMapping("/{id}")

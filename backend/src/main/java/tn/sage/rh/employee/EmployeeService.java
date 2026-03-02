@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.employee.dto.EmployeeDto;
 import tn.sage.rh.employee.dto.EmployeeRequestDto;
 import tn.sage.rh.employee.dto.OperatorAvailabilityDTO;
+import tn.sage.rh.employee.dto.SupervisorDto;
 import tn.sage.rh.employee.event.EmployeeBatchSaveEvent;
 import tn.sage.rh.employee.event.EmployeeCreationEvent;
 import tn.sage.rh.exeption.EntityNotFoundException;
@@ -489,7 +490,7 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public List<Employee> findAllSupervisors() {
+    public List<SupervisorDto> findAllSupervisors() {
         return employeeRepository.findAllSupervisors();
     }
 
