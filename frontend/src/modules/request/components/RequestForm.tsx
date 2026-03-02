@@ -27,7 +27,7 @@ import type { Employee } from "@/modules/employee/types";
 
 interface RequestFormProps {
   defaultValues: DefaultValues<z.infer<typeof RequestSchema>>;
-  employees: Employee[];
+  employees: Employee[] | undefined;
   onSubmit: (data: z.infer<typeof RequestSchema>) => void;
   isLoading: boolean;
   action: string;
@@ -46,6 +46,9 @@ export function RequestForm({
     resolver: zodResolver(RequestSchema),
     defaultValues,
   });
+
+  // ✅ Always guarantee an array regardless of what the API returns
+  const safeEmployees: Employee[] = Array.isArray(employees) ? employees : [];
 
   const filterRequestStatuses = (): RequestStatus[] => {
     return auth.user?.role == "ADMIN"
@@ -117,6 +120,7 @@ export function RequestForm({
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="employee"
@@ -124,7 +128,7 @@ export function RequestForm({
             <FormItem>
               <FormLabel>Employé</FormLabel>
               <Combobox
-                options={(employees ?? []).map((employee) => ({
+                options={safeEmployees.map((employee) => ({ // ✅ always an array
                   label: `${employee.matricule}\t ${employee.fullName}`,
                   value: employee.matricule,
                 }))}
@@ -137,6 +141,7 @@ export function RequestForm({
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="comment"
@@ -156,6 +161,7 @@ export function RequestForm({
             </FormItem>
           )}
         />
+
         <div className="pt-6 space-x-2 flex items-center justify-end">
           <Button
             disabled={isLoading}
