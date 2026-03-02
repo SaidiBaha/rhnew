@@ -21,6 +21,19 @@ import { Loader } from "@/components/Loader";
 import { ErrorAlert } from "@/components/ErrorAlert";
 import useAuth from "@/hooks/useAuth";
 
+// Type local adapté à la structure réelle des données
+interface EmployeeLocal {
+  id: number;
+  fullName: string;
+  matricule: string;
+  free?: boolean;
+  supervisorFullName?: string;
+  supervisor?: {
+    fullName: string;
+  };
+  [key: string]: any; // Pour les propriétés supplémentaires
+}
+
 type Props = {
     onCreated?: () => void;
     mode?: "send" | "choose";
@@ -140,8 +153,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const { mutateAsync, isPending } = useCreatePermutation();
 
     // Déterminer quelle liste d'opérateurs utiliser selon le type
-    const allOperators = employees ?? [];
-    const freeOperatorsList = freeEmployees ?? [];
+    const allOperators = (employees ?? []) as EmployeeLocal[];
+    const freeOperatorsList = (freeEmployees ?? []) as EmployeeLocal[];
     const operators = typePermutation === "RECEVOIR" ? freeOperatorsList : allOperators;
 
     const permutations: Permutation[] = permutationsData ?? [];
@@ -210,12 +223,12 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const operatorAvailability = useMemo(() => {
         const result = new Map<number, boolean>();
 
-        operators.forEach((emp) => {
+        operators.forEach((emp: EmployeeLocal) => {
             if (typePermutation === "RECEVOIR") {
                 result.set(emp.id, true);
             } else {
                 const isUnavailable = unavailableOperatorIds.has(emp.id);
-                const isFreeFromData = (emp as any).free === true;
+                const isFreeFromData = emp.free === true;
                 const isFree = !isUnavailable && isFreeFromData;
                 result.set(emp.id, isFree);
             }
@@ -231,7 +244,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             return { allCount, freeCount: allCount, occupiedCount: 0 };
         }
 
-        const freeCount = operators.filter((emp) => (operatorAvailability.get(emp.id) ?? true)).length;
+        const freeCount = operators.filter((emp: EmployeeLocal) => (operatorAvailability.get(emp.id) ?? true)).length;
         const occupiedCount = allCount - freeCount;
 
         return { allCount, freeCount, occupiedCount };
@@ -241,7 +254,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
     const filteredOperators = useMemo(
         () =>
-            operators.filter((emp) => {
+            operators.filter((emp: EmployeeLocal) => {
                 if (searchTerm) {
                     const fullName = (emp.fullName ?? "").toLowerCase();
                     const matricule = (emp.matricule ?? "").toLowerCase();
@@ -520,8 +533,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             <UserCircleIcon className="h-4 w-4 text-slate-500" />
                             <span className="text-xs font-medium text-slate-700">{connectedUser.fullName}</span>
                             <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                {connectedUser.role}
-              </span>
+                                {connectedUser.role}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -581,13 +594,13 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 required
                             >
                                 <option value="">-- Sélectionner --</option>
-                                {supervisors!
-                                    .filter((emp) => (connectedUser ? emp.id !== Number(connectedUser.id) : true))
-                                    .map((emp) => (
-                                        <option key={emp.id} value={emp.id}>
-                                            {emp.fullName} (Matricule: {emp.matricule})
-                                        </option>
-                                    ))}
+                                {(supervisors as EmployeeLocal[])?.filter((emp: EmployeeLocal) => 
+                                    connectedUser ? emp.id !== Number(connectedUser.id) : true
+                                ).map((emp: EmployeeLocal) => (
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.fullName} (Matricule: {emp.matricule})
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     )}
@@ -604,7 +617,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             required
                         >
                             <option value="">-- Sélectionner --</option>
-                            {lines.map((line) => (
+                            {lines.map((line: any) => (
                                 <option key={line.id} value={line.id}>
                                     {line.name ?? (line as any).label ?? `Ligne #${line.id}`}
                                 </option>
@@ -648,8 +661,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             Date de fin <span className="text-red-500">*</span>
                             {typePermutation === "ENVOYER" ? (
                                 <span className="ml-2 text-[10px] font-semibold text-slate-400">
-                  (aujourd&apos;hui ou demain si shift nuit)
-                </span>
+                                    (aujourd&apos;hui ou demain si shift nuit)
+                                </span>
                             ) : (
                                 <span className="ml-2 text-[10px] font-semibold text-slate-400">(aujourd&apos;hui)</span>
                             )}
@@ -715,10 +728,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             selectedOperatorsCount === 0 ? "bg-[#6b7a12]/10 text-[#6b7a12]" : "bg-[#6b7a12] text-white"
                         }`}
                     >
-            {selectedOperatorsCount === 0
-                ? "Aucun opérateur sélectionné"
-                : `${selectedOperatorsCount} sélectionné${selectedOperatorsCount > 1 ? "s" : ""}`}
-          </span>
+                        {selectedOperatorsCount === 0
+                            ? "Aucun opérateur sélectionné"
+                            : `${selectedOperatorsCount} sélectionné${selectedOperatorsCount > 1 ? "s" : ""}`}
+                    </span>
                 </div>
 
                 <div className="mb-3 space-y-3">
@@ -745,8 +758,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                             availabilityFilter === "all" ? "bg-white/20" : "bg-slate-300 text-slate-700"
                                         }`}
                                     >
-                    {availabilityStats.allCount}
-                  </span>
+                                        {availabilityStats.allCount}
+                                    </span>
                                 </button>
 
                                 <button
@@ -760,8 +773,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                             availabilityFilter === "free" ? "bg-white/20" : "bg-[#6b7a12]/10 text-[#6b7a12]"
                                         }`}
                                     >
-                    {availabilityStats.freeCount}
-                  </span>
+                                        {availabilityStats.freeCount}
+                                    </span>
                                 </button>
 
                                 <button
@@ -775,8 +788,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                             availabilityFilter === "occupied" ? "bg-white/20" : "bg-red-100 text-red-600"
                                         }`}
                                     >
-                    {availabilityStats.occupiedCount}
-                  </span>
+                                        {availabilityStats.occupiedCount}
+                                    </span>
                                 </button>
                             </div>
                         </div>
@@ -784,8 +797,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3">
                             <CheckCircleIcon className="h-5 w-5 text-green-600" />
                             <span className="text-xs font-medium text-green-700">
-                Liste des opérateurs actuellement libres (aujourd&apos;hui)
-              </span>
+                                Liste des opérateurs actuellement libres (aujourd&apos;hui)
+                            </span>
                         </div>
                     )}
                 </div>
@@ -799,73 +812,73 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </p>
                     )}
 
-{filteredOperators.map((emp) => {
-    const checked = operatorIds.includes(emp.id);
-    const matricule = emp.matricule ?? "";
-    const isFree = operatorAvailability.get(emp.id) ?? true;
-    
-    // ✅ Récupération des informations du superviseur
-    const supervisorName = (emp as any).supervisorFullName || (emp as any).supervisor?.fullName;
+                    {filteredOperators.map((emp: EmployeeLocal) => {
+                        const checked = operatorIds.includes(emp.id);
+                        const matricule = emp.matricule ?? "";
+                        const isFree = operatorAvailability.get(emp.id) ?? true;
+                        
+                        // ✅ Récupération des informations du superviseur
+                        const supervisorName = emp.supervisorFullName || emp.supervisor?.fullName;
 
-    return (
-        <label
-            key={emp.id}
-            className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
-                checked
-                    ? "border-[#6b7a12] bg-[#6b7a12]/5"
-                    : "border-slate-200 bg-white hover:bg-slate-50"
-            }`}
-        >
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggleOperator(emp.id)}
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
-            />
+                        return (
+                            <label
+                                key={emp.id}
+                                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
+                                    checked
+                                        ? "border-[#6b7a12] bg-[#6b7a12]/5"
+                                        : "border-slate-200 bg-white hover:bg-slate-50"
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleOperator(emp.id)}
+                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
+                                />
 
-            <div className="min-w-0 flex-1">
-                {/* Nom de l'opérateur */}
-                <p className="truncate text-sm font-bold text-slate-900">{emp.fullName}</p>
+                                <div className="min-w-0 flex-1">
+                                    {/* Nom de l'opérateur */}
+                                    <p className="truncate text-sm font-bold text-slate-900">{emp.fullName}</p>
 
-                {/* Matricule de l'opérateur */}
-                {matricule && (
-                    <p className="text-[11px] font-semibold uppercase text-slate-400">
-                        Matricule : {matricule}
-                    </p>
-                )}
+                                    {/* Matricule de l'opérateur */}
+                                    {matricule && (
+                                        <p className="text-[11px] font-semibold uppercase text-slate-400">
+                                            Matricule : {matricule}
+                                        </p>
+                                    )}
 
-                {/* ✅ Superviseur actuel (mode RECEVOIR uniquement) */}
-                {typePermutation === "RECEVOIR" && supervisorName && (
-                    <p className="mt-1 text-[11px] text-slate-600">
-                        <span className="font-medium text-slate-500">Superviseur actuel :</span>{' '}
-                        <span className="font-semibold">{supervisorName}</span>
-                    </p>
-                )}
+                                    {/* ✅ Superviseur actuel (mode RECEVOIR uniquement) */}
+                                    {typePermutation === "RECEVOIR" && supervisorName && (
+                                        <p className="mt-1 text-[11px] text-slate-600">
+                                            <span className="font-medium text-slate-500">Superviseur actuel :</span>{' '}
+                                            <span className="font-semibold">{supervisorName}</span>
+                                        </p>
+                                    )}
 
-                {/* Statut (mode ENVOYER uniquement) */}
-                {typePermutation === "ENVOYER" && (
-                    <span
-                        className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            isFree ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                        }`}
-                    >
-                        {isFree ? (
-                            <>
-                                <CheckCircleIcon className="h-3 w-3" />
-                                Libre
-                            </>
-                        ) : (
-                            <>
-                                <XCircleIcon className="h-3 w-3" />
-                                Occupé
-                            </>
-                        )}
-                    </span>
-                )}
-            </div>
-        </label>
-    );
-})}
+                                    {/* Statut (mode ENVOYER uniquement) */}
+                                    {typePermutation === "ENVOYER" && (
+                                        <span
+                                            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                                isFree ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                            }`}
+                                        >
+                                            {isFree ? (
+                                                <>
+                                                    <CheckCircleIcon className="h-3 w-3" />
+                                                    Libre
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircleIcon className="h-3 w-3" />
+                                                    Occupé
+                                                </>
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
+                            </label>
+                        );
+                    })}
                 </div>
 
                 <p className="mt-2 text-[11px] text-slate-500">

@@ -4,6 +4,7 @@ import {
   createContext,
   useState,
   type ReactNode,
+  
 } from "react";
 
 // Interface étendue pour inclure tous les champs
@@ -22,7 +23,8 @@ export interface Auth {
 
 export interface AuthContextProps {
   auth: Auth;
- setAuth: (auth: Auth) => void; // ⬅️ remplacer Dispatch<SetStateAction<Auth>>
+  // ✅ accepte un objet Auth OU une fonction d'update (comme setState)
+  setAuth: (auth: Auth | ((prev: Auth) => Auth)) => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
@@ -38,28 +40,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [auth, setAuth] = useState<Auth>(() => {
     const refreshToken = localStorage.getItem("refreshToken");
     const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : undefined;
-    
+    const user = userStr ? (JSON.parse(userStr) as User) : undefined;
+
     return {
       user,
-      refreshToken: refreshToken || undefined
+      refreshToken: refreshToken || undefined,
     };
   });
 
-  // Updated function to handle both direct values and updater functions
-  const updateAuth: Dispatch<SetStateAction<Auth>> = (newAuth) => {
+  // ✅ Version sans Dispatch/SetStateAction + typings explicites
+  const updateAuth = (newAuth: Auth | ((prev: Auth) => Auth)) => {
     setAuth((prevAuth) => {
-      // Handle function updater
-      const authToSet = typeof newAuth === 'function' ? newAuth(prevAuth) : newAuth;
-      
-      // Save to localStorage
+      const authToSet =
+        typeof newAuth === "function" ? (newAuth as (p: Auth) => Auth)(prevAuth) : newAuth;
+
+      // 🔐 Persistance locale sécurisée
       if (authToSet.user) {
         localStorage.setItem("user", JSON.stringify(authToSet.user));
+      } else {
+        localStorage.removeItem("user");
       }
+
       if (authToSet.refreshToken) {
         localStorage.setItem("refreshToken", authToSet.refreshToken);
+      } else {
+        localStorage.removeItem("refreshToken");
       }
-      
+
       return authToSet;
     });
   };

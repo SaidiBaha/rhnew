@@ -545,8 +545,7 @@ export default function HomePage() {
       </div>
     );
   }
-
-  if (isLoading || isFetching) return <Loader />;
+ if (isLoading || isFetching) return <Loader />;
   if (error) return <ErrorAlert error="Impossible de charger les statistiques." />;
 
   return (
@@ -597,28 +596,35 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ✅ Graphes AVANT le tableau */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <GaugeCard
-          title="Répartition Ajoutées / Transférées"
-          subtitle={`Période: ${du} → ${au}`}
-          percent={percentAdded}
-          legendLeft="Ajoutées"
-          legendRight="Transférées"
-        />
+      {/* ✅ Graphes AVANT le tableau avec gestion d'erreur */}
+      {chartError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-red-700 font-medium">Erreur de chargement des données du graphique</p>
+          <p className="text-sm text-red-500 mt-1">{chartError?.message || "Veuillez réessayer plus tard"}</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <GaugeCard
+            title="Répartition Ajoutées / Transférées"
+            subtitle={`Période: ${du} → ${au}`}
+            percent={percentAdded}
+            legendLeft="Ajoutées"
+            legendRight="Transférées"
+          />
 
-        <ProjectsAddedTransferredCard
-          title="Projets — Ajoutées vs Transférées"
-          subtitle="Clique une barre pour filtrer par projet •"
-          data={projectsAddedTransferred}
-          activeProjectId={activeProjectId}
-          onToggleProject={handleToggleProject}
-          chartDate={chartDate}
-          onChartDateChange={setChartDate}
-          loading={chartLoading || chartFetching}
-          onReset={resetChartFilters}
-        />
-      </div>
+          <ProjectsAddedTransferredCard
+            title="Projets — Ajoutées vs Transférées"
+            subtitle="Clique une barre pour filtrer par projet •"
+            data={projectsAddedTransferred}
+            activeProjectId={activeProjectId}
+            onToggleProject={handleToggleProject}
+            chartDate={chartDate}
+            onChartDateChange={setChartDate}
+            loading={chartLoading || chartFetching}
+            onReset={resetChartFilters}
+          />
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
