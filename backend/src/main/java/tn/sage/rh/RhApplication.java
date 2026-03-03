@@ -1,3 +1,4 @@
+
 package tn.sage.rh;
 
 import jakarta.annotation.PostConstruct;
@@ -43,7 +44,7 @@ public class RhApplication {
     ) {
         return args -> {
 
-            /* ================= ADMIN ================= */
+            /* ================= ADMIN (BASMA) ================= */
             try {
                 var employee = EmployeeRequestDto.builder()
                         .matricule("1179")
@@ -63,21 +64,95 @@ public class RhApplication {
                         .build();
 
                 authenticationService.register(admin);
-                System.out.println("ADMIN initialisé");
+                System.out.println("ADMIN initialisé (Basma créée).");
             } catch (Exception e) {
-                System.out.println("ADMIN existe déjà");
+                System.out.println("ADMIN existe déjà (Basma déjà créée).");
             }
 
-            String hediMatricule = "12";
+            // ⭐ Assurer que Basma est toujours ADMIN même si elle existait déjà
+            userRepository.findByEmployee_Matricule("1179")
+                    .ifPresent(user -> {
+                        if (user.getRole() != ADMIN) {
+                            user.setRole(ADMIN);
+                            userRepository.save(user);
+                            System.out.println("ADMIN appliqué à BASMA (mise à jour du rôle).");
+                        }
+                    });
 
-            userRepository.findByEmployee_Matricule(hediMatricule)
+            /* ================= OPERATIONAL MANAGER (HEDI - matricule 12) ================= */
+            try {
+                // 1) créer l'employé 12 s'il n'existe pas
+                var employeeHedi = EmployeeRequestDto.builder()
+                        .matricule("12")
+
+                        .fullName("HEDI")                     // 🔧 nom complet réel
+                        .department("OPERATIONS")             // 🔧 département réel
+                        .jobTitle("OPERATIONAL MANAGER")
+                        .employmentType("CADRE")
+                        .hireDate(LocalDate.of(2020, 1, 1))   // 🔧 date réelle
+                        .build();
+                employeeService.save(employeeHedi);
+
+                // 2) créer l'utilisateur 12 en OPERATIONAL_MANAGER
+                var hediUser = RegisterRequestDto.builder()
+                        .matricule("12")
+                        .password("12") // ⚠️ à changer en prod
+                        .role(OPERATIONAL_MANAGER)
+                        .build();
+
+                authenticationService.register(hediUser);
+                System.out.println("OPERATIONAL_MANAGER initialisé (utilisateur 12 créé).");
+            } catch (Exception e) {
+                System.out.println("Utilisateur 12 existe déjà (employé / user déjà créés).");
+            }
+
+            // ⭐ Assurer que 12 est toujours OPERATIONAL_MANAGER même s'il existait déjà
+            userRepository.findByEmployee_Matricule("12")
                     .ifPresent(user -> {
                         if (user.getRole() != OPERATIONAL_MANAGER) {
                             user.setRole(OPERATIONAL_MANAGER);
                             userRepository.save(user);
-                            System.out.println("OPERATIONAL_MANAGER appliqué à " + hediMatricule);
+                            System.out.println("OPERATIONAL_MANAGER appliqué à 12 (mise à jour du rôle).");
+                        }
+                    });
+
+            /* ================= OPERATIONAL MANAGER (MONCEF - matricule 1180) ================= */
+            try {
+                // 1) créer l'employé 1180 s'il n'existe pas
+                var employeeMoncef = EmployeeRequestDto.builder()
+                        .matricule("1180")
+
+                        .fullName("MONCEF")                    // 🔧 nom complet réel
+                        .department("OPERATIONS")              // 🔧 département réel
+                        .jobTitle("OPERATIONAL MANAGER")
+                        .employmentType("CADRE")
+                        .hireDate(LocalDate.of(2020, 1, 1))    // 🔧 date réelle
+                        .build();
+                employeeService.save(employeeMoncef);
+
+                // 2) créer l'utilisateur 1180 en OPERATIONAL_MANAGER
+                var moncefUser = RegisterRequestDto.builder()
+                        .matricule("1180")
+                        .password("1180") // ⚠️ à changer en prod
+                        .role(OPERATIONAL_MANAGER)
+                        .build();
+
+                authenticationService.register(moncefUser);
+                System.out.println("OPERATIONAL_MANAGER initialisé (utilisateur 1180 créé).");
+            } catch (Exception e) {
+                System.out.println("Utilisateur 1180 existe déjà (employé / user déjà créés).");
+            }
+
+            // ⭐ Assurer que 1180 est toujours OPERATIONAL_MANAGER même s'il existait déjà
+            userRepository.findByEmployee_Matricule("1180")
+                    .ifPresent(user -> {
+                        if (user.getRole() != OPERATIONAL_MANAGER) {
+                            user.setRole(OPERATIONAL_MANAGER);
+                            userRepository.save(user);
+                            System.out.println("OPERATIONAL_MANAGER appliqué à 1180 (mise à jour du rôle).");
                         }
                     });
         };
     }
 }
+ 
