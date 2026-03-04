@@ -10,6 +10,14 @@ import {
 } from "@/modules/salary-advance/components/columns";
 import { useBatchUpdateSalaryAdvances } from "@/lib/data/salary-advance";
 import { isEmpty, parseDuration } from "@/lib/utils";
+import { Toggle } from "@/components/ui/Toggle";
+import {
+  useCreateSalaryAdvanceDeadline,
+  useDeleteSalaryAdvanceDeadline,
+  useFetchSalaryAdvanceDeadline,
+} from "@/lib/data/salary-advance-deadline";
+import useAuth from "@/hooks/useAuth";
+import { DataTable } from "@/components/ui/DataTable";
 
 const DEFAULT_ELIGIBLE_AMOUNT = 150;
 
@@ -25,14 +33,6 @@ function applyDefaultAmount(data: SalaryAdvanceColumn[]): SalaryAdvanceColumn[] 
     return { ...row, amount: DEFAULT_ELIGIBLE_AMOUNT };
   });
 }
-import { Toggle } from "@/components/ui/Toggle";
-import {
-  useCreateSalaryAdvanceDeadline,
-  useDeleteSalaryAdvanceDeadline,
-  useFetchSalaryAdvanceDeadline,
-} from "@/lib/data/salary-advance-deadline";
-import useAuth from "@/hooks/useAuth";
-import { DataTable } from "@/components/ui/DataTable";
 
 interface SalaryAdvancesClientProps {
   data: SalaryAdvanceColumn[];
