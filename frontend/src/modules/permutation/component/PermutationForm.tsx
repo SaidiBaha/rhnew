@@ -95,6 +95,14 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
     const [typePermutation, setTypePermutation] = useState<TypePermutation>("ENVOYER");
 
+    // ── Recherche superviseur ──
+    const [supervisorSearch, setSupervisorSearch] = useState("");
+    const [supervisorOpen, setSupervisorOpen] = useState(false);
+
+    // ── Recherche ligne de production ──
+    const [lineSearch, setLineSearch] = useState("");
+    const [lineOpen, setLineOpen] = useState(false);
+
     const { auth } = useAuth();
     const connectedUser = auth.user;
 
@@ -160,6 +168,38 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const permutations: Permutation[] = permutationsData ?? [];
     const lines = productionLines ?? [];
 
+    // ── Superviseurs filtrés (par nom ou matricule) ──
+    const filteredSupervisors = useMemo(() => {
+        const term = supervisorSearch.trim().toLowerCase();
+        const base = ((supervisors as EmployeeLocal[]) ?? []).filter((emp: EmployeeLocal) =>
+            connectedUser ? emp.id !== Number(connectedUser.id) : true
+        );
+        if (!term) return base;
+        return base.filter((emp: EmployeeLocal) =>
+            (emp.fullName ?? "").toLowerCase().includes(term) ||
+            (emp.matricule ?? "").toLowerCase().includes(term)
+        );
+    }, [supervisors, supervisorSearch, connectedUser]);
+
+    const selectedSupervisor = useMemo(() =>
+        ((supervisors as EmployeeLocal[]) ?? []).find((e: EmployeeLocal) => e.id === receiverId) ?? null,
+        [supervisors, receiverId]
+    );
+
+    // ── Lignes filtrées (par nom) ──
+    const filteredLines = useMemo(() => {
+        const term = lineSearch.trim().toLowerCase();
+        if (!term) return lines;
+        return lines.filter((line: any) =>
+            (line.name ?? line.label ?? "").toLowerCase().includes(term)
+        );
+    }, [lines, lineSearch]);
+
+    const selectedLine = useMemo(() =>
+        lines.find((l: any) => l.id === productionLineId) ?? null,
+        [lines, productionLineId]
+    );
+
     // ✅ Initialisation IDs + dates selon le type
     useEffect(() => {
         if (!connectedUser?.id) return;
@@ -193,6 +233,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         setOperatorIds([]);
         setAvailabilityFilter("all");
         setOperatorsSearch("");
+        setSupervisorSearch("");
+        setLineSearch("");
     }, [typePermutation, connectedUser, todayStr, refetchEmployees, refetchFreeEmployees]);
 
     // ✅ Disponibilité uniquement en ENVOYER (avec support overnight)
@@ -486,6 +528,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
             // Reset
             setProductionLineId("");
+            setLineSearch("");
             setOperatorIds([]);
             setOperatorsSearch("");
             setAvailabilityFilter("all");
@@ -498,6 +541,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 setStartTime(w.startTime);
                 setEndTime(w.endTime);
                 setReceiverId("");
+                setSupervisorSearch("");
             } else {
                 setStartDate(todayStr);
                 setEndDate(todayStr);
@@ -581,27 +625,57 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                    {/* ✅ ENVOYER : choix destinataire */}
+                    {/* ✅ ENVOYER : choix destinataire avec recherche */}
                     {typePermutation === "ENVOYER" && (
                         <div>
                             <label className={labelCls}>
                                 Destinataire (superviseur) <span className="text-red-500">*</span>
                             </label>
-                            <select
-                                className={`${inputCls} ${!receiverId ? "border-red-300" : ""}`}
-                                value={receiverId}
-                                onChange={(e) => setReceiverId(e.target.value ? Number(e.target.value) : ("" as any))}
-                                required
-                            >
-                                <option value="">-- Sélectionner --</option>
-                                {(supervisors as EmployeeLocal[])?.filter((emp: EmployeeLocal) => 
-                                    connectedUser ? emp.id !== Number(connectedUser.id) : true
-                                ).map((emp: EmployeeLocal) => (
-                                    <option key={emp.id} value={emp.id}>
-                                        {emp.fullName} (Matricule: {emp.matricule})
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    className={`${inputCls} ${!receiverId ? "border-red-300" : "border-[#6b7a12]"} pr-8`}
+                                    placeholder="Rechercher par nom ou matricule…"
+                                    value={supervisorOpen ? supervisorSearch : (selectedSupervisor ? `${selectedSupervisor.fullName} — ${selectedSupervisor.matricule}` : "")}
+                                    onFocus={() => { setSupervisorOpen(true); setSupervisorSearch(""); }}
+                                    onChange={(e) => setSupervisorSearch(e.target.value)}
+                                    onBlur={() => setTimeout(() => setSupervisorOpen(false), 180)}
+                                    autoComplete="off"
+                                />
+                                {receiverId && (
+                                    <button
+                                        type="button"
+                                        onMouseDown={() => { setReceiverId(""); setSupervisorSearch(""); }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                                        tabIndex={-1}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                                {supervisorOpen && (
+                                    <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                                        {filteredSupervisors.length === 0 ? (
+                                            <p className="px-3 py-3 text-xs text-slate-400">Aucun superviseur trouvé.</p>
+                                        ) : (
+                                            filteredSupervisors.map((emp: EmployeeLocal) => (
+                                                <button
+                                                    key={emp.id}
+                                                    type="button"
+                                                    onMouseDown={() => {
+                                                        setReceiverId(emp.id);
+                                                        setSupervisorOpen(false);
+                                                        setSupervisorSearch("");
+                                                    }}
+                                                    className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${receiverId === emp.id ? "bg-[#6b7a12]/5" : ""}`}
+                                                >
+                                                    <span className="text-sm font-semibold text-slate-900">{emp.fullName}</span>
+                                                    <span className="text-xs text-slate-500">Matricule : {emp.matricule}</span>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -610,19 +684,50 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         <label className={labelCls}>
                             Projet / ligne de production <span className="text-red-500">*</span>
                         </label>
-                        <select
-                            className={`${inputCls} ${!productionLineId ? "border-red-300" : ""}`}
-                            value={productionLineId}
-                            onChange={(e) => setProductionLineId(e.target.value ? Number(e.target.value) : ("" as any))}
-                            required
-                        >
-                            <option value="">-- Sélectionner --</option>
-                            {lines.map((line: any) => (
-                                <option key={line.id} value={line.id}>
-                                    {line.name ?? (line as any).label ?? `Ligne #${line.id}`}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                className={`${inputCls} ${!productionLineId ? "border-red-300" : "border-[#6b7a12]"} pr-8`}
+                                placeholder="Rechercher par nom de projet…"
+                                value={lineOpen ? lineSearch : (selectedLine ? (selectedLine.name ?? selectedLine.label ?? `Ligne #${selectedLine.id}`) : "")}
+                                onFocus={() => { setLineOpen(true); setLineSearch(""); }}
+                                onChange={(e) => setLineSearch(e.target.value)}
+                                onBlur={() => setTimeout(() => setLineOpen(false), 180)}
+                                autoComplete="off"
+                            />
+                            {productionLineId && (
+                                <button
+                                    type="button"
+                                    onMouseDown={() => { setProductionLineId(""); setLineSearch(""); }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                                    tabIndex={-1}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                            {lineOpen && (
+                                <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                                    {filteredLines.length === 0 ? (
+                                        <p className="px-3 py-3 text-xs text-slate-400">Aucun projet trouvé.</p>
+                                    ) : (
+                                        filteredLines.map((line: { id: number; name?: string; label?: string }) => (
+                                            <button
+                                                key={line.id}
+                                                type="button"
+                                                onMouseDown={() => {
+                                                    setProductionLineId(line.id);
+                                                    setLineOpen(false);
+                                                    setLineSearch("");
+                                                }}
+                                                className={`flex w-full items-center px-3 py-2.5 text-left text-sm transition-colors hover:bg-slate-50 ${productionLineId === line.id ? "bg-[#6b7a12]/5 font-semibold text-[#6b7a12]" : "text-slate-800"}`}
+                                            >
+                                                {line.name ?? line.label ?? `Ligne #${line.id}`}
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* user card */}

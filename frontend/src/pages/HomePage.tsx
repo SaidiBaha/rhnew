@@ -134,6 +134,19 @@ function GaugeCard({
                 <Cell key={idx} fill={COLORS[idx] ?? "#e5e7eb"} />
               ))}
             </Pie>
+            <Tooltip
+              formatter={(value: number, name: string) => {
+                if (name === "rest" || Number(value) === 0) return null;
+                const label = name === "left" ? legendLeft : legendRight;
+                return [`${Number(value).toFixed(1)}%`, label];
+              }}
+              contentStyle={{
+                borderRadius: "0.5rem",
+                border: "1px solid #e2e8f0",
+                fontSize: "12px",
+                padding: "6px 10px",
+              }}
+            />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -637,7 +650,7 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => exportProjectHoursToExcel(rowsByProject, du, au)}
+              onClick={() => void exportProjectHoursToExcel(rowsByProject, du, au)}
               disabled={!rowsByProject.length}
               className="rounded-xl bg-[#6b7a12] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a6610] disabled:opacity-60"
             >

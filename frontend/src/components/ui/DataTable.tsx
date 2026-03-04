@@ -18,7 +18,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  ChevronsLeft,
+  ChevronsRight,
   Download,
+  Search,
 } from "lucide-react";
 import { Workbook } from "exceljs";
 import { saveAs } from "file-saver";
@@ -79,7 +82,6 @@ export function DataTable<TData, TValue>({
     const shouldSkipRef = useRef(true);
     const shouldSkip = shouldSkipRef.current;
 
-    // Wrap a function with this to skip a pagination reset temporarily
     const skip = useCallback(() => {
       shouldSkipRef.current = false;
     }, []);
@@ -167,56 +169,71 @@ export function DataTable<TData, TValue>({
     saveAs(new Blob([buf]), "export.xlsx");
   };
 
+  /* ── Pagination info ── */
+  const { pageIndex, pageSize } = table.getState().pagination;
+  const totalFiltered = table.getFilteredRowModel().rows.length;
+  const from = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
+  const to = Math.min((pageIndex + 1) * pageSize, totalFiltered);
+
   return (
-    <div>
+    <div className="space-y-3">
       {title && (
-        <h2 className="text-2xl font-bold tracking-tight py-4">{title}</h2>
+        <h2 className="text-2xl font-bold tracking-tight py-2">{title}</h2>
       )}
 
-      {(searchKey || globalFilterFn) && (
-        <div className="flex items-center py-4">
-          <Input
-            placeholder="Rechercher"
-            value={
-              globalFilterFn
-                ? (table.getState().globalFilter as string) ?? ""
-                : searchKey
-                ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
-                : ""
-            }
-            onChange={(event) =>
-              globalFilterFn
-                ? table.setGlobalFilter(event.target.value)
-                : searchKey
-                ? table.getColumn(searchKey)?.setFilterValue(event.target.value)
-                : ""
-            }
-            className="max-w-sm border-[#687818]"
-          />
+      {/* ── Toolbar: search + export ── */}
+      {(searchKey || globalFilterFn || showExport) && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {(searchKey || globalFilterFn) && (
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <Input
+                placeholder="Rechercher..."
+                value={
+                  globalFilterFn
+                    ? (table.getState().globalFilter as string) ?? ""
+                    : searchKey
+                    ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
+                    : ""
+                }
+                onChange={(event) =>
+                  globalFilterFn
+                    ? table.setGlobalFilter(event.target.value)
+                    : searchKey
+                    ? table.getColumn(searchKey)?.setFilterValue(event.target.value)
+                    : ""
+                }
+                className="pl-9 h-9 border-slate-200 focus-visible:border-[#687818] focus-visible:ring-[#687818]/20"
+              />
+            </div>
+          )}
+
+          {showExport && (
+            <Button
+              onClick={exportToExcel}
+              size="sm"
+              className="bg-[#687818] hover:bg-[#5a6610] h-9 shrink-0"
+            >
+              <Download className="size-4" />
+              Exporter Excel
+            </Button>
+          )}
         </div>
       )}
 
-      {showExport && (
-        <div className="flex items-center justify-end pb-4">
-          <Button onClick={exportToExcel} className="bg-[#687818]">
-            <Download className="mr-2 size-4" />
-            Exporter
-          </Button>
-        </div>
-      )}
-
-      <div className="w-full rounded-md border">
+      {/* ── Table ── */}
+      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <Table>
-          <TableHeader className="bg-[#687818] grow">
+          <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="bg-[#687818] text-white grow"
+                className="bg-[#687818] text-white hover:bg-[#687818]"
               >
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="bg-[#687818] text-white grow"
+                    className="bg-[#687818] text-white font-semibold text-xs uppercase tracking-wider h-11 px-4"
                   >
                     {header.isPlaceholder
                       ? null
@@ -231,14 +248,15 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row, rowIndex) => (
                 <React.Fragment key={row.id}>
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
+                    className={rowIndex % 2 === 1 ? "bg-slate-50/60" : "bg-white"}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="px-4 py-3">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -246,25 +264,24 @@ export function DataTable<TData, TValue>({
                       </TableCell>
                     ))}
                     {row.getCanExpand() && (
-                      <TableCell>
+                      <TableCell className="px-4 py-3">
                         <Button
                           variant="ghost"
-                          className="h-8 w-8 p-0"
+                          className="h-7 w-7 p-0"
                           onClick={row.getToggleExpandedHandler()}
                         >
-                          {row.getCanExpand() &&
-                            (row.getIsExpanded() ? (
-                              <ChevronUp />
-                            ) : (
-                              <ChevronDown />
-                            ))}
+                          {row.getIsExpanded() ? (
+                            <ChevronUp className="size-4" />
+                          ) : (
+                            <ChevronDown className="size-4" />
+                          )}
                         </Button>
                       </TableCell>
                     )}
                   </TableRow>
                   {row.getIsExpanded() && renderSubComponent && (
                     <TableRow>
-                      <TableCell colSpan={columns.length + 1}>
+                      <TableCell colSpan={columns.length + 1} className="p-0">
                         {renderSubComponent(row, table)}
                       </TableCell>
                     </TableRow>
@@ -275,35 +292,67 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-32 text-center text-slate-400"
                 >
-                  No results.
+                  Aucun résultat trouvé.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <strong className="text-sm font-medium">
-          {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-        </strong>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          <ChevronRight className="size-4" />
-        </Button>
+
+      {/* ── Pagination ── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
+        <p className="text-sm text-slate-500">
+          {totalFiltered === 0
+            ? "Aucun résultat"
+            : `Affichage de ${from} à ${to} sur ${totalFiltered} résultat${totalFiltered !== 1 ? "s" : ""}`}
+        </p>
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+            title="Première page"
+          >
+            <ChevronsLeft className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            title="Page précédente"
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+
+          <span className="px-3 text-sm font-medium text-slate-700 select-none">
+            Page {table.getState().pagination.pageIndex + 1} / {table.getPageCount() || 1}
+          </span>
+
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            title="Page suivante"
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            disabled={!table.getCanNextPage()}
+            title="Dernière page"
+          >
+            <ChevronsRight className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
