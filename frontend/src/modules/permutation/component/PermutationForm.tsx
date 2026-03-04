@@ -329,11 +329,11 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         setOperatorIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
 
-    const labelCls = "mb-1 block text-xs font-semibold text-slate-600";
+    const labelCls = "mb-1.5 block text-xs font-semibold text-slate-600";
     const inputCls =
         "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
         "transition focus:border-[#6b7a12] focus:ring-2 focus:ring-[#6b7a12]/20";
-    const sectionCls = "rounded-2xl border border-slate-100 bg-white p-4 shadow-sm";
+    const sectionCls = "rounded-2xl border border-slate-100 bg-white p-5 shadow-sm";
 
     const filterButtonCls = (isActive: boolean, color: "green" | "red" = "green") =>
         `px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
@@ -566,17 +566,19 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const canEditTimes = true;
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
             {/* SWITCH ENVOYER/RECEVOIR */}
             <div className={sectionCls}>
-                <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Type d'opération</p>
+                <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Type d'opération</p>
+                    </div>
 
                     {connectedUser && (
-                        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
-                            <UserCircleIcon className="h-4 w-4 text-slate-500" />
-                            <span className="text-xs font-medium text-slate-700">{connectedUser.fullName}</span>
-                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-1.5">
+                            <UserCircleIcon className="h-4 w-4 text-[#6b7a12]" />
+                            <span className="text-xs font-semibold text-slate-700">{connectedUser.fullName}</span>
+                            <span className="rounded-full bg-[#6b7a12]/10 text-[#6b7a12] px-2 py-0.5 text-[10px] font-bold">
                                 {connectedUser.role}
                             </span>
                         </div>
@@ -620,8 +622,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
             {/* INFORMATIONS GENERALES */}
             <div className={sectionCls}>
-                <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Informations générales</p>
+                <div className="mb-4 flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Informations générales</p>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
@@ -787,7 +789,9 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             {/* HORAIRES - Visible seulement si mode = "send" */}
             {mode === "send" && (
                 <div className={sectionCls}>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Horaires</p>
+                    <div className="mb-4 flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Horaires du shift</p>
+                    </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
                         <div>
@@ -823,18 +827,22 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
             {/* OPERATEURS */}
             <div className={sectionCls}>
-                <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                        {typePermutation === "ENVOYER" ? "Opérateurs à envoyer" : "Opérateurs libres (aujourd'hui)"}
-                    </p>
+                <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                            {typePermutation === "ENVOYER" ? "Opérateurs à envoyer" : "Opérateurs libres disponibles"}
+                        </p>
+                    </div>
 
                     <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-bold ${
-                            selectedOperatorsCount === 0 ? "bg-[#6b7a12]/10 text-[#6b7a12]" : "bg-[#6b7a12] text-white"
+                        className={`rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${
+                            selectedOperatorsCount === 0
+                                ? "bg-slate-100 text-slate-500"
+                                : "bg-[#6b7a12] text-white"
                         }`}
                     >
                         {selectedOperatorsCount === 0
-                            ? "Aucun opérateur sélectionné"
+                            ? "Aucune sélection"
                             : `${selectedOperatorsCount} sélectionné${selectedOperatorsCount > 1 ? "s" : ""}`}
                     </span>
                 </div>
@@ -908,7 +916,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     )}
                 </div>
 
-                <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
+                <div className="max-h-80 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1">
                     {filteredOperators.length === 0 && (
                         <p className="text-xs text-slate-400">
                             {typePermutation === "ENVOYER"
