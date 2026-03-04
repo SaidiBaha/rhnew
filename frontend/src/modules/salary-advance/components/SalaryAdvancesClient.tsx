@@ -9,7 +9,22 @@ import {
   type SalaryAdvanceColumn,
 } from "@/modules/salary-advance/components/columns";
 import { useBatchUpdateSalaryAdvances } from "@/lib/data/salary-advance";
-import { isEmpty } from "@/lib/utils";
+import { isEmpty, parseDuration } from "@/lib/utils";
+
+const DEFAULT_ELIGIBLE_AMOUNT = 150;
+
+function applyDefaultAmount(data: SalaryAdvanceColumn[]): SalaryAdvanceColumn[] {
+  return data.map((row) => {
+    if (row.amount !== 0) return row;
+    const emp = row.employee;
+    if (emp.hasBankDomiciliation === "oui") return row;
+    const absenceReasons = emp.attendance.absenceReasons;
+    if (absenceReasons.some((ar) => ["MALADIE L-D", "MATERNITÉ"].includes(ar.absenceReason))) return row;
+    const { hours } = parseDuration(emp.attendance.totalAttendance) ?? { hours: 0, minutes: 0 };
+    if (hours < 40) return row;
+    return { ...row, amount: DEFAULT_ELIGIBLE_AMOUNT };
+  });
+}
 import { Toggle } from "@/components/ui/Toggle";
 import {
   useCreateSalaryAdvanceDeadline,
@@ -25,7 +40,7 @@ interface SalaryAdvancesClientProps {
 
 export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const [salaryAdvanceData, setSalaryAdvanceData] =
-    useState<SalaryAdvanceColumn[]>(data);
+    useState<SalaryAdvanceColumn[]>(() => applyDefaultAmount(data));
   const { auth } = useAuth();
 
   const batchUpdateSalaryAdvances = useBatchUpdateSalaryAdvances();

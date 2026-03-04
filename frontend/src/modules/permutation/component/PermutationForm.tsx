@@ -406,39 +406,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 return;
             }
 
-            // ✅ ENVOYER = uniquement aujourd'hui + shift auto (sécurité)
-            const w = getTodayShiftWindow(new Date());
-
-            const okDates = startDate === w.startDate && endDate === w.endDate;
-            const okTimes = startTime === w.startTime && endTime === w.endTime;
-
-            if (!okDates || !okTimes) {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Période invalide",
-                    text: "En mode ENVOYER, la période est automatiquement définie pour le shift actuel (aujourd'hui).",
-                    confirmButtonColor: "#ef4444",
-                });
-                // on re-force la bonne période
-                setStartDate(w.startDate);
-                setEndDate(w.endDate);
-                setStartTime(w.startTime);
-                setEndTime(w.endTime);
-                return;
-            }
-        } else {
-            // ✅ RECEVOIR : uniquement aujourd'hui
-            if (startDate !== todayStr || endDate !== todayStr) {
-                await Swal.fire({
-                    icon: "warning",
-                    title: "Date invalide",
-                    text: "En mode RECEVOIR, la permutation est autorisée uniquement pour aujourd'hui.",
-                    confirmButtonColor: "#ef4444",
-                });
-                setStartDate(todayStr);
-                setEndDate(todayStr);
-                return;
-            }
         }
 
         if (!productionLineId) {
@@ -561,8 +528,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         }
     };
 
-    // ✅ dates/heures verrouillées (ENVOYER et RECEVOIR)
-    const canEditDates = false;
     const canEditTimes = true;
 
     return (
@@ -747,41 +712,34 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </div>
                     </div>
 
-                    {/* dates */}
-                    <div>
+                    {/* dates — même ligne, toujours 2 colonnes */}
+                    <div className="col-span-2">
                         <label className={labelCls}>
-                            Date de début <span className="text-red-500">*</span>
-                            <span className="ml-2 text-[10px] font-semibold text-slate-400">(aujourd&apos;hui)</span>
+                            Période <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="date"
-                            className={`${inputCls} ${!canEditDates ? "bg-slate-100 text-slate-500" : ""}`}
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            required
-                            disabled={!canEditDates}
-                        />
-                    </div>
-
-                    <div>
-                        <label className={labelCls}>
-                            Date de fin <span className="text-red-500">*</span>
-                            {typePermutation === "ENVOYER" ? (
-                                <span className="ml-2 text-[10px] font-semibold text-slate-400">
-                                    (aujourd&apos;hui ou demain si shift nuit)
-                                </span>
-                            ) : (
-                                <span className="ml-2 text-[10px] font-semibold text-slate-400">(aujourd&apos;hui)</span>
-                            )}
-                        </label>
-                        <input
-                            type="date"
-                            className={`${inputCls} ${!canEditDates ? "bg-slate-100 text-slate-500" : ""}`}
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            required
-                            disabled={!canEditDates}
-                        />
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                                <p className="mb-1 text-[10px] font-medium text-slate-400">Date de début</p>
+                                <input
+                                    type="date"
+                                    className={inputCls}
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <span className="mt-5 shrink-0 text-slate-300 text-lg">→</span>
+                            <div className="flex-1">
+                                <p className="mb-1 text-[10px] font-medium text-slate-400">Date de fin</p>
+                                <input
+                                    type="date"
+                                    className={inputCls}
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
