@@ -1,4 +1,9 @@
 import { useMemo, useState } from "react";
+import {
+    MagnifyingGlassIcon,
+    PlusIcon,
+} from "@heroicons/react/24/solid";
+
 import { Loader } from "@/components/Loader";
 import { ErrorAlert } from "@/components/ErrorAlert";
 
@@ -15,7 +20,7 @@ import type { ProductionLine } from "@/modules/permutation/hooks/useFetchProduct
 import useAuth from "@/hooks/useAuth";
 
 type FilterMode = "all" | "received" | "sent";
-type PermutationMode = "send" | "choose"; // ✅ Nouveau type
+type PermutationMode = "send" | "choose";
 
 function hasRole(auth: any, role: string) {
     const r =
@@ -49,9 +54,7 @@ export default function PermutationsPage() {
 
     const [filter, setFilter] = useState<FilterMode>("all");
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    // ✅ CORRECTION 1: Renommé en _setPermutationMode pour indiquer qu'il n'est pas utilisé
     const [permutationMode, _setPermutationMode] = useState<PermutationMode>("send");
-
     const [search, setSearch] = useState("");
 
     const rawPermutations: Permutation[] = data ?? [];
@@ -70,6 +73,16 @@ export default function PermutationsPage() {
 
     const effectiveFilter: FilterMode = isSupervisor ? filter : "all";
 
+    // ── Compteurs pour les badges des filtres ──
+    const receivedCount = useMemo(
+        () => rawPermutations.filter((p) => p.asReceiver).length,
+        [rawPermutations]
+    );
+    const sentCount = useMemo(
+        () => rawPermutations.filter((p) => p.asSender).length,
+        [rawPermutations]
+    );
+
     const roleFiltered = useMemo(() => {
         return rawPermutations.filter((p) => {
             if (effectiveFilter === "received") return !!p.asReceiver;
@@ -84,9 +97,8 @@ export default function PermutationsPage() {
 
         return roleFiltered.filter((p) => {
             const sender = employeesById[p.senderId];
-            // ✅ CORRECTION 2: Vérification que receiverId n'est pas null
             const receiver = p.receiverId ? employeesById[p.receiverId] : null;
-            
+
             const senderName =
                 (p as any).senderFullName ||
                 (sender as any)?.fullName ||
@@ -134,104 +146,143 @@ export default function PermutationsPage() {
     const totalCount = searched.length;
 
     return (
-        <div className="w-full">
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                    <div>
-                        <h1 className="text-4xl font-bold text-[#6b7a12]">
-                            Permutations ({totalCount})
-                        </h1>
-                        <p className="text-sm text-slate-500">Gérer les permutations.</p>
+        <div className="flex flex-col gap-6">
 
-                        <div className="mt-4">
-                            <input
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Rechercher"
-                                className="w-[520px] max-w-full rounded-xl border border-[#6b7a12]/30 bg-white px-4 py-3 text-sm outline-none focus:border-[#6b7a12]"
-                            />
-                        </div>
-                    </div>
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Permutations</h1>
+                    <p className="mt-0.5 text-sm text-slate-500">
+                        Gérer et suivre les permutations d'opérateurs
+                    </p>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                    <div className="flex justify-end">
-                        <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 text-xs">
-                            <button
-                                type="button"
-                                onClick={() => setFilter("all")}
-                                className={`rounded-full px-3 py-1 ${
-                                    effectiveFilter === "all" ? "bg-slate-100 text-slate-900" : "text-slate-500"
-                                }`}
-                            >
-                                Toutes
-                            </button>
+                {isSupervisor && (
+                    <button
+                        type="button"
+                        onClick={() => setIsCreateOpen(true)}
+                        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#6b7a12] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#5a6610]"
+                    >
+                        <PlusIcon className="h-4 w-4" />
+                        Nouvelle permutation
+                    </button>
+                )}
+            </div>
 
-                            {isSupervisor && (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFilter("received")}
-                                        className={`rounded-full px-3 py-1 ${
-                                            effectiveFilter === "received"
-                                                ? "bg-slate-100 text-slate-900"
-                                                : "text-slate-500"
-                                        }`}
-                                    >
-                                        Reçues
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFilter("sent")}
-                                        className={`rounded-full px-3 py-1 ${
-                                            effectiveFilter === "sent" ? "bg-slate-100 text-slate-900" : "text-slate-500"
-                                        }`}
-                                    >
-                                        Envoyées
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
+            {/* ── Toolbar : recherche + filtres ── */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* Search */}
+                <div className="relative max-w-sm flex-1">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Nom, projet, matricule…"
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm shadow-sm outline-none transition focus:border-[#6b7a12] focus:ring-2 focus:ring-[#6b7a12]/20"
+                    />
+                </div>
+
+                {/* Filtres segmentés avec compteurs */}
+                <div className="flex rounded-xl bg-slate-100 p-1 text-sm">
+                    <button
+                        type="button"
+                        onClick={() => setFilter("all")}
+                        className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 font-medium transition-all ${
+                            effectiveFilter === "all"
+                                ? "bg-white text-slate-900 shadow-sm"
+                                : "text-slate-500 hover:text-slate-700"
+                        }`}
+                    >
+                        Toutes
+                        <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold ${
+                            effectiveFilter === "all"
+                                ? "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                : "bg-slate-300 text-slate-600"
+                        }`}>
+                            {rawPermutations.length}
+                        </span>
+                    </button>
 
                     {isSupervisor && (
-                        <button
-                            type="button"
-                            onClick={() => setIsCreateOpen(true)}
-                            className="inline-flex items-center justify-center gap-3 rounded-xl bg-[#6b7a12] px-6 py-3 text-sm font-medium text-white shadow-sm"
-                        >
-                            <span className="text-lg leading-none">+</span>
-                            Ajouter
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setFilter("received")}
+                                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 font-medium transition-all ${
+                                    effectiveFilter === "received"
+                                        ? "bg-white text-slate-900 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                }`}
+                            >
+                                Reçues
+                                <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold ${
+                                    effectiveFilter === "received"
+                                        ? "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                        : "bg-slate-300 text-slate-600"
+                                }`}>
+                                    {receivedCount}
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFilter("sent")}
+                                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 font-medium transition-all ${
+                                    effectiveFilter === "sent"
+                                        ? "bg-white text-slate-900 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                }`}
+                            >
+                                Envoyées
+                                <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold ${
+                                    effectiveFilter === "sent"
+                                        ? "bg-[#6b7a12]/10 text-[#6b7a12]"
+                                        : "bg-slate-300 text-slate-600"
+                                }`}>
+                                    {sentCount}
+                                </span>
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
 
-            <div className="mt-6">
-                <PermutationsClient
-                    data={searched}
-                    employeesById={employeesById}
-                    productionLinesById={productionLinesById}
-                    showTodayOnlyToggle={isOperationalManager}
-                    uiVariant="demandes"
-                />
-            </div>
+            {/* ── Résumé de recherche ── */}
+            {search.trim() && (
+                <p className="text-xs text-slate-500">
+                    <span className="font-semibold text-slate-700">{totalCount}</span>{" "}
+                    résultat{totalCount !== 1 ? "s" : ""} pour «{" "}
+                    <span className="font-medium text-slate-600">{search.trim()}</span> »
+                </p>
+            )}
 
+            {/* ── Table ── */}
+            <PermutationsClient
+                data={searched}
+                employeesById={employeesById}
+                productionLinesById={productionLinesById}
+                showTodayOnlyToggle={isOperationalManager}
+                uiVariant="demandes"
+            />
+
+            {/* ── Modal nouvelle permutation ── */}
             {isSupervisor && isCreateOpen && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl mt-6 overflow-hidden">
+                    <div className="mt-6 w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
                         <div className="flex items-center justify-between border-b border-slate-100 bg-[#687818]/5 px-6 py-4">
                             <div>
                                 <h2 className="text-base font-bold text-slate-800">
                                     Nouvelle permutation
                                 </h2>
-                                <p className="text-xs text-slate-500 mt-0.5">Remplissez le formulaire ci-dessous</p>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                    Remplissez le formulaire ci-dessous
+                                </p>
                             </div>
 
                             <button
                                 type="button"
                                 onClick={() => setIsCreateOpen(false)}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-200"
                                 aria-label="Fermer"
                             >
                                 ✕
@@ -239,8 +290,8 @@ export default function PermutationsPage() {
                         </div>
 
                         <div className="max-h-[85vh] overflow-y-auto px-6 py-6">
-                            <PermutationForm 
-                                onCreated={() => setIsCreateOpen(false)} 
+                            <PermutationForm
+                                onCreated={() => setIsCreateOpen(false)}
                                 mode={permutationMode}
                             />
                         </div>

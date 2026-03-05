@@ -876,73 +876,89 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                 <div className="max-h-80 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1">
                     {filteredOperators.length === 0 && (
-                        <p className="text-xs text-slate-400">
-                            {typePermutation === "ENVOYER"
-                                ? "Aucun opérateur disponible pour cette période / recherche."
-                                : "Aucun opérateur libre disponible pour le moment."}
-                        </p>
+                        <div className="col-span-2 flex flex-col items-center justify-center py-8 text-center">
+                            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                                <UserCircleIcon className="h-6 w-6 text-slate-400" />
+                            </div>
+                            <p className="text-xs font-medium text-slate-500">
+                                {typePermutation === "ENVOYER"
+                                    ? "Aucun opérateur disponible pour cette période / recherche."
+                                    : "Aucun opérateur libre disponible pour le moment."}
+                            </p>
+                        </div>
                     )}
 
                     {filteredOperators.map((emp: EmployeeLocal) => {
                         const checked = operatorIds.includes(emp.id);
                         const matricule = emp.matricule ?? "";
                         const isFree = operatorAvailability.get(emp.id) ?? true;
-                        
-                        // ✅ Récupération des informations du superviseur
                         const supervisorName = emp.supervisorFullName || emp.supervisor?.fullName;
+
+                        const initials = (emp.fullName ?? "")
+                            .split(" ")
+                            .slice(0, 2)
+                            .map((w: string) => w[0] ?? "")
+                            .join("")
+                            .toUpperCase();
 
                         return (
                             <label
                                 key={emp.id}
-                                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 shadow-sm transition ${
+                                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 shadow-sm transition-all ${
                                     checked
-                                        ? "border-[#6b7a12] bg-[#6b7a12]/5"
-                                        : "border-slate-200 bg-white hover:bg-slate-50"
+                                        ? "border-[#6b7a12] bg-[#6b7a12]/5 ring-1 ring-[#6b7a12]/20"
+                                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                                 }`}
                             >
                                 <input
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() => toggleOperator(emp.id)}
-                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
+                                    className="sr-only"
                                 />
 
+                                {/* Avatar initiales */}
+                                <div
+                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
+                                        checked
+                                            ? "bg-[#6b7a12] text-white"
+                                            : typePermutation === "ENVOYER"
+                                                ? isFree
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-red-100 text-red-700"
+                                                : "bg-slate-100 text-slate-600"
+                                    }`}
+                                >
+                                    {initials}
+                                </div>
+
                                 <div className="min-w-0 flex-1">
-                                    {/* Nom de l'opérateur */}
-                                    <p className="truncate text-sm font-bold text-slate-900">{emp.fullName}</p>
+                                    <div className="flex items-center justify-between gap-1">
+                                        <p className="truncate text-sm font-semibold text-slate-900">{emp.fullName}</p>
+                                        {checked && <CheckCircleIcon className="h-4 w-4 shrink-0 text-[#6b7a12]" />}
+                                    </div>
 
-                                    {/* Matricule de l'opérateur */}
                                     {matricule && (
-                                        <p className="text-[11px] font-semibold uppercase text-slate-400">
-                                            Matricule : {matricule}
+                                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                                            {matricule}
                                         </p>
                                     )}
 
-                                    {/* ✅ Superviseur actuel (mode RECEVOIR uniquement) */}
                                     {typePermutation === "RECEVOIR" && supervisorName && (
-                                        <p className="mt-1 text-[11px] text-slate-600">
-                                            <span className="font-medium text-slate-500">Superviseur actuel :</span>{' '}
-                                            <span className="font-semibold">{supervisorName}</span>
+                                        <p className="mt-0.5 text-[10px] text-slate-500">
+                                            <span className="text-slate-400">Sup. </span>
+                                            <span className="font-medium text-slate-600">{supervisorName}</span>
                                         </p>
                                     )}
 
-                                    {/* Statut (mode ENVOYER uniquement) */}
                                     {typePermutation === "ENVOYER" && (
-                                        <span
-                                            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                                isFree ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                                            }`}
-                                        >
+                                        <span className={`mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-semibold ${
+                                            isFree ? "text-green-700" : "text-red-600"
+                                        }`}>
                                             {isFree ? (
-                                                <>
-                                                    <CheckCircleIcon className="h-3 w-3" />
-                                                    Libre
-                                                </>
+                                                <><CheckCircleIcon className="h-3 w-3" />Libre</>
                                             ) : (
-                                                <>
-                                                    <XCircleIcon className="h-3 w-3" />
-                                                    Occupé
-                                                </>
+                                                <><XCircleIcon className="h-3 w-3" />Occupé</>
                                             )}
                                         </span>
                                     )}
