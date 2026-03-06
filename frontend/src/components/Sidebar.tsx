@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import useLogout from "@/hooks/useLogout";
 import useAuth from "@/hooks/useAuth";
 import type { UserRole } from "@/modules/auth/types";
+import { PermutationNotificationBell } from "@/components/PermutationNotificationBell";
 
 /* ===================== SIDEBAR ITEM ===================== */
 interface SidebarItemProps {
@@ -82,6 +83,8 @@ export const Sidebar = () => {
     { label: "Changer mot de passe", icon: "lock-keyhole", path: "/change-password", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
   ];
 
+  const isSupervisor = user?.role === "SUPERVISOR";
+
   const initials = user?.fullName
     ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
@@ -123,27 +126,33 @@ export const Sidebar = () => {
 
         {/* ================= USER ================= */}
         {user && (
-          <div className={`mx-3 my-3 rounded-xl bg-white/10 px-3 py-3 text-white ${expanded ? "" : "flex justify-center"}`}>
+          <div className={`mx-3 my-3 rounded-xl bg-white/10 text-white ${expanded ? "px-3 py-3" : "flex flex-col items-center gap-2 py-3"}`}>
             {expanded ? (
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20 text-sm font-bold">
                   {initials}
                 </div>
-                <div className="overflow-hidden">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="truncate text-sm font-semibold">{user.fullName}</div>
                   <div className="text-[11px] opacity-70">#{user.matricule}</div>
                   <span className="mt-0.5 inline-block rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide">
                     {user.role}
                   </span>
                 </div>
+                {/* Cloche notifications — superviseurs uniquement */}
+                {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
               </div>
             ) : (
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 text-sm font-bold"
-                title={user.fullName}
-              >
-                {initials}
-              </div>
+              <>
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 text-sm font-bold"
+                  title={user.fullName}
+                >
+                  {initials}
+                </div>
+                {/* Cloche notifications — superviseurs uniquement */}
+                {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+              </>
             )}
           </div>
         )}
