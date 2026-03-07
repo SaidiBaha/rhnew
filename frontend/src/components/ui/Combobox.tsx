@@ -43,7 +43,7 @@ export function Combobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full border-[#687818] h-12 justify-between"
+          className="w-full h-12 justify-between border-(--accent)"
           disabled={disabled}
         >
           {defaultValue

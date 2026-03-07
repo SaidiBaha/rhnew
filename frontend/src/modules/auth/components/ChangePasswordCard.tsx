@@ -101,23 +101,43 @@ export default function ChangePasswordCard() {
             };
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="rounded-t-2xl border-b border-slate-100 px-6 py-4">
-                <h2 className="text-lg font-bold text-slate-900">Sécurité du compte</h2>
-                <p className="mt-1 text-sm text-slate-600">
+        <div className="max-w-lg">
+            {/* Header */}
+            <div
+                className="ds-card px-6 py-4 mb-4"
+                style={{ position: "relative", overflow: "hidden", borderBottom: "2px solid var(--border)" }}
+            >
+                <div
+                    className="absolute bottom-0 left-0 h-0.5 w-32"
+                    style={{ background: "linear-gradient(to right, var(--accent), transparent)" }}
+                />
+                <div style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "4px" }}>
+                    Compte
+                    <span className="mx-2" style={{ color: "var(--border-mid)" }}>/</span>
+                    <span style={{ color: "var(--text-2)" }}>Sécurité</span>
+                </div>
+                <h2 style={{ fontSize: "17px", fontWeight: 700, color: "var(--navy)" }}>Sécurité du compte</h2>
+                <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
                     Saisissez votre mot de passe actuel puis choisissez un nouveau mot de passe.
                 </p>
             </div>
 
-            <div className="px-6 py-5">
+            {/* Form card */}
+            <div className="ds-card px-6 py-5">
                 {error && (
-                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <div
+                        className="mb-4 flex items-center gap-2 rounded-md px-4 py-3 text-sm"
+                        style={{ background: "var(--red-soft)", border: "1px solid rgba(200,51,58,0.25)", color: "var(--red)", fontWeight: 500 }}
+                    >
                         {error}
                     </div>
                 )}
 
                 {success && (
-                    <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    <div
+                        className="mb-4 flex items-center gap-2 rounded-md px-4 py-3 text-sm"
+                        style={{ background: "var(--green-soft)", border: "1px solid rgba(26,158,106,0.25)", color: "var(--green)", fontWeight: 500 }}
+                    >
                         {success}
                     </div>
                 )}
@@ -144,15 +164,20 @@ export default function ChangePasswordCard() {
                             error={fieldErrors.newPassword}
                         />
 
-                        <div className="mt-2 flex items-center gap-2 text-xs">
-              <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                      ruleMin8 ? "bg-emerald-500" : "bg-slate-300"
-                  }`}
-              />
-                            <span className={ruleMin8 ? "text-emerald-700" : "text-slate-600"}>
-                Minimum 8 caractères
-              </span>
+                        <div className="mt-2 flex items-center gap-2">
+                            <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ background: ruleMin8 ? "var(--green)" : "var(--border-mid)" }}
+                            />
+                            <span
+                                style={{
+                                    fontSize: "11px",
+                                    color: ruleMin8 ? "var(--green)" : "var(--text-3)",
+                                    fontWeight: ruleMin8 ? 600 : 400,
+                                }}
+                            >
+                                Minimum 8 caractères
+                            </span>
                         </div>
                     </div>
 
@@ -166,11 +191,11 @@ export default function ChangePasswordCard() {
                         error={fieldErrors.confirmationPassword}
                     />
 
-                    <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                    <div className="flex flex-col gap-3 pt-1 sm:flex-row">
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full rounded-xl bg-[#687818] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="ds-btn-primary flex-1 justify-center py-2.5 disabled:opacity-60"
                         >
                             {isLoading ? "Mise à jour..." : "Mettre à jour"}
                         </button>
@@ -185,7 +210,14 @@ export default function ChangePasswordCard() {
                                 setError(null);
                                 setSuccess(null);
                             }}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                            className="flex-1 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors"
+                            style={{ background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }}
+                            onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.background = "var(--steel-light)";
+                            }}
+                            onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.background = "var(--surface2)";
+                            }}
                         >
                             Réinitialiser
                         </button>
@@ -209,7 +241,15 @@ function Field(props: {
 
     return (
         <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-800">
+            <label
+                style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-2)",
+                }}
+            >
                 {label}
             </label>
 
@@ -219,24 +259,28 @@ function Field(props: {
                     value={value}
                     onChange={onChange}
                     placeholder={placeholder}
-                    className={`w-full rounded-xl border bg-white px-4 py-3 pr-12 text-sm outline-none transition ${
-                        error
-                            ? "border-red-300 focus:border-red-400"
-                            : "border-slate-200 focus:border-[#687818]"
-                    }`}
+                    className="ds-input w-full pr-10 h-10"
+                    style={error ? { borderColor: "var(--red)", boxShadow: "0 0 0 3px rgba(200,51,58,0.10)" } : {}}
                 />
 
                 <button
                     type="button"
                     onClick={toggleShow}
                     aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                    className="absolute inset-y-0 right-0 flex items-center justify-center px-3 text-slate-500 hover:text-[#687818]"
+                    className="absolute inset-y-0 right-0 flex items-center justify-center px-3 transition-colors"
+                    style={{ color: "var(--text-3)" }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--accent)")}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--text-3)")}
                 >
-                    {show ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {show ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
             </div>
 
-            {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
+            {error && (
+                <p style={{ marginTop: "4px", fontSize: "11px", fontWeight: 500, color: "var(--red)" }}>
+                    {error}
+                </p>
+            )}
         </div>
     );
 }

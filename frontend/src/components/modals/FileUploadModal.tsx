@@ -143,7 +143,7 @@ export const FileUploadModal = ({
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="bg-[#687818] text-white"
+                className="ds-btn-primary"
               >
                 Importer
               </Button>

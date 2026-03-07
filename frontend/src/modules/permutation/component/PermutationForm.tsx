@@ -329,17 +329,16 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         setOperatorIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
 
-    const labelCls = "mb-1.5 block text-xs font-semibold text-slate-600";
-    const inputCls =
-        "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none " +
-        "transition focus:border-[#6b7a12] focus:ring-2 focus:ring-[#6b7a12]/20";
-    const sectionCls = "rounded-2xl border border-slate-100 bg-white p-5 shadow-sm";
+    const labelCls = "mb-1.5 block text-xs font-semibold" ;
+    const labelStyle = { color: "var(--text-2)" };
+    const inputCls = "ds-input h-10 w-full";
+    const sectionCls = "ds-card p-5";
 
     const filterButtonCls = (isActive: boolean, color: "green" | "red" = "green") =>
         `px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
             isActive
                 ? color === "green"
-                    ? "bg-[#6b7a12] text-white"
+                    ? "ds-btn-primary"
                     : "bg-red-600 text-white"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
         }`;
@@ -391,7 +390,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     icon: "warning",
                     title: "Destinataire manquant",
                     text: "Veuillez sélectionner un superviseur destinataire.",
-                    confirmButtonColor: "#6b7a12",
+                    confirmButtonColor: "#e85d26",
                 });
                 return;
             }
@@ -401,7 +400,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     icon: "warning",
                     title: "Destinataire invalide",
                     text: "Vous ne pouvez pas vous envoyer des opérateurs à vous-même.",
-                    confirmButtonColor: "#6b7a12",
+                    confirmButtonColor: "#e85d26",
                 });
                 return;
             }
@@ -413,7 +412,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 icon: "warning",
                 title: "Projet manquant",
                 text: "Veuillez sélectionner le projet / la ligne de production.",
-                confirmButtonColor: "#6b7a12",
+                confirmButtonColor: "#e85d26",
             });
             return;
         }
@@ -423,7 +422,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 icon: "warning",
                 title: "Aucun opérateur sélectionné",
                 text: "Veuillez sélectionner au moins un opérateur.",
-                confirmButtonColor: "#6b7a12",
+                confirmButtonColor: "#e85d26",
             });
             return;
         }
@@ -490,7 +489,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 icon: "success",
                 title: "Permutation créée",
                 text: "La permutation a été créée avec succès.",
-                confirmButtonColor: "#6b7a12",
+                confirmButtonColor: "#e85d26",
             });
 
             // Reset
@@ -535,15 +534,15 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             {/* SWITCH ENVOYER/RECEVOIR */}
             <div className={sectionCls}>
                 <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Type d'opération</p>
+                    <div className="flex items-center gap-2 pl-3" style={{ borderLeft: "3px solid var(--accent)" }}>
+                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Type d'opération</p>
                     </div>
 
                     {connectedUser && (
-                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-1.5">
-                            <UserCircleIcon className="h-4 w-4 text-[#6b7a12]" />
-                            <span className="text-xs font-semibold text-slate-700">{connectedUser.fullName}</span>
-                            <span className="rounded-full bg-[#6b7a12]/10 text-[#6b7a12] px-2 py-0.5 text-[10px] font-bold">
+                        <div className="flex items-center gap-2 rounded-xl px-3 py-1.5" style={{ background: "var(--steel-light)", border: "1px solid var(--border)" }}>
+                            <UserCircleIcon className="h-4 w-4" style={{ color: "var(--accent)" }} />
+                            <span className="text-xs font-semibold" style={{ color: "var(--navy)" }}>{connectedUser.fullName}</span>
+                            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
                                 {connectedUser.role}
                             </span>
                         </div>
@@ -554,11 +553,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     <button
                         type="button"
                         onClick={() => handleTypePermutationChange("ENVOYER")}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                            typePermutation === "ENVOYER"
-                                ? "bg-white text-[#6b7a12] shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                        }`}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all"
+                        style={typePermutation === "ENVOYER"
+                            ? { background: "var(--surface)", color: "var(--accent)", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }
+                            : { color: "var(--text-2)" }}
                     >
                         <ArrowRightIcon className="h-4 w-4" />
                         Envoyer
@@ -567,11 +565,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     <button
                         type="button"
                         onClick={() => handleTypePermutationChange("RECEVOIR")}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                            typePermutation === "RECEVOIR"
-                                ? "bg-white text-[#6b7a12] shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                        }`}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all"
+                        style={typePermutation === "RECEVOIR"
+                            ? { background: "var(--surface)", color: "var(--accent)", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }
+                            : { color: "var(--text-2)" }}
                     >
                         <ArrowLeftIcon className="h-4 w-4" />
                         Recevoir
@@ -587,21 +584,22 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
             {/* INFORMATIONS GENERALES */}
             <div className={sectionCls}>
-                <div className="mb-4 flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Informations générales</p>
+                <div className="mb-4 flex items-center gap-2 pl-3" style={{ borderLeft: "3px solid var(--accent)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Informations générales</p>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
                     {/* ✅ ENVOYER : choix destinataire avec recherche */}
                     {typePermutation === "ENVOYER" && (
                         <div>
-                            <label className={labelCls}>
+                            <label className={labelCls} style={labelStyle}>
                                 Destinataire (superviseur) <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <input
                                     type="text"
-                                    className={`${inputCls} ${!receiverId ? "border-red-300" : "border-[#6b7a12]"} pr-8`}
+                                    className={`${inputCls} pr-8`}
+                                    style={!receiverId ? { borderColor: "#fca5a5" } : { borderColor: "var(--accent)" }}
                                     placeholder="Rechercher par nom ou matricule…"
                                     value={supervisorOpen ? supervisorSearch : (selectedSupervisor ? `${selectedSupervisor.fullName} — ${selectedSupervisor.matricule}` : "")}
                                     onFocus={() => { setSupervisorOpen(true); setSupervisorSearch(""); }}
@@ -633,7 +631,8 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                                         setSupervisorOpen(false);
                                                         setSupervisorSearch("");
                                                     }}
-                                                    className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${receiverId === emp.id ? "bg-[#6b7a12]/5" : ""}`}
+                                                    className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50"
+                                                    style={receiverId === emp.id ? { background: "var(--accent-soft)" } : {}}
                                                 >
                                                     <span className="text-sm font-semibold text-slate-900">{emp.fullName}</span>
                                                     <span className="text-xs text-slate-500">Matricule : {emp.matricule}</span>
@@ -648,13 +647,14 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                     {/* production line */}
                     <div>
-                        <label className={labelCls}>
+                        <label className={labelCls} style={labelStyle}>
                             Projet / ligne de production <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                             <input
                                 type="text"
-                                className={`${inputCls} ${!productionLineId ? "border-red-300" : "border-[#6b7a12]"} pr-8`}
+                                className={`${inputCls} pr-8`}
+                                style={!productionLineId ? { borderColor: "#fca5a5" } : { borderColor: "var(--accent)" }}
                                 placeholder="Rechercher par nom de projet…"
                                 value={lineOpen ? lineSearch : (selectedLine ? (selectedLine.name ?? selectedLine.label ?? `Ligne #${selectedLine.id}`) : "")}
                                 onFocus={() => { setLineOpen(true); setLineSearch(""); }}
@@ -686,7 +686,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                                     setLineOpen(false);
                                                     setLineSearch("");
                                                 }}
-                                                className={`flex w-full items-center px-3 py-2.5 text-left text-sm transition-colors hover:bg-slate-50 ${productionLineId === line.id ? "bg-[#6b7a12]/5 font-semibold text-[#6b7a12]" : "text-slate-800"}`}
+                                                className="flex w-full items-center px-3 py-2.5 text-left text-sm transition-colors hover:bg-slate-50"
+                                                style={productionLineId === line.id
+                                                    ? { background: "var(--accent-soft)", fontWeight: 600, color: "var(--accent)" }
+                                                    : { color: "var(--text-1)" }}
                                             >
                                                 {line.name ?? line.label ?? `Ligne #${line.id}`}
                                             </button>
@@ -699,7 +702,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                     {/* user card */}
                     <div>
-                        <label className={labelCls}>
+                        <label className={labelCls} style={labelStyle}>
                             {typePermutation === "ENVOYER" ? "Émetteur" : "Destinataire"}
                             <span className="ml-1 text-[10px] text-slate-400">(vous)</span>
                         </label>
@@ -714,7 +717,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                     {/* dates — même ligne, toujours 2 colonnes */}
                     <div className="col-span-2">
-                        <label className={labelCls}>
+                        <label className={labelCls} style={labelStyle}>
                             Période <span className="text-red-500">*</span>
                         </label>
                         <div className="flex items-center gap-2">
@@ -747,13 +750,13 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             {/* HORAIRES - Visible seulement si mode = "send" */}
             {mode === "send" && (
                 <div className={sectionCls}>
-                    <div className="mb-4 flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Horaires du shift</p>
+                    <div className="mb-4 flex items-center gap-2 pl-3" style={{ borderLeft: "3px solid var(--accent)" }}>
+                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Horaires du shift</p>
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
                         <div>
-                            <label className={labelCls}>
+                            <label className={labelCls} style={labelStyle}>
                                 Heure de début <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -767,7 +770,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         </div>
 
                         <div>
-                            <label className={labelCls}>
+                            <label className={labelCls} style={labelStyle}>
                                 Heure de fin <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -786,18 +789,17 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
             {/* OPERATEURS */}
             <div className={sectionCls}>
                 <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2 border-l-[3px] border-[#6b7a12] pl-3">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    <div className="flex items-center gap-2 pl-3" style={{ borderLeft: "3px solid var(--accent)" }}>
+                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
                             {typePermutation === "ENVOYER" ? "Opérateurs à envoyer" : "Opérateurs libres disponibles"}
                         </p>
                     </div>
 
                     <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${
-                            selectedOperatorsCount === 0
-                                ? "bg-slate-100 text-slate-500"
-                                : "bg-[#6b7a12] text-white"
-                        }`}
+                        className="rounded-full px-3 py-1 text-[11px] font-bold transition-colors"
+                        style={selectedOperatorsCount === 0
+                            ? { background: "var(--steel-light)", color: "var(--text-3)" }
+                            : { background: "var(--accent)", color: "#fff" }}
                     >
                         {selectedOperatorsCount === 0
                             ? "Aucune sélection"
@@ -840,9 +842,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 >
                                     Libre
                                     <span
-                                        className={`inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full ${
-                                            availabilityFilter === "free" ? "bg-white/20" : "bg-[#6b7a12]/10 text-[#6b7a12]"
-                                        }`}
+                                        className="inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs rounded-full"
+                                        style={availabilityFilter === "free"
+                                            ? { background: "rgba(255,255,255,0.2)" }
+                                            : { background: "var(--accent-soft)", color: "var(--accent)" }}
                                     >
                                         {availabilityStats.freeCount}
                                     </span>
@@ -904,11 +907,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                         return (
                             <label
                                 key={emp.id}
-                                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 shadow-sm transition-all ${
-                                    checked
-                                        ? "border-[#6b7a12] bg-[#6b7a12]/5 ring-1 ring-[#6b7a12]/20"
-                                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                                }`}
+                                className="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 shadow-sm transition-all"
+                            style={checked
+                                ? { borderColor: "var(--accent)", background: "var(--accent-soft)", boxShadow: "0 0 0 1px var(--accent)" }
+                                : { borderColor: "var(--border)", background: "var(--surface)" }}
                             >
                                 <input
                                     type="checkbox"
@@ -919,15 +921,14 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
 
                                 {/* Avatar initiales */}
                                 <div
-                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
-                                        checked
-                                            ? "bg-[#6b7a12] text-white"
-                                            : typePermutation === "ENVOYER"
-                                                ? isFree
-                                                    ? "bg-green-100 text-green-800"
-                                                    : "bg-red-100 text-red-700"
-                                                : "bg-slate-100 text-slate-600"
-                                    }`}
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors"
+                                    style={checked
+                                        ? { background: "var(--accent)", color: "#fff" }
+                                        : typePermutation === "ENVOYER"
+                                            ? isFree
+                                                ? { background: "var(--green-soft)", color: "var(--green)" }
+                                                : { background: "var(--red-soft)", color: "var(--red)" }
+                                            : { background: "var(--steel-light)", color: "var(--text-2)" }}
                                 >
                                     {initials}
                                 </div>
@@ -935,7 +936,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-1">
                                         <p className="truncate text-sm font-semibold text-slate-900">{emp.fullName}</p>
-                                        {checked && <CheckCircleIcon className="h-4 w-4 shrink-0 text-[#6b7a12]" />}
+                                        {checked && <CheckCircleIcon className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />}
                                     </div>
 
                                     {matricule && (
@@ -980,7 +981,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                 <button
                     type="submit"
                     disabled={isPending}
-                    className="h-11 rounded-full bg-[#6b7a12] px-6 text-sm font-bold text-white shadow-sm transition hover:bg-[#5a6610] disabled:opacity-60"
+                    className="ds-btn-primary h-11 px-8"
                 >
                     {isPending ? "Création..." : typePermutation === "ENVOYER" ? "Envoyer les opérateurs" : "Recevoir les opérateurs"}
                 </button>

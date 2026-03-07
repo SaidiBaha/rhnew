@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="h-screen overflow-hidden bg-neutral-100">
+    <div className="h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
       {/* SIDEBAR FIXE */}
       <Sidebar />
 

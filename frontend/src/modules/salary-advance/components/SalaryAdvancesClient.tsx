@@ -123,14 +123,15 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
             </Toggle>
           )}
 
-          <Button
+          <button
+            type="button"
             onClick={handleSave}
             disabled={isDisabled}
-            className="bg-[#687818] text-white"
+            className="ds-btn-primary"
           >
-            <Save className="mr-2 size-4" />
+            <Save className="size-4" />
             Enregistrer
-          </Button>
+          </button>
         </div>
       </div>
       <Separator />

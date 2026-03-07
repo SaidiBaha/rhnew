@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DynamicIcon, type IconName } from "lucide-react/dynamic";
-import { ArrowLeftIcon, ArrowRightIcon, LogOut } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, LogOut, Lock } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import useLogout from "@/hooks/useLogout";
@@ -17,37 +17,31 @@ interface SidebarItemProps {
   onClick: () => void;
 }
 
-const SidebarItem = ({
-  icon,
-  active = false,
-  label,
-  expanded,
-  onClick,
-}: SidebarItemProps) => {
+const SidebarItem = ({ icon, active = false, label, expanded, onClick }: SidebarItemProps) => {
   return (
     <li>
       <button
         onClick={onClick}
         title={!expanded ? label : undefined}
         className={`
-          relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200
+          relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-150
           ${
             active
-              ? "bg-white/15 text-white ring-1 ring-white/20 before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-white"
-              : "text-white/75 hover:bg-white/10 hover:text-white"
+              ? "bg-[var(--accent-soft)] text-[var(--accent)] font-semibold border border-[rgba(232,93,38,0.15)] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-[var(--accent)]"
+              : "text-[var(--text-2)] hover:bg-[var(--steel-light)] hover:text-[var(--navy)] font-medium"
           }
         `}
       >
-        <DynamicIcon name={icon} className="h-[18px] w-[18px] shrink-0" />
+        <DynamicIcon name={icon} className="h-[17px] w-[17px] shrink-0" />
         {expanded && (
-          <span className="whitespace-nowrap tracking-wide">{label}</span>
+          <span className="whitespace-nowrap text-[13px]">{label}</span>
         )}
       </button>
     </li>
   );
 };
 
-/* ===================== SIDEBAR ===================== */
+/* ===================== NAV GROUP ===================== */
 interface NavigationItem {
   label: string;
   icon: IconName;
@@ -55,9 +49,74 @@ interface NavigationItem {
   allowedRoles: UserRole[];
 }
 
+interface NavGroupProps {
+  label: string;
+  items: NavigationItem[];
+  expanded: boolean;
+  userRole: UserRole | undefined;
+  currentPath: string;
+  onNavigate: (path: string) => void;
+}
+
+const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }: NavGroupProps) => {
+  const visible = items.filter(
+    (item) => userRole && item.allowedRoles.includes(userRole)
+  );
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="mb-1">
+      {expanded && (
+        <div
+          className="px-3 pt-3 pb-1"
+          style={{
+            fontSize: "9px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.14em",
+            color: "var(--text-3)",
+          }}
+        >
+          {label}
+        </div>
+      )}
+      {!expanded && <div className="my-1 mx-3 border-t border-[var(--border)]" />}
+      <ul className="space-y-0.5 px-2">
+        {visible.map((item, i) => (
+          <SidebarItem
+            key={i}
+            icon={item.icon}
+            label={item.label}
+            expanded={expanded}
+            active={currentPath === item.path && item.path !== ""}
+            onClick={() => onNavigate(item.path)}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+/* ===================== SIDEBAR ===================== */
+const PRINCIPAL_ITEMS: NavigationItem[] = [
+  { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
+  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN"] },
+  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN"] },
+  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR"] },
+];
+
+const GESTION_ITEMS: NavigationItem[] = [
+  { label: "Demandes Documents",    icon: "newspaper",           path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Gestion de Carrière",   icon: "briefcase-business",  path: "",                allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Permutations",          icon: "shuffle",             path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
+  { label: "Opérateurs Disponibles",icon: "user-check",          path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
+];
+
 export const Sidebar = () => {
   const [expanded, setExpanded] = useState(true);
- 
+
   const location = useLocation();
   const navigate = useNavigate();
   const { auth } = useAuth();
@@ -69,88 +128,147 @@ export const Sidebar = () => {
     navigate("/login");
   };
 
-  const navigationItems: NavigationItem[] = [
-    { label: "Accueil", icon: "home", path: "/", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
-    { label: "Employés", icon: "users", path: "/employees", allowedRoles: ["ADMIN"] },
-    { label: "Création d'Employés", icon: "user-plus", path: "", allowedRoles: ["ADMIN"] },
-    { label: "Avances", icon: "hand-coins", path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-    { label: "Pointage", icon: "clipboard-clock", path: "/attendances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-    { label: "Correction Pointage", icon: "search-check", path: "", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-    { label: "Demandes Documents", icon: "newspaper", path: "/requests", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-    { label: "Gestion de Carrière", icon: "briefcase-business", path: "", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-    { label: "Permutations", icon: "shuffle", path: "/permutations", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
-    { label: "Opérateurs Disponibles", icon: "user-check", path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
-    { label: "Changer mot de passe", icon: "lock-keyhole", path: "/change-password", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  ];
-
   const isSupervisor = user?.role === "SUPERVISOR";
 
   const initials = user?.fullName
     ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
+  const roleLabelMap: Record<string, string> = {
+    ADMIN: "Admin",
+    SUPERVISOR: "Superviseur",
+    OPERATIONAL_MANAGER: "Chef d'opérations",
+  };
+  const roleLabel = user?.role ? (roleLabelMap[user.role] ?? user.role) : "";
+
   return (
     <aside
       data-expanded={String(expanded)}
-      className={`fixed left-0 top-0 h-screen bg-[#687818] transition-all duration-300 z-40 flex flex-col shadow-xl ${
+      style={{
+        background: "var(--surface)",
+        borderRight: "1px solid var(--border)",
+        boxShadow: "2px 0 12px rgba(26,35,50,0.06)",
+      }}
+      className={`fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col ${
         expanded ? "w-64" : "w-20"
       }`}
     >
+      {/* Orange top accent filet */}
+      <div
+        className="absolute top-0 right-0 w-[3px] h-24 rounded-b-full"
+        style={{ background: "linear-gradient(to bottom, var(--accent), transparent)" }}
+      />
+
       <nav className="flex h-full flex-col">
         {/* ================= LOGO ================= */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+        <div
+          className="flex items-center justify-between px-4 py-4"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#687818] text-lg font-black shadow-sm">
+            {/* Brand mark */}
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white text-base font-black shadow-sm"
+              style={{ background: "var(--accent)" }}
+            >
               S
             </div>
             {expanded && (
-              <span className="text-sm font-bold text-white leading-tight">
-                Sage<br />
-                <span className="font-normal opacity-80">Automotive</span>
-              </span>
+              <div className="overflow-hidden">
+                <div
+                  className="text-sm leading-tight truncate"
+                  style={{ fontWeight: 700, color: "var(--navy)" }}
+                >
+                  Sage RH
+                </div>
+                <div
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.12em",
+                    color: "var(--text-3)",
+                  }}
+                >
+                  Automotive
+                </div>
+              </div>
             )}
           </div>
 
           <button
             onClick={() => setExpanded(!expanded)}
-            className="shrink-0 rounded-lg bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
+            className="shrink-0 rounded-md p-1.5 transition-colors"
+            style={{ color: "var(--text-3)" }}
             title={expanded ? "Réduire" : "Agrandir"}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--steel-light)";
+              (e.currentTarget as HTMLElement).style.color = "var(--navy)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color = "var(--text-3)";
+            }}
           >
-            {expanded ? (
-              <ArrowLeftIcon className="h-3.5 w-3.5" />
-            ) : (
-              <ArrowRightIcon className="h-3.5 w-3.5" />
-            )}
+            {expanded ? <ArrowLeftIcon className="h-3.5 w-3.5" /> : <ArrowRightIcon className="h-3.5 w-3.5" />}
           </button>
         </div>
 
-        {/* ================= USER ================= */}
+        {/* ================= USER CARD ================= */}
         {user && (
-          <div className={`mx-3 my-3 rounded-xl bg-white/10 text-white ${expanded ? "px-3 py-3" : "flex flex-col items-center gap-2 py-3"}`}>
+          <div
+            className={`mx-3 my-3 rounded-lg ${expanded ? "px-3 py-3" : "flex flex-col items-center gap-2 py-3"}`}
+            style={{
+              background: "var(--steel-light)",
+              border: "1px solid var(--border)",
+            }}
+          >
             {expanded ? (
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20 text-sm font-bold">
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                  style={{ background: "var(--accent)" }}
+                >
                   {initials}
                 </div>
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <div className="truncate text-sm font-semibold">{user.fullName}</div>
-                  <div className="text-[11px] opacity-70">#{user.matricule}</div>
-                  <span className="mt-0.5 inline-block rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide">
-                    {user.role}
+                  <div
+                    className="truncate text-sm font-semibold"
+                    style={{ color: "var(--navy)" }}
+                  >
+                    {user.fullName}
+                  </div>
+                  <div
+                    className="font-mono-data"
+                    style={{ fontSize: "10px", color: "var(--text-3)" }}
+                  >
+                    Matricule #{user.matricule}
+                  </div>
+                  <span
+                    className="mt-1 inline-block rounded-full px-2 py-0.5"
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      letterSpacing: "0.04em",
+                      background: "var(--accent-soft)",
+                      color: "var(--accent)",
+                      border: "1px solid rgba(232,93,38,0.25)",
+                    }}
+                  >
+                    {roleLabel}
                   </span>
                 </div>
-                {/* Cloche notifications — superviseurs uniquement */}
                 {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
               </div>
             ) : (
               <>
                 <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 text-sm font-bold"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
+                  style={{ background: "var(--accent)" }}
                   title={user.fullName}
                 >
                   {initials}
                 </div>
-                {/* Cloche notifications — superviseurs uniquement */}
                 {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
               </>
             )}
@@ -158,34 +276,63 @@ export const Sidebar = () => {
         )}
 
         {/* ================= MENU ================= */}
-        <ul className="flex-1 space-y-0.5 overflow-y-auto px-3 py-1">
-          {navigationItems
-            .filter(
-              (item) =>
-                auth.user?.role &&
-                item.allowedRoles.includes(auth.user.role)
-            )
-            .map((item, index) => (
-              <SidebarItem
-                key={index}
-                icon={item.icon}
-                label={item.label}
-                expanded={expanded}
-                active={location.pathname === item.path}
-                onClick={() => navigate(item.path)}
-              />
-            ))}
-        </ul>
+        <div className="flex-1 overflow-y-auto py-1">
+          <NavGroup
+            label="Principal"
+            items={PRINCIPAL_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+          <NavGroup
+            label="Gestion"
+            items={GESTION_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+        </div>
 
-        {/* ================= LOGOUT ================= */}
-        <div className="border-t border-white/10 p-3">
+        {/* ================= FOOTER ================= */}
+        <div
+          className="p-3 space-y-1"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          {/* Change password */}
+          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] as UserRole[]).includes(user.role) && (
+            <button
+              onClick={() => navigate("/change-password")}
+              title={!expanded ? "Changer mot de passe" : undefined}
+              className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                location.pathname === "/change-password"
+                  ? "bg-[var(--accent-soft)] text-[var(--accent)] font-semibold"
+                  : "text-[var(--text-2)] hover:bg-[var(--steel-light)] hover:text-[var(--navy)]"
+              }`}
+            >
+              <Lock className="h-[17px] w-[17px] shrink-0" />
+              {expanded && <span className="whitespace-nowrap text-[13px]">Changer mot de passe</span>}
+            </button>
+          )}
+
+          {/* Logout */}
           <button
             onClick={signOut}
             title={!expanded ? "Déconnexion" : undefined}
-            className="flex w-full items-center gap-3 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-white hover:bg-red-500/80 transition-colors"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150"
+            style={{ color: "var(--text-2)" }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--red-soft)";
+              (e.currentTarget as HTMLElement).style.color = "var(--red)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color = "var(--text-2)";
+            }}
           >
-            <LogOut className="h-[18px] w-[18px] shrink-0" />
-            {expanded && "Déconnexion"}
+            <LogOut className="h-[17px] w-[17px] shrink-0" />
+            {expanded && <span className="whitespace-nowrap text-[13px]">Déconnexion</span>}
           </button>
         </div>
       </nav>

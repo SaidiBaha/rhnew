@@ -25,22 +25,18 @@ export default function OperatorsAvailabilityPage() {
 
   const { data, isLoading, isFetching, error } = useFetchAvailableOperators();
 
-  const { mutateAsync: markFree, isPending: freePending } =
-      useMarkOperatorsAsFree();
-  const { mutateAsync: markBusy, isPending: busyPending } =
-      useMarkOperatorsAsBusy();
+  const { mutateAsync: markFree, isPending: freePending } = useMarkOperatorsAsFree();
+  const { mutateAsync: markBusy, isPending: busyPending } = useMarkOperatorsAsBusy();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [search, setSearch] = useState("");
-  const [availabilityFilter, setAvailabilityFilter] = useState<
-      "all" | "free" | "busy"
-  >("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState<"all" | "free" | "busy">("all");
 
   // ✅ OPERATIONAL_MANAGER => toujours afficher "free" (read-only)
   useEffect(() => {
     if (isOpManager) {
       setAvailabilityFilter("free");
-      setSelectedIds([]); // sécurité
+      setSelectedIds([]);
     }
   }, [isOpManager]);
 
@@ -54,9 +50,9 @@ export default function OperatorsAvailabilityPage() {
   }, [data]);
 
   const toggle = (id: number) => {
-    if (isOpManager) return; // ✅ read-only
+    if (isOpManager) return;
     setSelectedIds((prev) =>
-        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
@@ -66,23 +62,22 @@ export default function OperatorsAvailabilityPage() {
   // ✅ filtrage (search + disponibilité)
   const operators = (data ?? []).filter((op: any) => {
     const matchSearch =
-        (op.fullName ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (op.matricule ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (op.supervisorFullName ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (op.supervisorMatricule ?? "").toLowerCase().includes(search.toLowerCase());
+      (op.fullName ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (op.matricule ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (op.supervisorFullName ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (op.supervisorMatricule ?? "").toLowerCase().includes(search.toLowerCase());
 
     const matchAvailability =
-        availabilityFilter === "all"
-            ? true
-            : availabilityFilter === "free"
-                ? op.free
-                : !op.free;
+      availabilityFilter === "all"
+        ? true
+        : availabilityFilter === "free"
+        ? op.free
+        : !op.free;
 
     return matchSearch && matchAvailability;
   });
 
   const submit = async (mode: "free" | "busy") => {
-    // ✅ OPERATIONAL_MANAGER => read-only
     if (isOpManager) return;
 
     if (selectedIds.length === 0) {
@@ -102,9 +97,9 @@ export default function OperatorsAvailabilityPage() {
         icon: "success",
         title: "Succès",
         text:
-            mode === "free"
-                ? "Opérateurs marqués comme libres"
-                : "Opérateurs marqués comme occupés",
+          mode === "free"
+            ? "Opérateurs marqués comme libres"
+            : "Opérateurs marqués comme occupés",
       });
 
       setSelectedIds([]);
@@ -118,96 +113,145 @@ export default function OperatorsAvailabilityPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Disponibilité des opérateurs</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            {isOpManager
-              ? "Liste des opérateurs disponibles (lecture seule)"
-              : "Gérez rapidement l'état des opérateurs"}
-          </p>
+      <div
+        className="ds-card px-6 py-4"
+        style={{ position: "relative", overflow: "hidden", borderBottom: "2px solid var(--border)" }}
+      >
+        <div
+          className="absolute bottom-0 left-0 h-0.5 w-48"
+          style={{ background: "linear-gradient(to right, var(--accent), transparent)" }}
+        />
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "4px" }}>
+              Gestion
+              <span className="mx-2" style={{ color: "var(--border-mid)" }}>/</span>
+              <span style={{ color: "var(--text-2)" }}>Opérateurs Disponibles</span>
+            </div>
+            <h1 style={{ fontSize: "17px", fontWeight: 700, color: "var(--navy)", lineHeight: 1.2 }}>
+              Disponibilité des opérateurs
+            </h1>
+            <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
+              {isOpManager
+                ? "Liste des opérateurs disponibles (lecture seule)"
+                : "Gérez rapidement l'état des opérateurs"}
+            </p>
+          </div>
+          {isOpManager && (
+            <span
+              className="rounded-md px-3 py-1 text-xs font-semibold"
+              style={{ background: "var(--amber-soft)", color: "var(--amber)", border: "1px solid rgba(217,119,6,0.25)" }}
+            >
+              Lecture seule
+            </span>
+          )}
         </div>
-        {isOpManager && (
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-            Lecture seule
-          </span>
-        )}
       </div>
 
       {/* ── Stat cards (= filtres cliquables) ── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${isOpManager ? "grid-cols-1 max-w-xs" : "grid-cols-3"}`}>
+        {/* Total — superviseur only */}
         {!isOpManager && (
           <button
             onClick={() => setAvailabilityFilter("all")}
-            className={`rounded-2xl border p-4 text-left transition-all ${
-              availabilityFilter === "all"
-                ? "border-slate-400 bg-slate-800 text-white ring-1 ring-slate-300"
-                : "border-slate-100 bg-white shadow-sm hover:border-slate-200 hover:shadow-md"
-            }`}
+            className="ds-stat-card text-left"
+            style={{ borderLeft: `4px solid var(--navy)`, outline: availabilityFilter === "all" ? "2px solid var(--navy)" : "none", outlineOffset: "-2px" }}
           >
-            <p className={`text-3xl font-bold ${availabilityFilter === "all" ? "text-white" : "text-slate-800"}`}>
+            <div className="flex items-center justify-between mb-3">
+              <span style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-3)" }}>
+                Total opérateurs
+              </span>
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-md"
+                style={{ background: "rgba(26,35,50,0.08)", color: "var(--navy)" }}
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                </svg>
+              </span>
+            </div>
+            <div className="font-mono-data" style={{ fontSize: "28px", fontWeight: 600, color: "var(--text-1)", lineHeight: 1 }}>
               {stats.allCount}
-            </p>
-            <p className={`mt-1 text-xs font-medium ${availabilityFilter === "all" ? "text-slate-300" : "text-slate-500"}`}>
-              Total opérateurs
-            </p>
+            </div>
           </button>
         )}
 
+        {/* Libres */}
         <button
           onClick={() => !isOpManager && setAvailabilityFilter("free")}
-          className={`rounded-2xl border p-4 text-left transition-all ${
-            isOpManager ? "cursor-default" : "cursor-pointer"
-          } ${
-            availabilityFilter === "free"
-              ? "border-emerald-400 bg-emerald-600 ring-1 ring-emerald-300"
-              : "border-slate-100 bg-white shadow-sm hover:border-slate-200 hover:shadow-md"
-          }`}
+          className="ds-stat-card text-left"
+          style={{
+            borderLeft: "4px solid var(--green)",
+            outline: availabilityFilter === "free" ? "2px solid var(--green)" : "none",
+            outlineOffset: "-2px",
+            cursor: isOpManager ? "default" : "pointer",
+          }}
         >
-          <p className={`text-3xl font-bold ${availabilityFilter === "free" ? "text-white" : "text-emerald-600"}`}>
+          <div className="flex items-center justify-between mb-3">
+            <span style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-3)" }}>
+              Libres
+            </span>
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-md"
+              style={{ background: "var(--green-soft)", color: "var(--green)" }}
+            >
+              <CheckCircleIcon className="h-4 w-4" />
+            </span>
+          </div>
+          <div className="font-mono-data" style={{ fontSize: "28px", fontWeight: 600, color: "var(--green)", lineHeight: 1 }}>
             {stats.freeCount}
-          </p>
-          <p className={`mt-1 text-xs font-medium ${availabilityFilter === "free" ? "text-emerald-100" : "text-slate-500"}`}>
-            Libres
-          </p>
+          </div>
         </button>
 
+        {/* Occupés — superviseur only */}
         {!isOpManager && (
           <button
             onClick={() => setAvailabilityFilter("busy")}
-            className={`rounded-2xl border p-4 text-left transition-all ${
-              availabilityFilter === "busy"
-                ? "border-red-400 bg-red-600 ring-1 ring-red-300"
-                : "border-slate-100 bg-white shadow-sm hover:border-slate-200 hover:shadow-md"
-            }`}
+            className="ds-stat-card text-left"
+            style={{ borderLeft: "4px solid var(--red)", outline: availabilityFilter === "busy" ? "2px solid var(--red)" : "none", outlineOffset: "-2px" }}
           >
-            <p className={`text-3xl font-bold ${availabilityFilter === "busy" ? "text-white" : "text-red-600"}`}>
+            <div className="flex items-center justify-between mb-3">
+              <span style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-3)" }}>
+                Occupés
+              </span>
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-md"
+                style={{ background: "var(--red-soft)", color: "var(--red)" }}
+              >
+                <XCircleIcon className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="font-mono-data" style={{ fontSize: "28px", fontWeight: 600, color: "var(--red)", lineHeight: 1 }}>
               {stats.busyCount}
-            </p>
-            <p className={`mt-1 text-xs font-medium ${availabilityFilter === "busy" ? "text-red-100" : "text-slate-500"}`}>
-              Occupés
-            </p>
+            </div>
           </button>
         )}
       </div>
 
       {/* ── Barre de recherche ── */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="relative flex-1 max-w-sm">
+          <MagnifyingGlassIcon
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+            style={{ color: "var(--text-3)" }}
+          />
           <input
             type="text"
             placeholder="Nom, matricule, superviseur..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm shadow-sm outline-none transition focus:border-[#6b7a12] focus:ring-2 focus:ring-[#6b7a12]/20"
+            className="ds-input h-10 w-full pl-9 pr-4"
           />
         </div>
         {!isOpManager && selectedIds.length > 0 && (
-          <span className="shrink-0 rounded-full bg-[#6b7a12]/10 px-3 py-1.5 text-xs font-semibold text-[#6b7a12]">
+          <span
+            className="shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid rgba(232,93,38,0.25)" }}
+          >
             {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
           </span>
         )}
@@ -217,11 +261,14 @@ export default function OperatorsAvailabilityPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[500px] overflow-y-auto pr-1">
         {operators.length === 0 && (
           <div className="col-span-3 flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
-              <MagnifyingGlassIcon className="h-7 w-7 text-slate-400" />
+            <div
+              className="mb-3 flex h-14 w-14 items-center justify-center rounded-lg"
+              style={{ background: "var(--steel-light)" }}
+            >
+              <MagnifyingGlassIcon className="h-7 w-7" style={{ color: "var(--text-3)" }} />
             </div>
-            <p className="text-sm font-semibold text-slate-500">Aucun opérateur trouvé</p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-2)" }}>Aucun opérateur trouvé</p>
+            <p className="mt-1" style={{ fontSize: "12px", color: "var(--text-3)" }}>
               Modifiez votre recherche ou le filtre de disponibilité
             </p>
           </div>
@@ -237,16 +284,37 @@ export default function OperatorsAvailabilityPage() {
             .join("")
             .toUpperCase();
 
+          const cardStyle = !isOpManager && checked
+            ? { background: "var(--accent-soft)", border: "1px solid rgba(232,93,38,0.30)", boxShadow: "0 0 0 2px rgba(232,93,38,0.10)" }
+            : { background: "var(--surface)", border: "1px solid var(--border)" };
+
+          const avatarStyle = !isOpManager && checked
+            ? { background: "var(--accent)", color: "#fff" }
+            : op.free
+            ? { background: "var(--green-soft)", color: "var(--green)" }
+            : { background: "var(--red-soft)", color: "var(--red)" };
+
           return (
             <label
               key={op.id}
-              className={`flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-sm transition-all ${
-                isOpManager ? "cursor-default" : "cursor-pointer"
-              } ${
-                !isOpManager && checked
-                  ? "border-[#6b7a12] bg-[#6b7a12]/5 ring-1 ring-[#6b7a12]/20"
-                  : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-md"
-              }`}
+              className="flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-150"
+              style={{
+                ...cardStyle,
+                cursor: isOpManager ? "default" : "pointer",
+                boxShadow: "0 1px 4px rgba(26,35,50,0.06)",
+              }}
+              onMouseEnter={(e) => {
+                if (!isOpManager && !checked) {
+                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border-mid)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(26,35,50,0.10)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isOpManager && !checked) {
+                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(26,35,50,0.06)";
+                }
+              }}
             >
               {/* ✅ OP_MANAGER: pas de checkbox */}
               {!isOpManager && (
@@ -258,52 +326,60 @@ export default function OperatorsAvailabilityPage() {
                 />
               )}
 
-              {/* Avatar initiales */}
+              {/* Avatar */}
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-colors ${
-                  !isOpManager && checked
-                    ? "bg-[#6b7a12] text-white"
-                    : op.free
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-red-100 text-red-700"
-                }`}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold transition-colors"
+                style={avatarStyle}
               >
                 {initials}
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">{op.fullName}</p>
+                  <p
+                    className="truncate text-sm font-semibold"
+                    style={{ color: "var(--text-1)" }}
+                  >
+                    {op.fullName}
+                  </p>
                   {!isOpManager && checked && (
-                    <CheckCircleIcon className="h-4 w-4 shrink-0 text-[#6b7a12]" />
+                    <CheckCircleIcon className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />
                   )}
                 </div>
 
                 {op.matricule && (
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                    {op.matricule}
+                  <p
+                    className="font-mono-data"
+                    style={{ fontSize: "10px", color: "var(--text-3)" }}
+                  >
+                    #{op.matricule}
                   </p>
                 )}
 
-                <p className="mt-0.5 truncate text-[10px] text-slate-500">
-                  <span className="text-slate-400">Sup. </span>
-                  <span className="font-medium text-slate-600">{op.supervisorFullName ?? "—"}</span>
+                <p className="mt-0.5 truncate" style={{ fontSize: "10px", color: "var(--text-3)" }}>
+                  Sup.{" "}
+                  <span style={{ fontWeight: 500, color: "var(--text-2)" }}>
+                    {op.supervisorFullName ?? "—"}
+                  </span>
                   {op.supervisorMatricule && (
-                    <span className="text-slate-400"> ({op.supervisorMatricule})</span>
+                    <span className="font-mono-data"> ({op.supervisorMatricule})</span>
                   )}
                 </p>
               </div>
 
               {/* Badge statut */}
               <span
-                className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${
-                  op.free ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
-                }`}
+                className="shrink-0 ds-pill"
+                style={
+                  op.free
+                    ? { background: "var(--green-soft)", color: "var(--green)" }
+                    : { background: "var(--red-soft)", color: "var(--red)" }
+                }
               >
                 {op.free ? (
-                  <><CheckCircleIcon className="h-3 w-3" />Libre</>
+                  <><CheckCircleIcon className="h-3 w-3" /> Libre</>
                 ) : (
-                  <><XCircleIcon className="h-3 w-3" />Occupé</>
+                  <><XCircleIcon className="h-3 w-3" /> Occupé</>
                 )}
               </span>
             </label>
@@ -312,16 +388,22 @@ export default function OperatorsAvailabilityPage() {
       </div>
 
       {/* ── Barre d'actions sticky ── */}
-      {/* ✅ OP_MANAGER: cacher tout le bloc actions */}
       {!isOpManager && (
-        <div className="sticky bottom-0 flex items-center justify-between rounded-2xl border border-slate-100 bg-white/90 px-5 py-3 shadow-lg backdrop-blur">
+        <div
+          className="sticky bottom-0 flex items-center justify-between rounded-lg px-5 py-3 backdrop-blur"
+          style={{
+            background: "rgba(255,255,255,0.92)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 -4px 16px rgba(26,35,50,0.08)",
+          }}
+        >
           <div>
             {selectedIds.length > 0 ? (
-              <span className="text-sm font-semibold text-[#6b7a12]">
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--accent)" }}>
                 {selectedIds.length} opérateur{selectedIds.length > 1 ? "s" : ""} sélectionné{selectedIds.length > 1 ? "s" : ""}
               </span>
             ) : (
-              <span className="text-sm text-slate-400">
+              <span style={{ fontSize: "13px", color: "var(--text-3)" }}>
                 Sélectionnez des opérateurs pour modifier leur statut
               </span>
             )}
@@ -331,7 +413,8 @@ export default function OperatorsAvailabilityPage() {
             <button
               disabled={freePending}
               onClick={() => submit("free")}
-              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-bold text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--green)" }}
             >
               <CheckCircleIcon className="h-4 w-4" />
               Marquer libre
@@ -340,7 +423,8 @@ export default function OperatorsAvailabilityPage() {
             <button
               disabled={busyPending}
               onClick={() => submit("busy")}
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-bold text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--red)" }}
             >
               <XCircleIcon className="h-4 w-4" />
               Marquer occupé

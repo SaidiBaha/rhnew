@@ -20,7 +20,12 @@ import {
   Tooltip,
   Legend,
   Brush,
+  AreaChart,
+  Area,
+  CartesianGrid,
 } from "recharts";
+import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
+import type { Permutation } from "@/modules/permutation/types";
 
 function hasRole(auth: any, role: string) {
   const r =
@@ -150,25 +155,47 @@ function StatCard({
 }: {
   label: string;
   value: string | number;
-  color: "blue" | "amber" | "emerald" | "violet";
+  color: "navy" | "teal" | "accent" | "green" | "red";
   icon: React.ReactNode;
 }) {
   const palette = {
-    blue:    { bg: "bg-blue-50 border-blue-100",    icon: "bg-blue-100 text-blue-600",    val: "text-blue-700" },
-    amber:   { bg: "bg-amber-50 border-amber-100",  icon: "bg-amber-100 text-amber-600",  val: "text-amber-700" },
-    emerald: { bg: "bg-emerald-50 border-emerald-100", icon: "bg-emerald-100 text-emerald-600", val: "text-emerald-700" },
-    violet:  { bg: "bg-violet-50 border-violet-100", icon: "bg-violet-100 text-violet-600", val: "text-violet-700" },
+    navy:   { border: "var(--navy)",   iconBg: "rgba(26,35,50,0.08)",   iconColor: "var(--navy)" },
+    teal:   { border: "var(--teal)",   iconBg: "var(--teal-soft)",       iconColor: "var(--teal)" },
+    accent: { border: "var(--accent)", iconBg: "var(--accent-soft)",     iconColor: "var(--accent)" },
+    green:  { border: "var(--green)",  iconBg: "var(--green-soft)",      iconColor: "var(--green)" },
+    red:    { border: "var(--red)",    iconBg: "var(--red-soft)",        iconColor: "var(--red)" },
   }[color];
 
   return (
-    <div className={`rounded-2xl border ${palette.bg} p-5 shadow-sm`}>
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${palette.icon}`}>
+    <div
+      className="ds-stat-card"
+      style={{ borderLeft: `4px solid ${palette.border}` }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span
+          style={{
+            fontSize: "10px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            color: "var(--text-3)",
+          }}
+        >
+          {label}
+        </span>
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-md"
+          style={{ background: palette.iconBg, color: palette.iconColor }}
+        >
           {icon}
         </span>
       </div>
-      <div className={`mt-3 text-2xl font-bold ${palette.val}`}>{value}</div>
+      <div
+        className="font-mono-data"
+        style={{ fontSize: "28px", fontWeight: 600, color: "var(--text-1)", lineHeight: 1 }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -193,16 +220,19 @@ function GaugeCard({
     { name: "right", value: 100 - p },
     { name: "rest",  value: 0 },
   ];
-  const COLORS = ["#3b82f6", "#f59e0b", "#e5e7eb"];
+  const COLORS = ["#0d7ea8", "#e85d26", "#e8ecf2"];
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="ds-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900">{title}</div>
-          {subtitle && <div className="text-xs text-slate-500 mt-1">{subtitle}</div>}
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>{title}</div>
+          {subtitle && <div style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>{subtitle}</div>}
         </div>
-        <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">
+        <div
+          className="font-mono-data rounded-md px-3 py-1.5"
+          style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-2)", background: "var(--surface2)", border: "1px solid var(--border)" }}
+        >
           {p.toFixed(1)}%
         </div>
       </div>
@@ -241,14 +271,14 @@ function GaugeCard({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-2 flex items-center justify-center gap-6 text-xs">
+      <div className="mt-2 flex items-center justify-center gap-6" style={{ fontSize: "12px" }}>
         <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-blue-500" />
-          <span className="text-slate-700">{legendLeft}</span>
+          <span className="h-3 w-3 rounded-full" style={{ background: "var(--teal)" }} />
+          <span style={{ color: "var(--text-2)" }}>{legendLeft}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-amber-500" />
-          <span className="text-slate-700">{legendRight}</span>
+          <span className="h-3 w-3 rounded-full" style={{ background: "var(--accent)" }} />
+          <span style={{ color: "var(--text-2)" }}>{legendRight}</span>
         </div>
       </div>
     </div>
@@ -282,23 +312,24 @@ function ProjectsAddedTransferredCard({
   const fadedOpacity = 0.3;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="ds-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900">{title}</div>
-          {subtitle && <div className="text-xs text-slate-500 mt-1">{subtitle}</div>}
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>{title}</div>
+          {subtitle && <div style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>{subtitle}</div>}
         </div>
         <div className="flex items-center gap-2">
           <input
             type="date"
             value={chartDate}
             onChange={(e) => onChartDateChange(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs outline-none focus:border-[#6b7a12]"
+            className="ds-input font-mono-data"
           />
           <button
             type="button"
             onClick={onReset}
-            className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+            className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+            style={{ background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }}
           >
             Réinitialiser
           </button>
@@ -307,9 +338,12 @@ function ProjectsAddedTransferredCard({
 
       {activeProjectId !== null && (
         <div className="mt-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-xs text-blue-700">
+          <span
+            className="inline-flex items-center gap-2 rounded-md px-3 py-1 text-xs"
+            style={{ background: "var(--teal-soft)", color: "var(--teal)", border: "1px solid #b3ddf0" }}
+          >
             Filtre actif : <strong>#{activeProjectId}</strong>
-            <button onClick={() => onToggleProject(activeProjectId)} className="hover:text-blue-900">✕</button>
+            <button onClick={() => onToggleProject(activeProjectId)} className="hover:opacity-70">✕</button>
           </span>
         </div>
       )}
@@ -380,14 +414,14 @@ function TopProjectsCard({
   loading?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-1 text-sm font-semibold text-slate-900">Top projets — heures totales</div>
-      <div className="mb-3 text-xs text-slate-500">
+    <div className="ds-card p-5">
+      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>Top projets — heures totales</div>
+      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
         Classement par volume d'heures cumulées (ajoutées + transférées)
       </div>
 
       {data.length === 0 ? (
-        <div className="flex h-[220px] items-center justify-center text-slate-400 text-sm">
+        <div className="flex h-[220px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
           {loading ? "Chargement…" : "Aucune donnée disponible."}
         </div>
       ) : (
@@ -405,11 +439,11 @@ function TopProjectsCard({
                   const label = props?.dataKey === "ajoutees" ? "Ajoutées" : "Transférées";
                   return [`${Number(v).toFixed(2)} h`, label];
                 }}
-                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px" }}
+                contentStyle={{ borderRadius: "6px", fontSize: "12px", border: "1px solid var(--border)" }}
               />
               <Legend verticalAlign="top" height={22} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="ajoutees" name="Ajoutées" fill="#3b82f6" radius={[0, 0, 0, 0]} stackId="s" />
-              <Bar dataKey="transferees" name="Transférées" fill="#f59e0b" radius={[0, 4, 4, 0]} stackId="s" />
+              <Bar dataKey="ajoutees" name="Ajoutées" fill="#0d7ea8" radius={[0, 0, 0, 0]} stackId="s" />
+              <Bar dataKey="transferees" name="Transférées" fill="#e85d26" radius={[0, 4, 4, 0]} stackId="s" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -427,14 +461,14 @@ function SupervisorAnalysisCard({
   loading?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-1 text-sm font-semibold text-slate-900">Analyse par superviseur</div>
-      <div className="mb-3 text-xs text-slate-500">
+    <div className="ds-card p-5">
+      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>Analyse par superviseur</div>
+      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
         Heures ajoutées et transférées par superviseur (top 8)
       </div>
 
       {data.length === 0 ? (
-        <div className="flex h-[220px] items-center justify-center text-slate-400 text-sm">
+        <div className="flex h-[220px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
           {loading ? "Chargement…" : "Aucune donnée disponible."}
         </div>
       ) : (
@@ -452,11 +486,209 @@ function SupervisorAnalysisCard({
                   const label = props?.dataKey === "ajoutees" ? "Ajoutées" : "Transférées";
                   return [`${Number(v).toFixed(2)} h`, label];
                 }}
-                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px" }}
+                contentStyle={{ borderRadius: "6px", fontSize: "12px", border: "1px solid var(--border)" }}
               />
               <Legend verticalAlign="top" height={22} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="ajoutees" name="Ajoutées" fill="#10b981" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="transferees" name="Transférées" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="ajoutees" name="Ajoutées" fill="#1a9e6a" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="transferees" name="Transférées" fill="#d97706" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Supervisor Permutation Dashboard components ──────────────────────────────
+
+function PermStatusPieCard({ permutations }: { permutations: Permutation[] }) {
+  const statusData = useMemo(() =>
+    [
+      { name: "En attente", value: permutations.filter(p => p.status === "EN_ATTENTE").length, color: "#d97706" },
+      { name: "Acceptées",  value: permutations.filter(p => p.status === "ACCEPTEE").length,  color: "#1a9e6a" },
+      { name: "Refusées",   value: permutations.filter(p => p.status === "REFUSEE").length,   color: "#c8333a" },
+    ].filter(d => d.value > 0),
+  [permutations]);
+
+  return (
+    <div className="ds-card p-5">
+      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
+        Répartition par statut
+      </div>
+      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
+        {permutations.length} permutation{permutations.length !== 1 ? "s" : ""} au total
+      </div>
+      {statusData.length === 0 ? (
+        <div className="flex h-[210px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
+          Aucune donnée disponible
+        </div>
+      ) : (
+        <div className="h-[210px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={statusData}
+                dataKey="value"
+                cx="50%" cy="50%"
+                innerRadius={58} outerRadius={82}
+                paddingAngle={3}
+                stroke="transparent"
+              >
+                {statusData.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Pie>
+              <Tooltip
+                formatter={(v: any, name: any) => [v, name]}
+                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }}
+              />
+              <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PermTypeBarCard({ permutations }: { permutations: Permutation[] }) {
+  const data = useMemo(() => [
+    {
+      name: "Envoyées",
+      "En attente": permutations.filter(p => p.typePermutation === "ENVOYER" && p.status === "EN_ATTENTE").length,
+      "Acceptées":  permutations.filter(p => p.typePermutation === "ENVOYER" && p.status === "ACCEPTEE").length,
+      "Refusées":   permutations.filter(p => p.typePermutation === "ENVOYER" && p.status === "REFUSEE").length,
+    },
+    {
+      name: "Reçues",
+      "En attente": permutations.filter(p => p.typePermutation === "RECEVOIR" && p.status === "EN_ATTENTE").length,
+      "Acceptées":  permutations.filter(p => p.typePermutation === "RECEVOIR" && p.status === "ACCEPTEE").length,
+      "Refusées":   permutations.filter(p => p.typePermutation === "RECEVOIR" && p.status === "REFUSEE").length,
+    },
+  ], [permutations]);
+
+  return (
+    <div className="ds-card p-5">
+      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
+        Envoyées vs Reçues
+      </div>
+      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
+        Répartition par type et statut
+      </div>
+      <div className="h-[210px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+            <XAxis dataKey="name" tick={{ fontSize: 13, fontWeight: 600 }} />
+            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+            <Tooltip contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }} />
+            <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="En attente" fill="#d97706" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Acceptées"  fill="#1a9e6a" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Refusées"   fill="#c8333a" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function PermTimelineCard({ permutations }: { permutations: Permutation[] }) {
+  const data = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of permutations) {
+      if (p.startDate) map.set(p.startDate, (map.get(p.startDate) ?? 0) + 1);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date: date.slice(5), count }));
+  }, [permutations]);
+
+  return (
+    <div className="ds-card p-5">
+      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
+        Permutations par date
+      </div>
+      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
+        Nombre de permutations selon la date de début
+      </div>
+      {data.length === 0 ? (
+        <div className="flex h-[185px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
+          Aucune donnée disponible
+        </div>
+      ) : (
+        <div className="h-[185px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+              <defs>
+                <linearGradient id="permGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#0d7ea8" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#0d7ea8" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <Tooltip
+                formatter={(v: any) => [v, "Permutations"]}
+                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }}
+              />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="#0d7ea8"
+                strokeWidth={2}
+                fill="url(#permGradient)"
+                dot={{ r: 3, fill: "#0d7ea8", strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                name="Permutations"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PermOperatorsCard({ permutations, total }: { permutations: Permutation[]; total: number }) {
+  const { avgOps, maxOps, distData } = useMemo(() => {
+    if (permutations.length === 0) return { avgOps: 0, maxOps: 0, distData: [] };
+    const counts = permutations.map(p => p.operatorIds.length);
+    const avgOps = Math.round((counts.reduce((s, c) => s + c, 0) / permutations.length) * 10) / 10;
+    const maxOps = Math.max(...counts);
+    const distMap = new Map<number, number>();
+    for (const c of counts) distMap.set(c, (distMap.get(c) ?? 0) + 1);
+    const distData = [...distMap.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([ops, perms]) => ({ name: `${ops} op.`, perms }));
+    return { avgOps, maxOps, distData };
+  }, [permutations]);
+
+  return (
+    <div className="ds-card p-5">
+      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
+        Opérateurs impliqués
+      </div>
+      <div className="mb-3 flex gap-5" style={{ fontSize: "11px", color: "var(--text-3)" }}>
+        <span>Total : <strong style={{ color: "var(--text-2)" }}>{total}</strong></span>
+        <span>Moy./perm. : <strong style={{ color: "var(--text-2)" }}>{avgOps}</strong></span>
+        <span>Max : <strong style={{ color: "var(--text-2)" }}>{maxOps}</strong></span>
+      </div>
+      {distData.length === 0 ? (
+        <div className="flex h-[155px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
+          Aucune donnée disponible
+        </div>
+      ) : (
+        <div className="h-[155px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={distData} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <Tooltip
+                formatter={(v: any) => [v, "Permutations"]}
+                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }}
+              />
+              <Bar dataKey="perms" name="Permutations" fill="#e85d26" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -477,10 +709,36 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const { auth } = useAuth();
-  const isOpManager = hasRole(auth, "OPERATIONAL_MANAGER");
+  const isOpManager  = hasRole(auth, "OPERATIONAL_MANAGER");
+  const isSupervisor = hasRole(auth, "SUPERVISOR");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today      = new Date().toISOString().slice(0, 10);
   const monthStart = useMemo(() => today.slice(0, 7) + "-01", [today]);
+
+  // ── Supervisor: permutation data (hook must be unconditional) ───────────────
+  const { data: rawPermutations, isLoading: permLoading } = useFetchPermutations();
+
+  const [permDateFrom,    setPermDateFrom]    = useState(monthStart);
+  const [permDateTo,      setPermDateTo]      = useState(today);
+  const [permStatusFilter, setPermStatusFilter] = useState<"ALL" | "EN_ATTENTE" | "ACCEPTEE" | "REFUSEE">("ALL");
+  const [permTypeFilter,  setPermTypeFilter]  = useState<"ALL" | "ENVOYER" | "RECEVOIR">("ALL");
+
+  const filteredPermutations = useMemo(() => {
+    const perms = rawPermutations ?? [];
+    return perms.filter(p => {
+      if (permStatusFilter !== "ALL" && p.status          !== permStatusFilter) return false;
+      if (permTypeFilter   !== "ALL" && p.typePermutation !== permTypeFilter)   return false;
+      if (permDateFrom && p.startDate < permDateFrom) return false;
+      if (permDateTo   && p.startDate > permDateTo)   return false;
+      return true;
+    });
+  }, [rawPermutations, permStatusFilter, permTypeFilter, permDateFrom, permDateTo]);
+
+  const permTotal     = filteredPermutations.length;
+  const permEnAttente = filteredPermutations.filter(p => p.status === "EN_ATTENTE").length;
+  const permAcceptees = filteredPermutations.filter(p => p.status === "ACCEPTEE").length;
+  const permRefusees  = filteredPermutations.filter(p => p.status === "REFUSEE").length;
+  const permTotalOps  = filteredPermutations.reduce((s, p) => s + p.operatorIds.length, 0);
 
   const [du, setDu] = useState(monthStart);
   const [au, setAu] = useState(today);
@@ -609,9 +867,153 @@ export default function HomePage() {
 
   // ── Guards ─────────────────────────────────────────────────────────────────
   if (!isOpManager) {
+    if (isSupervisor) {
+      if (permLoading) return <Loader />;
+      return (
+        <div className="space-y-5">
+          {/* ── Header + Filtres ── */}
+          <div
+            className="ds-card px-6 py-4"
+            style={{ position: "relative", overflow: "hidden", borderBottom: "2px solid var(--border)" }}
+          >
+            <div
+              className="absolute bottom-0 left-0 h-0.5 w-48"
+              style={{ background: "linear-gradient(to right, var(--accent), transparent)" }}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "4px" }}>
+                  Accueil
+                  <span className="mx-2" style={{ color: "var(--border-mid)" }}>/</span>
+                  <span style={{ color: "var(--text-2)" }}>Mes Permutations</span>
+                </div>
+                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "var(--navy)", lineHeight: 1.2 }}>
+                  Dashboard Permutations
+                </h1>
+                <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
+                  Statistiques de vos permutations d'opérateurs
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Du</span>
+                  <input
+                    type="date"
+                    value={permDateFrom}
+                    onChange={e => setPermDateFrom(e.target.value)}
+                    className="ds-input font-mono-data"
+                  />
+                </div>
+                <span style={{ color: "var(--border-mid)" }}>→</span>
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Au</span>
+                  <input
+                    type="date"
+                    value={permDateTo}
+                    onChange={e => setPermDateTo(e.target.value)}
+                    className="ds-input font-mono-data"
+                  />
+                </div>
+                <select
+                  value={permStatusFilter}
+                  onChange={e => setPermStatusFilter(e.target.value as typeof permStatusFilter)}
+                  className="ds-input"
+                >
+                  <option value="ALL">Tous statuts</option>
+                  <option value="EN_ATTENTE">En attente</option>
+                  <option value="ACCEPTEE">Acceptées</option>
+                  <option value="REFUSEE">Refusées</option>
+                </select>
+                <select
+                  value={permTypeFilter}
+                  onChange={e => setPermTypeFilter(e.target.value as typeof permTypeFilter)}
+                  className="ds-input"
+                >
+                  <option value="ALL">Tous types</option>
+                  <option value="ENVOYER">Envoyées</option>
+                  <option value="RECEVOIR">Reçues</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPermDateFrom(monthStart);
+                    setPermDateTo(today);
+                    setPermStatusFilter("ALL");
+                    setPermTypeFilter("ALL");
+                  }}
+                  className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                  style={{ background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }}
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── KPI Cards ── */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard
+              label="Total permutations"
+              value={permTotal}
+              color="navy"
+              icon={
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                  <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+              }
+            />
+            <StatCard
+              label="En attente"
+              value={permEnAttente}
+              color="accent"
+              icon={
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+              }
+            />
+            <StatCard
+              label="Acceptées"
+              value={permAcceptees}
+              color="green"
+              icon={
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              }
+            />
+            <StatCard
+              label="Refusées"
+              value={permRefusees}
+              color="red"
+              icon={
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              }
+            />
+          </div>
+
+          {/* ── Charts row 1: Statut Pie + Type Bar ── */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PermStatusPieCard permutations={filteredPermutations} />
+            <PermTypeBarCard   permutations={filteredPermutations} />
+          </div>
+
+          {/* ── Charts row 2: Timeline + Opérateurs ── */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PermTimelineCard  permutations={filteredPermutations} />
+            <PermOperatorsCard permutations={filteredPermutations} total={permTotalOps} />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-slate-800">Accueil</h1>
+        <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--navy)" }}>Accueil</h1>
       </div>
     );
   }
@@ -620,35 +1022,46 @@ export default function HomePage() {
   if (error) return <ErrorAlert error="Impossible de charger les statistiques." />;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[#6b7a12]">Dashboard</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Heures ajoutées / transférées par projet — permutations acceptées
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+    <div className="space-y-5">
+      {/* ── Header card ── */}
+      <div
+        className="ds-card px-6 py-4"
+        style={{ position: "relative", overflow: "hidden", borderBottom: "2px solid var(--border)" }}
+      >
+        <div className="absolute bottom-0 left-0 h-0.5 w-48" style={{ background: "linear-gradient(to right, var(--accent), transparent)" }} />
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="mb-1 text-[11px] font-semibold text-slate-500">Du</div>
-            <input
-              type="date"
-              value={du}
-              onChange={(e) => setDu(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#6b7a12]"
-            />
+            <div style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "4px" }}>
+              Accueil
+              <span className="mx-2" style={{ color: "var(--border-mid)" }}>/</span>
+              <span style={{ color: "var(--text-2)" }}>Dashboard</span>
+            </div>
+            <h1 style={{ fontSize: "17px", fontWeight: 700, color: "var(--navy)", lineHeight: 1.2 }}>Dashboard</h1>
+            <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
+              Heures ajoutées / transférées par projet — permutations acceptées
+            </p>
           </div>
-          <div className="text-slate-300 text-lg font-light">→</div>
-          <div>
-            <div className="mb-1 text-[11px] font-semibold text-slate-500">Au</div>
-            <input
-              type="date"
-              value={au}
-              onChange={(e) => setAu(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#6b7a12]"
-            />
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Du</span>
+              <input
+                type="date"
+                value={du}
+                onChange={(e) => setDu(e.target.value)}
+                className="ds-input font-mono-data"
+              />
+            </div>
+            <span style={{ color: "var(--border-mid)" }}>→</span>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Au</span>
+              <input
+                type="date"
+                value={au}
+                onChange={(e) => setAu(e.target.value)}
+                className="ds-input font-mono-data"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -658,7 +1071,7 @@ export default function HomePage() {
         <StatCard
           label="Heures Ajoutées"
           value={formatH(totalAjoutees)}
-          color="blue"
+          color="teal"
           icon={
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
@@ -668,7 +1081,7 @@ export default function HomePage() {
         <StatCard
           label="Heures Transférées"
           value={formatH(totalTransferees)}
-          color="amber"
+          color="accent"
           icon={
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M5 12h14M12 5l7 7-7 7" />
@@ -678,7 +1091,7 @@ export default function HomePage() {
         <StatCard
           label="Projets actifs"
           value={rowsByProject.length}
-          color="emerald"
+          color="green"
           icon={
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <rect x="2" y="7" width="20" height="14" rx="2" />
@@ -689,7 +1102,7 @@ export default function HomePage() {
         <StatCard
           label="Superviseurs"
           value={uniqueSupervisorsCount}
-          color="violet"
+          color="navy"
           icon={
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -702,9 +1115,12 @@ export default function HomePage() {
 
       {/* ── Charts row 1: Gauge + Barres par projet ── */}
       {chartError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-          <p className="font-medium text-red-700">Erreur de chargement des données du graphique</p>
-          <p className="mt-1 text-sm text-red-500">
+        <div
+          className="rounded-lg p-6 text-center"
+          style={{ background: "var(--red-soft)", border: "1px solid rgba(200,51,58,0.20)" }}
+        >
+          <p style={{ fontWeight: 600, color: "var(--red)" }}>Erreur de chargement des données du graphique</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--red)" }}>
             {(chartError as any)?.message || "Veuillez réessayer plus tard"}
           </p>
         </div>
@@ -740,19 +1156,24 @@ export default function HomePage() {
       )}
 
       {/* ── Détails table ── */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="ds-card overflow-hidden">
         {/* Table header bar */}
-        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
           <div>
-            <span className="text-sm font-semibold text-slate-900">Détails par projet</span>
-            <span className="ml-2 text-xs text-slate-400">{rowsByProject.length} projet{rowsByProject.length !== 1 ? "s" : ""}</span>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>Détails par projet</span>
+            <span className="ml-2" style={{ fontSize: "11px", color: "var(--text-3)" }}>
+              {rowsByProject.length} projet{rowsByProject.length !== 1 ? "s" : ""}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => void exportProjectHoursToExcel(rowsByProject, du, au)}
               disabled={!rowsByProject.length}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#6b7a12] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a6610] disabled:opacity-50"
+              className="ds-btn-primary disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M12 5v14M5 12l7 7 7-7" />
@@ -763,7 +1184,8 @@ export default function HomePage() {
               type="button"
               onClick={() => exportProjectHoursToPdf(rowsByProject, du, au)}
               disabled={!rowsByProject.length}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+              style={{ background: "var(--navy)" }}
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M12 5v14M5 12l7 7 7-7" />
@@ -774,73 +1196,93 @@ export default function HomePage() {
         </div>
 
         {rowsByProject.length === 0 ? (
-          <div className="p-10 text-center text-slate-400">
+          <div className="p-10 text-center" style={{ color: "var(--text-3)" }}>
             Aucune donnée pour cette période.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="ds-table min-w-full text-sm">
               <thead>
-                <tr className="bg-[#687818] text-white text-xs font-semibold uppercase tracking-wider">
+                <tr>
                   <th
-                    className="cursor-pointer select-none px-5 py-3.5 text-left hover:bg-[#5a6610]"
+                    className="cursor-pointer select-none text-left transition-colors hover:bg-[#ebeef3]"
                     onClick={() => toggleSort("nom")}
                   >
                     Projet <SortIcon active={sortField === "nom"} dir={sortDir} />
                   </th>
-                  <th className="px-5 py-3.5 text-left">Superviseur</th>
+                  <th className="text-left">Superviseur</th>
                   <th
-                    className="cursor-pointer select-none px-5 py-3.5 text-right hover:bg-[#5a6610]"
+                    className="cursor-pointer select-none text-right transition-colors hover:bg-[#ebeef3]"
                     onClick={() => toggleSort("ajoutees")}
                   >
                     Ajoutées <SortIcon active={sortField === "ajoutees"} dir={sortDir} />
                   </th>
                   <th
-                    className="cursor-pointer select-none px-5 py-3.5 text-right hover:bg-[#5a6610]"
+                    className="cursor-pointer select-none text-right transition-colors hover:bg-[#ebeef3]"
                     onClick={() => toggleSort("transferees")}
                   >
                     Transférées <SortIcon active={sortField === "transferees"} dir={sortDir} />
                   </th>
-                  <th className="px-5 py-3.5 text-right">Total</th>
+                  <th className="text-right">Total</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {sortedRows.map((r, idx) => {
                   const total = round2(r.heuresAjoutees + r.heuresTransferees);
                   return (
                     <tr
                       key={r.idProjet}
-                      className={`transition-colors hover:bg-slate-50 ${idx % 2 === 1 ? "bg-slate-50/40" : "bg-white"}`}
+                      style={{
+                        borderBottom: "1px solid var(--border)",
+                        animationDelay: `${idx * 0.03}s`,
+                      }}
                     >
                       <td className="px-5 py-4">
-                        <span className="font-semibold text-slate-900">{r.nomProjet}</span>
-                        <span className="ml-2 text-xs text-slate-400">#{r.idProjet}</span>
+                        <span style={{ fontWeight: 600, color: "var(--text-1)" }}>{r.nomProjet}</span>
+                        <span
+                          className="ml-2 font-mono-data"
+                          style={{ fontSize: "10px", color: "var(--text-3)" }}
+                        >
+                          #{r.idProjet}
+                        </span>
                       </td>
 
                       <td className="px-5 py-4">
-                        <div className="font-medium text-slate-900">{r.nomSuperviseur || "—"}</div>
+                        <div style={{ fontWeight: 500, color: "var(--text-1)" }}>{r.nomSuperviseur || "—"}</div>
                         {r.matriculeSuperviseur && (
-                          <div className="text-xs text-slate-400">
-                            Mat. {r.matriculeSuperviseur}
+                          <div
+                            className="font-mono-data"
+                            style={{ fontSize: "10px", color: "var(--text-3)" }}
+                          >
+                            #{r.matriculeSuperviseur}
                           </div>
                         )}
                       </td>
 
                       <td className="px-5 py-4 text-right">
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                        <span
+                          className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-semibold"
+                          style={{ background: "var(--teal-soft)", color: "var(--teal)", border: "1px solid #b3ddf0" }}
+                        >
                           {Number(r.heuresAjoutees ?? 0).toFixed(2)} h
                         </span>
                       </td>
 
                       <td className="px-5 py-4 text-right">
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+                        <span
+                          className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-semibold"
+                          style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid rgba(232,93,38,0.25)" }}
+                        >
                           {Number(r.heuresTransferees ?? 0).toFixed(2)} h
                         </span>
                       </td>
 
                       <td className="px-5 py-4 text-right">
-                        <span className="text-xs font-semibold text-slate-600">
+                        <span
+                          className="font-mono-data text-xs font-semibold"
+                          style={{ color: "var(--text-2)" }}
+                        >
                           {total.toFixed(2)} h
                         </span>
                       </td>
@@ -850,22 +1292,35 @@ export default function HomePage() {
               </tbody>
 
               <tfoot>
-                <tr className="border-t-2 border-slate-200 bg-[#687818]/5">
-                  <td className="px-5 py-3.5 text-xs font-bold uppercase text-slate-600" colSpan={2}>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--surface2)" }}>
+                  <td
+                    className="px-5 py-3"
+                    colSpan={2}
+                    style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-3)" }}
+                  >
                     Totaux
                   </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">
+                  <td className="px-5 py-3 text-right">
+                    <span
+                      className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-bold"
+                      style={{ background: "var(--teal-soft)", color: "var(--teal)", border: "1px solid #b3ddf0" }}
+                    >
                       {formatH(totalAjoutees)}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                  <td className="px-5 py-3 text-right">
+                    <span
+                      className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-bold"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid rgba(232,93,38,0.25)" }}
+                    >
                       {formatH(totalTransferees)}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className="text-xs font-bold text-slate-700">
+                  <td className="px-5 py-3 text-right">
+                    <span
+                      className="font-mono-data text-xs font-bold"
+                      style={{ color: "var(--text-2)" }}
+                    >
                       {formatH(totalAjoutees + totalTransferees)}
                     </span>
                   </td>

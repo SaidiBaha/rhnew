@@ -70,7 +70,7 @@ export function RequestForm({
                 disabled={isLoading}
               >
                 <FormControl>
-                  <SelectTrigger className="w-full border-[#687818]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sélectionner le type de demande" />
                   </SelectTrigger>
                 </FormControl>
@@ -101,7 +101,7 @@ export function RequestForm({
                 disabled={isLoading}
               >
                 <FormControl>
-                  <SelectTrigger className="w-full border-[#687818]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sélectionner le status de la demande" />
                   </SelectTrigger>
                 </FormControl>
@@ -149,7 +149,7 @@ export function RequestForm({
                   {...field}
                   value={field.value || ""}
                   disabled={isLoading}
-                  className="border-[#687818]"
+                  className=""
                 />
               </FormControl>
               <FormMessage />
@@ -161,7 +161,7 @@ export function RequestForm({
             disabled={isLoading}
             size="lg"
             type="submit"
-            className="bg-[#687818] text-white"
+            className="ds-btn-primary"
           >
             {action}
           </Button>

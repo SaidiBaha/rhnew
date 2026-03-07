@@ -156,14 +156,14 @@ export function EmployeesClient({ data }: EmployeesClientProps) {
         />
 
         <div className="flex items-center justify-center gap-x-4">
-          <Button
+          <button
+            type="button"
             onClick={() => setIsFileUploadOpen(true)}
-            variant="outline"
-            className="bg-[#687818] text-white hover:bg-[#687818]/90"
+            className="ds-btn-primary"
           >
-            <Upload className="mr-2 size-4" />
+            <Upload className="size-4" />
             Importer
-          </Button>
+          </button>
         </div>
       </div>
 

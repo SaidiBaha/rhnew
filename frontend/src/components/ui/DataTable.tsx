@@ -203,37 +203,46 @@ export function DataTable<TData, TValue>({
                     ? table.getColumn(searchKey)?.setFilterValue(event.target.value)
                     : ""
                 }
-                className="pl-9 h-9 border-slate-200 focus-visible:border-[#687818] focus-visible:ring-[#687818]/20"
+                className="ds-input pl-9 h-9"
               />
             </div>
           )}
 
           {showExport && (
-            <Button
+            <button
+              type="button"
               onClick={exportToExcel}
-              size="sm"
-              className="bg-[#687818] hover:bg-[#5a6610] h-9 shrink-0"
+              className="ds-btn-primary h-9 shrink-0"
             >
               <Download className="size-4" />
               Exporter Excel
-            </Button>
+            </button>
           )}
         </div>
       )}
 
       {/* ── Table ── */}
-      <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="ds-card overflow-hidden" style={{ padding: 0 }}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="bg-[#687818] text-white hover:bg-[#687818]"
+                style={{ background: "#f4f6f9", borderBottom: "1px solid var(--border)" }}
               >
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="bg-[#687818] text-white font-semibold text-xs uppercase tracking-wider h-11 px-4"
+                    style={{
+                      background: "#f4f6f9",
+                      color: "var(--text-3)",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      height: "44px",
+                      padding: "0 16px",
+                    }}
                   >
                     {header.isPlaceholder
                       ? null
@@ -253,7 +262,12 @@ export function DataTable<TData, TValue>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    className={rowIndex % 2 === 1 ? "bg-slate-50/60" : "bg-white"}
+                    style={{
+                      background: rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)",
+                      transition: "background 0.12s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--steel-light)"}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)"}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="px-4 py-3">
@@ -292,7 +306,7 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-32 text-center text-slate-400"
+                  className="h-32 text-center" style={{ color: "var(--text-3)" }}
                 >
                   Aucun résultat trouvé.
                 </TableCell>
@@ -304,54 +318,53 @@ export function DataTable<TData, TValue>({
 
       {/* ── Pagination ── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm" style={{ color: "var(--text-3)" }}>
           {totalFiltered === 0
             ? "Aucun résultat"
             : `Affichage de ${from} à ${to} sur ${totalFiltered} résultat${totalFiltered !== 1 ? "s" : ""}`}
         </p>
 
         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-            title="Première page"
-          >
-            <ChevronsLeft className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            title="Page précédente"
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-
-          <span className="px-3 text-sm font-medium text-slate-700 select-none">
+          {(["first", "prev", "next", "last"] as const).map((type) => {
+            const isFirst = type === "first";
+            const isPrev = type === "prev";
+            const isNext = type === "next";
+            const isLast = type === "last";
+            const disabled =
+              (isFirst || isPrev) ? !table.getCanPreviousPage() : !table.getCanNextPage();
+            const onClick = isFirst
+              ? () => table.setPageIndex(0)
+              : isPrev
+              ? () => table.previousPage()
+              : isNext
+              ? () => table.nextPage()
+              : () => table.setPageIndex(table.getPageCount() - 1);
+            const icon = isFirst ? <ChevronsLeft className="size-4" />
+              : isPrev ? <ChevronLeft className="size-4" />
+              : isNext ? <ChevronRight className="size-4" />
+              : <ChevronsRight className="size-4" />;
+            const title = isFirst ? "Première page" : isPrev ? "Page précédente" : isNext ? "Page suivante" : "Dernière page";
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={onClick}
+                disabled={disabled}
+                title={title}
+                className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+                style={{
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-2)",
+                }}
+              >
+                {icon}
+              </button>
+            );
+          })}
+          <span className="px-3 text-sm font-medium select-none" style={{ color: "var(--text-2)" }}>
             Page {table.getState().pagination.pageIndex + 1} / {table.getPageCount() || 1}
           </span>
-
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            title="Page suivante"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-            title="Dernière page"
-          >
-            <ChevronsRight className="size-4" />
-          </Button>
         </div>
       </div>
     </div>

@@ -1,0 +1,61 @@
+# ========== DEPENDENCIES ==========
+frontend/node_modules/
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# ========== BUILD OUTPUT ==========
+frontend/dist/
+frontend/build/
+backend/build/
+
+# ========== LOCK FILES ==========
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml
+frontend/bun.lockb
+
+# ========== LOGS ==========
+*.log
+logs/
+frontend/npm-debug.log*
+
+# ========== CACHE ==========
+frontend/.vite/
+frontend/.tsbuildinfo
+**/.cache/
+**/__pycache__/
+
+# ========== IDE / OS ==========
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
+
+# ========== GIT INTERNALS ==========
+.git/
+
+# ========== ENV FILES (secrets) ==========
+.env
+.env.local
+.env.production
+backend/src/main/resources/application-prod.properties
+
+# ========== ASSETS BINARIES ==========
+frontend/src/assets/*.svg
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.ico
+**/*.woff
+**/*.woff2
+**/*.ttf
+**/*.eot
+
+# ========== GENERATED / MISC ==========
+backend/.apt_generated/
+backend/.factorypath
+frontend/coverage/

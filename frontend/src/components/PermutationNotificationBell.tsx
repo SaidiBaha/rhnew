@@ -57,11 +57,23 @@ export function PermutationNotificationBell({ expanded }: Props) {
       <button
         onClick={() => setOpen((v) => !v)}
         title="Notifications de permutations"
-        className={`relative flex items-center justify-center rounded-lg p-1.5 transition-colors ${
-          open
-            ? "bg-white/20 text-white"
-            : "text-white/70 hover:bg-white/10 hover:text-white"
-        }`}
+        className="relative flex items-center justify-center rounded-lg p-1.5 transition-colors"
+        style={{
+          color: open ? "var(--accent)" : "var(--text-3)",
+          background: open ? "var(--accent-soft)" : "transparent",
+        }}
+        onMouseEnter={(e) => {
+          if (!open) {
+            (e.currentTarget as HTMLElement).style.color = "var(--accent)";
+            (e.currentTarget as HTMLElement).style.background = "var(--accent-soft)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!open) {
+            (e.currentTarget as HTMLElement).style.color = "var(--text-3)";
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+          }
+        }}
       >
         {count > 0 ? (
           <BellIcon className="h-5 w-5" />
@@ -87,7 +99,7 @@ export function PermutationNotificationBell({ expanded }: Props) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-2">
-              <BellIcon className="h-4 w-4 text-[#6b7a12]" />
+              <BellIcon className="h-4 w-4" style={{ color: "var(--accent)" }} />
               <p className="text-sm font-bold text-slate-800">Notifications</p>
             </div>
             {count > 0 && (
@@ -122,7 +134,7 @@ export function PermutationNotificationBell({ expanded }: Props) {
                       {/* Émetteur */}
                       <p className="truncate text-sm font-semibold text-slate-900">
                         De{" "}
-                        <span className="text-[#6b7a12]">
+                        <span style={{ color: "var(--accent)" }}>
                           {getSenderName(p)}
                         </span>
                       </p>
@@ -171,7 +183,7 @@ export function PermutationNotificationBell({ expanded }: Props) {
           <div className="border-t border-slate-100 px-4 py-2.5">
             <button
               onClick={goToPermutations}
-              className="w-full text-center text-xs font-semibold text-[#6b7a12] hover:underline"
+              className="w-full text-center text-xs font-semibold hover:underline" style={{ color: "var(--accent)" }}
             >
               Voir toutes les permutations →
             </button>

@@ -30,7 +30,7 @@ export default function ChangePasswordPage() {
                             </button>
 
                             <div>
-                                <h1 className="text-3xl font-extrabold text-[#687818]">
+                                <h1 className="text-3xl font-extrabold" style={{ color: "var(--navy)" }}>
                                     Changer le mot de passe
                                 </h1>
                                 <p className="text-sm text-slate-600">
