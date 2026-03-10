@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -6,57 +6,76 @@
 
 /* ===================== DESIGN TOKENS ===================== */
 :root {
-  --navy:         #1a2332;
-  --navy-mid:     #243044;
-  --steel-light:  #e8ecf2;
-  --accent:       #e85d26;
-  --accent-hover: #d44e1a;
-  --accent-soft:  #fdf0eb;
-  --teal:         #0d7ea8;
-  --teal-soft:    #e8f5fb;
-  --bg:           #f0f2f5;
-  --surface:      #ffffff;
-  --surface2:     #f7f8fa;
-  --border:       #dde2ea;
-  --border-mid:   #c8cfd9;
-  --text-1:       #111827;
-  --text-2:       #3f4d63;
-  --text-3:       #8494ab;
-  --green:        #1a9e6a;
-  --green-soft:   #e6f7f1;
-  --amber:        #d97706;
-  --amber-soft:   #fef3e2;
-  --red:          #c8333a;
-  --red-soft:     #fdeced;
+  /* ── New design system ── */
+  --bg:             #f4f6fb;
+  --white:          #ffffff;
+  --sidebar-bg:     #1b2444;
+  --sidebar-active: #2d3a5e;
+  --sidebar-hover:  #232f52;
+  --sidebar-w:      250px;
+  --accent:         #2f6bff;
+  --accent-light:   #eef3ff;
+  --accent2:        #00c48c;
+  --accent2-light:  #e6faf5;
+  --accent3:        #ff8c00;
+  --accent3-light:  #fff4e6;
+  --accent4:        #f03e3e;
+  --accent4-light:  #fff0f0;
+  --text:           #1a2340;
+  --text2:          #4b5675;
+  --muted:          #9aa3b8;
+  --border:         #e4e8f0;
+  --shadow:         0 1px 3px rgba(30,40,90,0.07), 0 4px 16px rgba(30,40,90,0.05);
+  --header-h:       64px;
 
-  /* Tailwind compat */
-  --radius: 0.5rem;
-  --background: var(--surface);
-  --foreground: var(--text-1);
-  --card: var(--surface);
-  --card-foreground: var(--text-1);
-  --popover: var(--surface);
-  --popover-foreground: var(--text-1);
-  --primary: var(--navy);
+  /* ── Backward-compat aliases (used by existing components) ── */
+  --navy:         var(--text);
+  --navy-mid:     var(--sidebar-active);
+  --steel-light:  #e8ecf2;
+  --accent-hover: #1a56e8;
+  --accent-soft:  var(--accent-light);
+  --teal:         var(--accent2);
+  --teal-soft:    var(--accent2-light);
+  --surface:      var(--white);
+  --surface2:     #f7f8fa;
+  --border-mid:   #c8d0dc;
+  --text-1:       var(--text);
+  --text-2:       var(--text2);
+  --text-3:       var(--muted);
+  --green:        var(--accent2);
+  --green-soft:   var(--accent2-light);
+  --amber:        var(--accent3);
+  --amber-soft:   var(--accent3-light);
+  --red:          var(--accent4);
+  --red-soft:     var(--accent4-light);
+
+  /* ── Tailwind compat ── */
+  --radius: 14px;
+  --background: var(--white);
+  --foreground: var(--text);
+  --card: var(--white);
+  --card-foreground: var(--text);
+  --popover: var(--white);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
   --primary-foreground: #ffffff;
   --secondary: var(--steel-light);
-  --secondary-foreground: var(--navy);
-  --muted: var(--surface2);
-  --muted-foreground: var(--text-3);
-  --accent-tw: var(--surface2);
-  --accent-foreground: var(--navy);
-  --destructive: var(--red);
-  --border: var(--border);
+  --secondary-foreground: var(--text);
+  --muted-tw: var(--surface2);
+  --muted-foreground: var(--muted);
+  --accent-tw: var(--accent-light);
+  --accent-foreground: var(--accent);
+  --destructive: var(--accent4);
   --input: var(--border);
-  --ring: var(--teal);
-  --sidebar: var(--surface);
-  --sidebar-foreground: var(--text-2);
+  --ring: var(--accent);
+  --sidebar: var(--sidebar-bg);
+  --sidebar-foreground: rgba(255,255,255,0.75);
   --sidebar-primary: var(--accent);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--accent-soft);
-  --sidebar-accent-foreground: var(--accent);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--teal);
+  --sidebar-accent: var(--sidebar-active);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-ring: var(--accent);
 }
 
 @theme inline {
@@ -106,16 +125,16 @@ html {
 }
 
 body {
-  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-color: var(--bg);
-  color: var(--text-1);
+  color: var(--text);
 }
 
 ::selection { background: rgba(232, 93, 38, 0.18); }
 
 /* Mono utility */
 .font-mono-data {
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-family: 'Fira Code', 'Courier New', monospace;
 }
 
 /* ===================== TABLE ===================== */
@@ -195,21 +214,21 @@ body {
   gap: 8px;
   background: var(--accent);
   color: #fff;
-  border-radius: 6px;
-  font-family: 'IBM Plex Sans', sans-serif;
+  border-radius: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 600;
   font-size: 13px;
   padding: 8px 18px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(232, 93, 38, 0.30);
+  box-shadow: 0 2px 8px rgba(47, 107, 255, 0.28);
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   white-space: nowrap;
 }
 .ds-btn-primary:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(232, 93, 38, 0.38);
+  box-shadow: 0 4px 14px rgba(47, 107, 255, 0.38);
 }
 .ds-btn-primary:disabled {
   opacity: 0.55;
@@ -221,17 +240,17 @@ body {
 .ds-input {
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  font-family: 'IBM Plex Sans', sans-serif;
+  border-radius: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 13px;
-  color: var(--text-2);
+  color: var(--text2);
   padding: 7px 12px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ds-input:focus {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(13, 126, 168, 0.10);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.10);
 }
 
 /* ===================== SIDEBAR LAYOUT SYNC ===================== */

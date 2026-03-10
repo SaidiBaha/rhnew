@@ -60,7 +60,7 @@ export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Montant",
+    header: "Montant à payer",
     cell: EditableCell,
     meta: {
       type: "number",

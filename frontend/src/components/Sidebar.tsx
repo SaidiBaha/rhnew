@@ -27,8 +27,8 @@ const SidebarItem = ({ icon, active = false, label, expanded, onClick }: Sidebar
           relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-150
           ${
             active
-              ? "bg-[var(--accent-soft)] text-[var(--accent)] font-semibold border border-[rgba(232,93,38,0.15)] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-[var(--accent)]"
-              : "text-[var(--text-2)] hover:bg-[var(--steel-light)] hover:text-[var(--navy)] font-medium"
+              ? "bg-(--sidebar-active) text-white font-semibold border border-[rgba(47,107,255,0.2)] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-(--accent)"
+              : "text-[rgba(255,255,255,0.65)] hover:bg-(--sidebar-hover) hover:text-white font-medium"
           }
         `}
       >
@@ -74,13 +74,13 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
             fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: "0.14em",
-            color: "var(--text-3)",
+            color: "rgba(255,255,255,0.3)",
           }}
         >
           {label}
         </div>
       )}
-      {!expanded && <div className="my-1 mx-3 border-t border-[var(--border)]" />}
+      {!expanded && <div className="my-1 mx-3 border-t border-[rgba(255,255,255,0.08)]" />}
       <ul className="space-y-0.5 px-2">
         {visible.map((item, i) => (
           <SidebarItem
@@ -145,9 +145,9 @@ export const Sidebar = () => {
     <aside
       data-expanded={String(expanded)}
       style={{
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border)",
-        boxShadow: "2px 0 12px rgba(26,35,50,0.06)",
+        background: "var(--sidebar-bg)",
+        borderRight: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "2px 0 20px rgba(0,0,0,0.18)",
       }}
       className={`fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col ${
         expanded ? "w-64" : "w-20"
@@ -163,7 +163,7 @@ export const Sidebar = () => {
         {/* ================= LOGO ================= */}
         <div
           className="flex items-center justify-between px-4 py-4"
-          style={{ borderBottom: "1px solid var(--border)" }}
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         >
           <div className="flex items-center gap-3 overflow-hidden">
             {/* Brand mark */}
@@ -177,7 +177,7 @@ export const Sidebar = () => {
               <div className="overflow-hidden">
                 <div
                   className="text-sm leading-tight truncate"
-                  style={{ fontWeight: 700, color: "var(--navy)" }}
+                  style={{ fontWeight: 700, color: "#ffffff" }}
                 >
                   Sage RH
                 </div>
@@ -187,7 +187,7 @@ export const Sidebar = () => {
                     fontWeight: 600,
                     textTransform: "uppercase",
                     letterSpacing: "0.12em",
-                    color: "var(--text-3)",
+                    color: "rgba(255,255,255,0.4)",
                   }}
                 >
                   Automotive
@@ -199,15 +199,15 @@ export const Sidebar = () => {
           <button
             onClick={() => setExpanded(!expanded)}
             className="shrink-0 rounded-md p-1.5 transition-colors"
-            style={{ color: "var(--text-3)" }}
+            style={{ color: "rgba(255,255,255,0.4)" }}
             title={expanded ? "Réduire" : "Agrandir"}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "var(--steel-light)";
-              (e.currentTarget as HTMLElement).style.color = "var(--navy)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)";
+              (e.currentTarget as HTMLElement).style.color = "#ffffff";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "var(--text-3)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)";
             }}
           >
             {expanded ? <ArrowLeftIcon className="h-3.5 w-3.5" /> : <ArrowRightIcon className="h-3.5 w-3.5" />}
@@ -219,8 +219,8 @@ export const Sidebar = () => {
           <div
             className={`mx-3 my-3 rounded-lg ${expanded ? "px-3 py-3" : "flex flex-col items-center gap-2 py-3"}`}
             style={{
-              background: "var(--steel-light)",
-              border: "1px solid var(--border)",
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
             {expanded ? (
@@ -234,13 +234,13 @@ export const Sidebar = () => {
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <div
                     className="truncate text-sm font-semibold"
-                    style={{ color: "var(--navy)" }}
+                    style={{ color: "#ffffff" }}
                   >
                     {user.fullName}
                   </div>
                   <div
                     className="font-mono-data"
-                    style={{ fontSize: "10px", color: "var(--text-3)" }}
+                    style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)" }}
                   >
                     Matricule #{user.matricule}
                   </div>
@@ -250,9 +250,9 @@ export const Sidebar = () => {
                       fontSize: "10px",
                       fontWeight: 600,
                       letterSpacing: "0.04em",
-                      background: "var(--accent-soft)",
-                      color: "var(--accent)",
-                      border: "1px solid rgba(232,93,38,0.25)",
+                      background: "rgba(47,107,255,0.2)",
+                      color: "#7ea8ff",
+                      border: "1px solid rgba(47,107,255,0.25)",
                     }}
                   >
                     {roleLabel}
@@ -298,7 +298,7 @@ export const Sidebar = () => {
         {/* ================= FOOTER ================= */}
         <div
           className="p-3 space-y-1"
-          style={{ borderTop: "1px solid var(--border)" }}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           {/* Change password */}
           {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] as UserRole[]).includes(user.role) && (
@@ -307,8 +307,8 @@ export const Sidebar = () => {
               title={!expanded ? "Changer mot de passe" : undefined}
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 ${
                 location.pathname === "/change-password"
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)] font-semibold"
-                  : "text-[var(--text-2)] hover:bg-[var(--steel-light)] hover:text-[var(--navy)]"
+                  ? "bg-(--sidebar-active) text-white font-semibold"
+                  : "text-[rgba(255,255,255,0.65)] hover:bg-(--sidebar-hover) hover:text-white"
               }`}
             >
               <Lock className="h-[17px] w-[17px] shrink-0" />

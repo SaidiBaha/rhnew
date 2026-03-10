@@ -120,6 +120,105 @@ VITE_API_BASE_URL=http://<IP>:9000/api/v1
 
 ---
 
+---
+
+## UI Design System — Refonte (session 2026-03-09)
+
+### Tokens CSS appliqués (`src/index.css`)
+
+| Token | Valeur |
+|---|---|
+| `--bg` | `#f4f6fb` |
+| `--white` | `#ffffff` |
+| `--sidebar-bg` | `#1b2444` |
+| `--sidebar-active` | `#2d3a5e` |
+| `--sidebar-hover` | `#232f52` |
+| `--accent` | `#2f6bff` |
+| `--accent-light` | `#eef3ff` |
+| `--accent2` | `#00c48c` |
+| `--accent3` | `#ff8c00` |
+| `--accent4` | `#f03e3e` |
+| `--text` | `#1a2340` |
+| `--text2` | `#4b5675` |
+| `--muted` | `#9aa3b8` |
+| `--border` | `#e4e8f0` |
+| `--radius` | `14px` |
+| `--header-h` | `64px` |
+| Police UI | `Plus Jakarta Sans` |
+| Police mono | `Fira Code` |
+
+### Statut des composants
+
+| Composant | Fichier | Statut |
+|---|---|---|
+| Global CSS / tokens | `src/index.css` | ✅ |
+| Sidebar | `src/components/Sidebar.tsx` | ✅ |
+| Layout | `src/components/Layout.tsx` | ⬜ |
+| Navbar | `src/components/Navbar.tsx` | ⬜ |
+| Button | `src/components/ui/Button.tsx` | ⬜ |
+| Badge | `src/components/ui/Badge.tsx` | ⬜ |
+| Input | `src/components/ui/Input.tsx` | ⬜ |
+| Card | `src/components/ui/Card.tsx` | ⬜ |
+| DataTable | `src/components/ui/DataTable.tsx` | ✅ (fix search padding) |
+| FileUploadModal | `src/components/modals/FileUploadModal.tsx` | ✅ (fix dropzone layout) |
+
+---
+
+## Backend — Pagination Employés (session 2026-03-09)
+
+### Endpoint modifié
+
+`GET /api/v1/employees` accepte désormais deux paramètres optionnels :
+
+| Param | Défaut | Description |
+|---|---|---|
+| `page` | `0` | Numéro de page (base 0) |
+| `size` | `25` | Taille de page |
+
+### Réponse (PageResponse\<EmployeeDto\>)
+
+```json
+{
+  "content":       [...],
+  "pageNumber":    0,
+  "pageSize":      25,
+  "totalElements": 150,
+  "totalPages":    6,
+  "first":         true,
+  "last":          false
+}
+```
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `employee/dto/PageResponse.java` | **NOUVEAU** — wrapper générique paginé |
+| `employee/EmployeeRepository.java` | `findAllPaged(Pageable)` + `findAllBySupervisorPaged(matricule, Pageable)` |
+| `employee/EmployeeService.java` | `findAll(Principal, Pageable)` → `Page<Employee>` |
+| `employee/EmployeeController.java` | Params `page`/`size`, retour `PageResponse<EmployeeDto>` |
+
+### Frontend mis à jour (session 2026-03-09)
+
+| Fichier | Changement |
+|---|---|
+| `modules/employee/types.ts` | `PageResponse<T>` ajouté |
+| `modules/employee/hooks/useFetchEmployeesPaged.ts` | **NOUVEAU** — hook paginé (`page`, `size`) avec `placeholderData` |
+| `modules/employee/components/EmployeesClient.tsx` | Data fetching interne, état `page`, contrôles prev/next/numéros |
+| `pages/EmployeesPage.tsx` | Réduit à `<EmployeesClient />` |
+| `components/ui/DataTable.tsx` | Props `pageSize` et `hidePagination` ajoutées |
+
+---
+
+### Règles UI (NE PAS TOUCHER)
+- Logique métier, hooks, services, utils
+- Appels API / Axios
+- Routes et navigation
+- Types TypeScript
+- Fichiers de config (vite, tailwind, .env)
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

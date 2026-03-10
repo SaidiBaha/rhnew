@@ -59,6 +59,8 @@ interface DataTableProps<TData, TValue> {
   globalFilterFn?: FilterFnOption<TData>;
   meta?: TableMeta;
   showExport?: boolean;
+  initialPageSize?: number;
+  hidePagination?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -71,6 +73,8 @@ export function DataTable<TData, TValue>({
   globalFilterFn,
   meta,
   showExport = false,
+  initialPageSize,
+  hidePagination = false,
 }: DataTableProps<TData, TValue>) {
   const [expanded, setExpanded] = React.useState({});
 
@@ -114,7 +118,7 @@ export function DataTable<TData, TValue>({
     },
     initialState: {
       pagination: {
-        pageSize: 25,
+        pageSize: initialPageSize ?? 25,
       },
     },
     meta: meta && {
@@ -203,7 +207,7 @@ export function DataTable<TData, TValue>({
                     ? table.getColumn(searchKey)?.setFilterValue(event.target.value)
                     : ""
                 }
-                className="ds-input pl-9 h-9"
+                className="pl-9 h-9"
               />
             </div>
           )}
@@ -317,7 +321,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* ── Pagination ── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
+      {!hidePagination && <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
         <p className="text-sm" style={{ color: "var(--text-3)" }}>
           {totalFiltered === 0
             ? "Aucun résultat"
@@ -366,7 +370,7 @@ export function DataTable<TData, TValue>({
             Page {table.getState().pagination.pageIndex + 1} / {table.getPageCount() || 1}
           </span>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

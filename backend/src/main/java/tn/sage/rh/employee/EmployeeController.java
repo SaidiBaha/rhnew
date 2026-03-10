@@ -3,6 +3,8 @@ package tn.sage.rh.employee;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.mapstruct.factory.Mappers;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -46,6 +48,31 @@ public class EmployeeController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/pagination")
+    public ResponseEntity<PageResponse<EmployeeDto>> findAll(
+            Principal connectedUser,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false)    String search
+    ) {
+        Page<Employee> employeePage = employeeService.findAllByPagination(
+                connectedUser, search, PageRequest.of(page, size));
+
+        return ResponseEntity.ok(
+                PageResponse.<EmployeeDto>builder()
+                        .content(employeePage.getContent().stream()
+                                .map(employeeMapper::toDTO)
+                                .toList())
+                        .pageNumber(employeePage.getNumber())
+                        .pageSize(employeePage.getSize())
+                        .totalElements(employeePage.getTotalElements())
+                        .totalPages(employeePage.getTotalPages())
+                        .first(employeePage.isFirst())
+                        .last(employeePage.isLast())
+                        .build()
+        );
+    }
+
     @GetMapping
     public ResponseEntity<List<EmployeeDto>> findAll(Principal connectedUser) {
         return ResponseEntity.ok(
@@ -55,6 +82,8 @@ public class EmployeeController {
                         .toList()
         );
     }
+
+
 
     @GetMapping("/supervisors")
     public ResponseEntity<List<SupervisorDto>> findAllSupervisors() {

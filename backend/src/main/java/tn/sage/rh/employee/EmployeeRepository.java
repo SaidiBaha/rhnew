@@ -1,5 +1,7 @@
 package tn.sage.rh.employee;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +20,12 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @Query("select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc")
     @Override
     List<Employee> findAll();
+
+    @Query(
+        value      = "select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc",
+        countQuery = "select count(e) from Employee e where e.deleted = false"
+    )
+    Page<Employee> findAllPaged(Pageable pageable);
 /*
     @Query("select e " +
             "from Employee e " +
@@ -36,6 +44,52 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     order by cast(e.matricule as integer) asc
 """)
 List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
+
+    @Query(
+        value      = """
+            select e from Employee e
+            where e.deleted = false
+              and e.supervisor is not null
+              and e.supervisor.matricule = :matricule
+              and e.matricule <> :matricule
+            order by cast(e.matricule as integer) asc
+            """,
+        countQuery = """
+            select count(e) from Employee e
+            where e.deleted = false
+              and e.supervisor is not null
+              and e.supervisor.matricule = :matricule
+              and e.matricule <> :matricule
+            """
+    )
+    Page<Employee> findAllBySupervisorPaged(@Param("matricule") String matricule, Pageable pageable);
+
+    @Query(
+        value = """
+            select e from Employee e
+            where e.deleted = false
+              and (:supervisorMatricule is null
+                   or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
+              and (:search is null or :search = ''
+                   or upper(e.fullName) like concat('%', upper(:search), '%')
+                   or upper(e.matricule) like concat('%', upper(:search), '%'))
+            order by cast(e.matricule as integer) asc
+            """,
+        countQuery = """
+            select count(e) from Employee e
+            where e.deleted = false
+              and (:supervisorMatricule is null
+                   or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
+              and (:search is null or :search = ''
+                   or upper(e.fullName) like concat('%', upper(:search), '%')
+                   or upper(e.matricule) like concat('%', upper(:search), '%'))
+            """
+    )
+    Page<Employee> findPagedWithSearch(
+            @Param("supervisorMatricule") String supervisorMatricule,
+            @Param("search") String search,
+            Pageable pageable
+    );
 
     @Query("""
     select new tn.sage.rh.employee.dto.SupervisorDto(

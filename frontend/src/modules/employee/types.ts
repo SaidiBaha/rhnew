@@ -74,8 +74,18 @@ export type EmployeeRequest = {
    free: boolean;
 };
 
+export type PageResponse<T> = {
+  content: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+};
+
 export type ErrorDto = {
-  code?: string | number;   // selon ton backend (enum ou code int)
+  code?: string | number;
   httpCode?: number;
   message?: string;
   errors?: string[];
