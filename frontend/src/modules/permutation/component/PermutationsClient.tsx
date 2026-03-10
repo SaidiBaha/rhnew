@@ -36,7 +36,7 @@ export function PermutationsClient({
     employeesById,
     productionLinesById,
     showTodayOnlyToggle = false,
-    uiVariant = "demandes",
+    uiVariant: _uiVariant = "demandes",
 }: Props) {
     const { mutateAsync } = useUpdatePermutationStatus();
     const [loadingId, setLoadingId] = useState<number | null>(null);

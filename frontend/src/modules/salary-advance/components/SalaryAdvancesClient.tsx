@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Save, Lock, Unlock } from "lucide-react";
 
 import { Heading } from "@/components/Heading";
-import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import {
   columns,

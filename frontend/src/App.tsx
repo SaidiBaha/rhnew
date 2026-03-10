@@ -12,7 +12,7 @@ import AttendancesPage from "@/pages/AttendancesPage";
 import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
-import TodoRH from "./pages/TodoRH";
+
 // import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
 
 function App() {

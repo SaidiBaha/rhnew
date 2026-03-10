@@ -333,7 +333,6 @@ export function DataTable<TData, TValue>({
             const isFirst = type === "first";
             const isPrev = type === "prev";
             const isNext = type === "next";
-            const isLast = type === "last";
             const disabled =
               (isFirst || isPrev) ? !table.getCanPreviousPage() : !table.getCanNextPage();
             const onClick = isFirst

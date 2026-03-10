@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 
 import { Heading } from "@/components/Heading";
-import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { FileUploadModal } from "@/components/modals/FileUploadModal";
 import { UploadAttendanceSchema } from "@/modules/attendance/schema";
