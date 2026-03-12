@@ -20,9 +20,10 @@ import { DataTable } from "@/components/ui/DataTable";
 
 const DEFAULT_ELIGIBLE_AMOUNT = 150;
 
-function applyDefaultAmount(data: SalaryAdvanceColumn[]): SalaryAdvanceColumn[] {
+function applyDefaultAmount(data: SalaryAdvanceColumn[], isAdmin: boolean): SalaryAdvanceColumn[] {
   return data.map((row) => {
     if (row.amount !== 0) return row;
+    if (isAdmin) return row;
     const emp = row.employee;
     if (emp.hasBankDomiciliation === "oui") return row;
     const absenceReasons = emp.attendance.absenceReasons;
@@ -38,9 +39,11 @@ interface SalaryAdvancesClientProps {
 }
 
 export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
-  const [salaryAdvanceData, setSalaryAdvanceData] =
-    useState<SalaryAdvanceColumn[]>(() => applyDefaultAmount(data));
   const { auth } = useAuth();
+  const isAdmin = auth.user?.role === "ADMIN";
+
+  const [salaryAdvanceData, setSalaryAdvanceData] =
+    useState<SalaryAdvanceColumn[]>(() => applyDefaultAmount(data, isAdmin));
 
   const batchUpdateSalaryAdvances = useBatchUpdateSalaryAdvances();
   const fetchSalaryAdvanceDeadline = useFetchSalaryAdvanceDeadline();
@@ -50,7 +53,6 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const deadline = fetchSalaryAdvanceDeadline.data?.deadline;
 
   const isLocked = deadline ? new Date(deadline) <= new Date() : false;
-  const isAdmin = auth.user?.role === "ADMIN";
 
   const isLoading =
     fetchSalaryAdvanceDeadline.isLoading ||
