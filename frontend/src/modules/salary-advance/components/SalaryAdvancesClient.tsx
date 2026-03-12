@@ -18,7 +18,7 @@ import {
 import useAuth from "@/hooks/useAuth";
 import { DataTable } from "@/components/ui/DataTable";
 
-const DEFAULT_ELIGIBLE_AMOUNT = 150;
+const DEFAULT_ELIGIBLE_AMOUNT = 0;
 
 function applyDefaultAmount(data: SalaryAdvanceColumn[], isAdmin: boolean): SalaryAdvanceColumn[] {
   return data.map((row) => {
