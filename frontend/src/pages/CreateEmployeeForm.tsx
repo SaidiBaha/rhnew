@@ -1,12 +1,10 @@
 // src/pages/CreateEmployeeForm.tsx
+import { useState, useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Swal from "sweetalert2";
-import {
-  User, Briefcase, FileText,
-  Loader2, Sparkles, AlertCircle, Calendar, CheckCircle2,
-} from "lucide-react";
+import { User, Briefcase, FileText, Loader2, ChevronDown, Check, AlertCircle } from "lucide-react";
 import { EmployeeSchema } from "@/modules/employee/schema";
 import { useCreateEmployee } from "@/lib/data/employee";
 import { DEPARTMENTS, JOB_TITLES, PRODUCTION_LINES, EMPLOYMENT_TYPES } from "@/modules/employee/constants";
@@ -14,107 +12,160 @@ import type { EmployeeRequest } from "@/modules/employee/types";
 
 type FormData = z.input<typeof EmployeeSchema>;
 
-function SelectField({
-  label, required, error, disabled, value, onChange, options, placeholder,
-}: {
-  label: string; required?: boolean; error?: string; disabled?: boolean;
-  value: string; onChange: (v: string) => void;
-  options: readonly string[]; placeholder?: string;
-}) {
-  const cls = [
-    "w-full px-3.5 py-2.5 rounded-xl border-2 text-sm font-medium outline-none transition-all duration-200 cursor-pointer appearance-none bg-no-repeat",
-    "focus:ring-4 focus:bg-white",
-    error
-      ? "border-rose-300 bg-rose-50 focus:border-rose-400 focus:ring-rose-100"
-      : "border-[#dde0ce] bg-[#f8f9f4] hover:border-[#6b7c3a] focus:border-[#6b7c3a] focus:ring-[#6b7c3a]/10",
-    disabled ? "opacity-40 cursor-not-allowed" : "",
-    !value ? "text-[#a0a88c]" : "text-[#2a2e18]",
-  ].join(" ");
+const C = {
+  bg:            "#e8ebe0",
+  wrapper:       "#3a4e18",
+  wrapperBorder: "rgba(143,176,64,0.3)",
+  card:          "#ffffff",
+  cardBorder:    "rgba(143,176,64,0.15)",
+  accent:        "#8fb040",
+  accentDark:    "#5a7820",
+  accentLight:   "#b8d060",
+  fieldBg:       "#f2f5e8",
+  fieldBorder:   "#c4d280",
+  fieldFocus:    "#8fb040",
+  label:         "#4a6418",
+  text:          "#1a2608",
+  textMuted:     "#6a8030",
+};
 
+function Lbl({ text, req }: { text: string; req?: boolean }) {
   return (
-    <div>
-      <label className="block text-xs font-bold text-[#4e5c28] uppercase tracking-wider mb-1.5">
-        {label}{required && <span className="text-rose-500 ml-1">*</span>}
-      </label>
-      <div className="relative">
+    <p style={{ margin: "0 0 7px", fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: "1px", textTransform: "uppercase" }}>
+      {text}{req && <span style={{ color: "#e05050", marginLeft: 2 }}>*</span>}
+    </p>
+  );
+}
+
+function Err({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 5, color: "#e05050", fontSize: 11, fontWeight: 600 }}>
+      <AlertCircle size={10} />{msg}
+    </div>
+  );
+}
+
+function FInput({ label, req, error, disabled, delay = 0, ...props }:
+  React.InputHTMLAttributes<HTMLInputElement> & { label: string; req?: boolean; error?: string; delay?: number }) {
+  const [focused, setFocused] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(12px)", transition: "all 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      <Lbl text={label} req={req} />
+      <input
+        {...props} disabled={disabled}
+        onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
+        onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
+        style={{
+          width: "100%", boxSizing: "border-box", padding: "13px 15px",
+          fontSize: 14, fontWeight: 500, color: C.text,
+          background: focused ? "#fff" : error ? "#fff6f6" : C.fieldBg,
+          border: `1.5px solid ${error ? "#e05050" : focused ? C.fieldFocus : C.fieldBorder}`,
+          borderRadius: 10, outline: "none", fontFamily: "inherit",
+          boxShadow: focused ? `0 0 0 3px rgba(143,176,64,0.18), 0 4px 12px rgba(143,176,64,0.1)` : "0 1px 3px rgba(0,0,0,0.05)",
+          transition: "all 0.2s ease", transform: focused ? "scale(1.01)" : "scale(1)",
+          opacity: disabled ? 0.5 : 1, cursor: disabled ? "not-allowed" : "text",
+        }}
+      />
+      <Err msg={error} />
+    </div>
+  );
+}
+
+function FSelect({ label, req, error, disabled, options, placeholder, value, onChange, delay = 0 }:
+  { label: string; req?: boolean; error?: string; disabled?: boolean; options: readonly string[]; placeholder?: string; value: string; onChange: (v: string) => void; delay?: number }) {
+  const [focused, setFocused] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(12px)", transition: "all 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      <Lbl text={label} req={req} />
+      <div style={{ position: "relative" }}>
         <select
-          value={value}
-          onChange={e => onChange(e.target.value)}
+          value={value} onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           disabled={disabled}
-          className={cls}
-          style={{ paddingRight: 36, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a9060' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundPosition: "right 12px center", backgroundSize: 14 }}
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "13px 38px 13px 15px",
+            fontSize: 14, fontWeight: 500, color: value ? C.text : C.textMuted,
+            background: focused ? "#fff" : error ? "#fff6f6" : C.fieldBg,
+            border: `1.5px solid ${error ? "#e05050" : focused ? C.fieldFocus : C.fieldBorder}`,
+            borderRadius: 10, outline: "none", fontFamily: "inherit", appearance: "none",
+            boxShadow: focused ? `0 0 0 3px rgba(143,176,64,0.18), 0 4px 12px rgba(143,176,64,0.1)` : "0 1px 3px rgba(0,0,0,0.05)",
+            transition: "all 0.2s ease", transform: focused ? "scale(1.01)" : "scale(1)",
+            opacity: disabled ? 0.5 : 1, cursor: disabled ? "not-allowed" : "pointer",
+          }}
         >
           <option value="">{placeholder || "Sélectionner…"}</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          {options.map(o => <option key={o} value={o} style={{ color: C.text }}>{o}</option>)}
         </select>
+        <ChevronDown size={14} style={{ position: "absolute", right: 13, top: "50%", transform: `translateY(-50%) rotate(${focused ? 180 : 0}deg)`, color: C.accent, pointerEvents: "none", transition: "transform 0.25s" }} />
       </div>
-      {error && <p className="flex items-center gap-1 mt-1 text-xs text-rose-500"><AlertCircle size={11} />{error}</p>}
+      <Err msg={error} />
     </div>
   );
 }
 
-function TextInput({ label, error, required, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; required?: boolean }) {
+function FCivility({ register, error, disabled }: { register: any; error?: string; disabled?: boolean }) {
+  const [focused, setFocused] = useState(false);
   return (
     <div>
-      <label className="block text-xs font-bold text-[#4e5c28] uppercase tracking-wider mb-1.5">
-        {label}{required && <span className="text-rose-500 ml-1">*</span>}
-      </label>
-      <input
-        {...props}
-        className={[
-          "w-full px-3.5 py-2.5 rounded-xl border-2 text-sm font-medium outline-none transition-all duration-200",
-          "placeholder:text-[#c0c8a0] focus:ring-4 focus:bg-white",
-          error
-            ? "border-rose-300 bg-rose-50 focus:border-rose-400 focus:ring-rose-100"
-            : "border-[#dde0ce] bg-[#f8f9f4] hover:border-[#6b7c3a] focus:border-[#6b7c3a] focus:ring-[#6b7c3a]/10",
-          props.disabled ? "opacity-40 cursor-not-allowed" : "",
-        ].join(" ")}
-      />
-      {error && <p className="flex items-center gap-1 mt-1 text-xs text-rose-500"><AlertCircle size={11} />{error}</p>}
-    </div>
-  );
-}
-
-function SectionCard({ icon: Icon, title, subtitle, children }: {
-  icon: React.ElementType; title: string; subtitle: string; children: React.ReactNode;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-[#e0e3ce] shadow-sm flex flex-col">
-      <div className="px-5 py-3.5 flex items-center gap-3 bg-gradient-to-r from-[#4e5c28] to-[#6b7c3a] rounded-t-2xl flex-shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-          <Icon size={14} className="text-white" />
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-white leading-tight">{title}</h3>
-          <p className="text-xs text-white/60">{subtitle}</p>
-        </div>
+      <Lbl text="Civilité" req />
+      <div style={{ position: "relative" }}>
+        <select
+          {...register("civility")} disabled={disabled}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "13px 38px 13px 15px",
+            fontSize: 14, fontWeight: 500, color: C.text,
+            background: focused ? "#fff" : C.fieldBg,
+            border: `1.5px solid ${error ? "#e05050" : focused ? C.fieldFocus : C.fieldBorder}`,
+            borderRadius: 10, outline: "none", fontFamily: "inherit", appearance: "none",
+            boxShadow: focused ? `0 0 0 3px rgba(143,176,64,0.18)` : "0 1px 3px rgba(0,0,0,0.05)",
+            transition: "all 0.2s ease",
+            opacity: disabled ? 0.5 : 1, cursor: disabled ? "not-allowed" : "pointer",
+          }}
+        >
+          <option value="">—</option>
+          <option value="MONSIEUR">M.</option>
+          <option value="MADAME">Mme</option>
+          <option value="MLLE">Mlle</option>
+        </select>
+        <ChevronDown size={14} style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", color: C.accent, pointerEvents: "none" }} />
       </div>
-      <div className="p-5 flex-1">{children}</div>
+      <Err msg={error} />
     </div>
   );
 }
 
-function ShiftCard({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
+function FShift({ value, onChange, disabled, delay = 0 }: { value: string; onChange: (v: string) => void; disabled?: boolean; delay?: number }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), delay); return () => clearTimeout(t); }, [delay]);
   return (
-    <div>
-      <label className="block text-xs font-bold text-[#4e5c28] uppercase tracking-wider mb-1.5">
-        Poste (Shift) <span className="text-[#a0a88c] font-normal normal-case tracking-normal text-[11px]">(optionnel)</span>
-      </label>
-      <div className="grid grid-cols-2 gap-2">
-        {["A", "B"].map(opt => {
-          const active = value === opt;
+    <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(12px)", transition: "all 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      <p style={{ margin: "0 0 7px", fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: "1px", textTransform: "uppercase" }}>
+        Shift <span style={{ color: C.textMuted, fontWeight: 500, textTransform: "none", letterSpacing: 0, fontSize: 10 }}>(optionnel)</span>
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {(["A", "B"] as const).map(opt => {
+          const on = value === opt;
           return (
-            <button key={opt} type="button" disabled={disabled}
-              onClick={() => onChange(active ? "" : opt)}
-              className={[
-                "py-2.5 rounded-xl text-sm font-bold border-2 transition-all duration-200 flex items-center justify-center gap-2 select-none",
-                active ? "bg-[#4e5c28] border-[#4e5c28] text-white shadow-md shadow-[#4e5c28]/20"
-                       : "bg-[#f8f9f4] border-[#dde0ce] text-[#6b7c3a] hover:border-[#6b7c3a] hover:bg-[#f0f2e8]",
-                disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
-              ].join(" ")}
-            >
-              <span className={["w-5 h-5 rounded-md flex items-center justify-center text-xs font-black flex-shrink-0",
-                active ? "bg-white/20 text-white" : "bg-[#e8ebdc] text-[#4e5c28]"].join(" ")}>{opt}</span>
+            <button key={opt} type="button" disabled={disabled} onClick={() => onChange(on ? "" : opt)}
+              style={{
+                padding: "12px 4px", borderRadius: 10,
+                border: `1.5px solid ${on ? C.accent : C.fieldBorder}`,
+                background: on ? `linear-gradient(135deg,${C.accentDark},${C.accent})` : C.fieldBg,
+                color: on ? "#fff" : C.accent, fontWeight: 700, fontSize: 12,
+                cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                boxShadow: on ? `0 4px 14px rgba(143,176,64,0.4)` : "0 1px 3px rgba(0,0,0,0.05)",
+                transition: "all 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+                transform: on ? "scale(1.04)" : "scale(1)",
+                opacity: disabled ? 0.5 : 1,
+              }}>
+              <span style={{ width: 18, height: 18, borderRadius: 5, background: on ? "rgba(255,255,255,0.25)" : "#d8e898", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, color: on ? "#fff" : C.accentDark }}>{opt}</span>
               Poste {opt}
             </button>
           );
@@ -124,38 +175,61 @@ function ShiftCard({ value, onChange, disabled }: { value: string; onChange: (v:
   );
 }
 
-function BankToggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function FBank({ value, onChange, disabled, delay = 0 }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; delay?: number }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), delay); return () => clearTimeout(t); }, [delay]);
   return (
-    <button type="button" disabled={disabled} onClick={() => !disabled && onChange(!value)}
-      className={["w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-left",
-        value ? "bg-[#f0f2e8] border-[#4e5c28]" : "bg-[#f8f9f4] border-[#dde0ce] hover:border-[#6b7c3a]",
-        disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"].join(" ")}
-    >
-      <div className={["w-10 h-5 rounded-full transition-all duration-300 flex-shrink-0 relative", value ? "bg-[#4e5c28]" : "bg-[#d0d4bc]"].join(" ")}>
-        <div className={["absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-300", value ? "left-5" : "left-0.5"].join(" ")} />
+    <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(12px)", transition: "all 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      <Lbl text="Domiciliation" />
+      <button type="button" disabled={disabled} onClick={() => !disabled && onChange(!value)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 10,
+          padding: "12px 13px", borderRadius: 10,
+          border: `1.5px solid ${value ? C.accent : C.fieldBorder}`,
+          background: value ? "linear-gradient(135deg,#e8f5d0,#d8edac)" : C.fieldBg,
+          cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit",
+          boxShadow: value ? `0 3px 12px rgba(143,176,64,0.25)` : "0 1px 3px rgba(0,0,0,0.05)",
+          transition: "all 0.25s ease", opacity: disabled ? 0.5 : 1, boxSizing: "border-box",
+        }}>
+        <div style={{ width: 36, height: 20, borderRadius: 10, position: "relative", flexShrink: 0, background: value ? `linear-gradient(90deg,${C.accentDark},${C.accent})` : "#c4d280", transition: "background 0.25s", boxShadow: value ? "0 2px 6px rgba(143,176,64,0.4)" : "none" }}>
+          <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: value ? 19 : 3, transition: "left 0.25s cubic-bezier(0.34,1.56,0.64,1)", boxShadow: "0 1px 3px rgba(0,0,0,0.25)" }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: value ? C.accentDark : C.text }}>Domiciliation bancaire</div>
+          <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>Compte bancaire configuré</div>
+        </div>
+        {value && <Check size={13} color={C.accent} />}
+      </button>
+    </div>
+  );
+}
+
+function SecHead({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, paddingBottom: 18, borderBottom: "1.5px solid rgba(143,176,64,0.12)" }}>
+      <div style={{ width: 46, height: 46, borderRadius: 13, background: `linear-gradient(135deg,${C.accentDark},${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 6px 16px rgba(90,120,32,0.35)` }}>
+        <Icon size={19} color="#fff" strokeWidth={2} />
       </div>
-      <div className="flex-1 min-w-0">
-        <div className={["text-sm font-semibold", value ? "text-[#4e5c28]" : "text-[#3a4020]"].join(" ")}>Domiciliation bancaire</div>
-        <div className="text-xs text-[#8a9060]">Compte bancaire configuré</div>
+      <div>
+        <p style={{ margin: "0 0 2px", fontSize: 10, fontWeight: 800, color: C.textMuted, letterSpacing: "2px", textTransform: "uppercase" }}>{sub}</p>
+        <p style={{ margin: 0, fontSize: 17, fontWeight: 900, color: C.text, letterSpacing: "-0.3px" }}>{title}</p>
       </div>
-      {value && <CheckCircle2 size={15} className="text-[#4e5c28] flex-shrink-0" />}
-    </button>
+    </div>
   );
 }
 
 export function CreateEmployeeForm() {
   const { mutateAsync, isPending } = useCreateEmployee();
-
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<FormData>({
     resolver: zodResolver(EmployeeSchema),
     defaultValues: { hasBankDomiciliation: false, free: false, shift: "" },
   });
 
-  const department     = watch("department");
-  const jobTitle       = watch("jobTitle");
-  const productionLine = watch("productionLine");
-  const employmentType = watch("employmentType");
-  const shift          = watch("shift") || "";
+  const department     = watch("department")           || "";
+  const jobTitle       = watch("jobTitle")             || "";
+  const productionLine = watch("productionLine")       || "";
+  const employmentType = watch("employmentType")       || "";
+  const shift          = watch("shift")                || "";
   const bank           = watch("hasBankDomiciliation") as boolean;
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
@@ -163,12 +237,10 @@ export function CreateEmployeeForm() {
       const formatted = data as unknown as z.output<typeof EmployeeSchema>;
       const payload: EmployeeRequest = {
         ...formatted,
-        hireDate: formatted.hireDate instanceof Date
-          ? formatted.hireDate.toISOString().split("T")[0]
-          : String(formatted.hireDate),
+        hireDate: formatted.hireDate instanceof Date ? formatted.hireDate.toISOString().split("T")[0] : String(formatted.hireDate),
       };
       await mutateAsync(payload);
-      await Swal.fire({ icon: "success", title: "Succès !", text: "L'employé a été créé avec succès.", confirmButtonColor: "#4e5c28" });
+      await Swal.fire({ icon: "success", title: "Succès !", text: "L'employé a été créé avec succès.", confirmButtonColor: C.accent });
       reset();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
@@ -179,142 +251,131 @@ export function CreateEmployeeForm() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes spin   { to { transform:rotate(360deg); } }
-        .c1 { animation: fadeUp .3s ease .00s both; }
-        .c2 { animation: fadeUp .3s ease .07s both; }
-        .c3 { animation: fadeUp .3s ease .14s both; }
-        .c4 { animation: fadeUp .3s ease .21s both; }
-        .c5 { animation: fadeUp .3s ease .28s both; }
-        .spin-anim { animation: spin 1s linear infinite; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin{animation:spin 1s linear infinite}
+        *{box-sizing:border-box}
+        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5;filter:invert(40%) sepia(50%) saturate(400%) hue-rotate(50deg)}
       `}</style>
 
-      <div className="min-h-screen bg-[#f4f6ec]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <div className="max-w-5xl mx-auto px-5 py-8">
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Inter',system-ui,sans-serif", padding: "36px 24px 56px" }}>
+        <div style={{ maxWidth: 920, margin: "0 auto" }}>
 
           {/* Header */}
-          <div className="mb-6 c1">
-            <div className="inline-flex items-center gap-1.5 bg-[#e8ebdc] text-[#4e5c28] rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider mb-2">
-              <Sparkles size={11} /> Ressources Humaines
+          <div style={{ marginBottom: 28, animation: "fadeUp 0.35s ease both" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: C.wrapper, borderRadius: 50, padding: "6px 16px 6px 10px", marginBottom: 12 }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.accentLight }} />
+              <span style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.8)", letterSpacing: "2.5px", textTransform: "uppercase" }}>Ressources Humaines</span>
             </div>
-            <h1 className="text-2xl font-black text-[#1a1f0f] tracking-tight">Créer un nouvel employé</h1>
+            <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.5px" }}>Créer un nouvel employé</h1>
+            <p style={{ margin: 0, fontSize: 13, color: C.textMuted, fontWeight: 500 }}>Remplissez les informations ci-dessous pour créer un nouveau profil.</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)}>
 
-            {/* ── Soft grouping wrapper card ───────────────────────────────── */}
-            <div
-              className="rounded-3xl border border-[#b8cc90]/60 p-5 mb-4 c2 overflow-hidden relative"
-              style={{
-                background: "linear-gradient(145deg, #e8f0d8 0%, #dde8c4 30%, #d4e2b8 60%, #ccdba8 100%)",
-                boxShadow: "0 4px 24px 0 rgba(78,92,40,0.10), inset 0 1px 0 rgba(255,255,255,0.70)",
-              }}
-            >
-              {/* Subtle decorative dots top-right */}
-              <div
-                aria-hidden
-                className="absolute top-3 right-3 opacity-20 pointer-events-none"
-                style={{
-                  backgroundImage: "radial-gradient(circle, #4e5c28 1.5px, transparent 1.5px)",
-                  backgroundSize: "10px 10px",
-                  width: 70,
-                  height: 40,
-                }}
-              />
+            {/* ── 3 white cards grouped with big border ── */}
+            <div style={{
+              border: `2px solid ${C.accent}`,
+              borderRadius: 18,
+              padding: 10,
+              marginBottom: 16,
+              animation: "fadeUp 0.4s ease 80ms both",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}>
 
-              {/* Top two equal-height cards */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-
-                {/* Card 1 — Informations personnelles */}
-                <div className="h-full [&>div]:h-full">
-                <SectionCard icon={User} title="Informations personnelles" subtitle="Identité de l'employé">
-                  <div className="space-y-3 h-full flex flex-col justify-between">
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <TextInput label="Matricule" required {...register("matricule")} placeholder="123456" disabled={isPending} error={errors.matricule?.message} />
-                        <div>
-                          <label className="block text-xs font-bold text-[#4e5c28] uppercase tracking-wider mb-1.5">
-                            Civilité <span className="text-rose-500">*</span>
-                          </label>
-                          <select {...register("civility")} disabled={isPending}
-                            className={["w-full px-3.5 py-2.5 rounded-xl border-2 text-sm font-medium outline-none transition-all duration-200 cursor-pointer focus:ring-4 focus:border-[#6b7c3a] focus:ring-[#6b7c3a]/10 focus:bg-white",
-                              errors.civility ? "border-rose-300 bg-rose-50" : "border-[#dde0ce] bg-[#f8f9f4] hover:border-[#6b7c3a]",
-                              isPending ? "opacity-40" : ""].join(" ")}
-                          >
-                            <option value="">Sélectionner</option>
-                            <option value="MADAME">Madame</option>
-                            <option value="MONSIEUR">Monsieur</option>
-                            <option value="MLLE">Mademoiselle</option>
-                          </select>
-                          {errors.civility && <p className="flex items-center gap-1 mt-1 text-xs text-rose-500"><AlertCircle size={11} />{errors.civility.message}</p>}
-                        </div>
-                      </div>
-                      <TextInput label="Nom et Prénom" required {...register("fullName")} placeholder="JEAN DUPONT" disabled={isPending} error={errors.fullName?.message} />
-                    </div>
-                  </div>
-                </SectionCard>
-                </div>
-
-                {/* Card 2 — Affectation au poste */}
-                <div className="h-full [&>div]:h-full">
-                <SectionCard icon={Briefcase} title="Affectation au poste" subtitle="Rôle et emplacement">
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <SelectField label="Département" required value={department || ""} onChange={v => setValue("department", v, { shouldValidate: true })} options={DEPARTMENTS} error={errors.department?.message} disabled={isPending} />
-                      <SelectField label="Poste Occupé" required value={jobTitle || ""} onChange={v => setValue("jobTitle", v, { shouldValidate: true })} options={JOB_TITLES} error={errors.jobTitle?.message} disabled={isPending} />
-                    </div>
-                    <SelectField label="Ligne de Production" value={productionLine || ""} onChange={v => setValue("productionLine", v, { shouldValidate: true })} options={PRODUCTION_LINES} placeholder="Optionnel" disabled={isPending} />
-                    <ShiftCard value={shift} onChange={v => setValue("shift", v, { shouldValidate: true })} disabled={isPending} />
-                  </div>
-                </SectionCard>
+              {/* Card 1 */}
+              <div style={{
+                background: C.card,
+                borderRadius: 12,
+                padding: "32px 32px 30px",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                border: `1.5px solid ${C.accent}`,
+              }}>
+                <SecHead icon={User} title="Informations Personnelles" sub="Identité de l'employé" />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 2fr", gap: 16, alignItems: "start" }}>
+                  <FInput label="Matricule" req error={errors.matricule?.message} disabled={isPending} placeholder="ex: EMP-001" {...register("matricule")} delay={60} />
+                  <FCivility register={register} error={errors.civility?.message} disabled={isPending} />
+                  <FInput label="Nom et Prénom" req error={errors.fullName?.message} disabled={isPending} placeholder="Jean Dupont" {...register("fullName")} delay={100} />
                 </div>
               </div>
 
-              {/* Thin divider */}
-              <div className="my-4 border-t border-dashed border-[#a8bc78]/50" />
-
-              {/* Card 3 — Contrat & Hiérarchie */}
-              <div className="c3">
-                <SectionCard icon={FileText} title="Contrat & Hiérarchie" subtitle="Type de contrat, dates et superviseur">
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-start">
-                    <SelectField label="Type de Travail" required value={employmentType || ""} onChange={v => setValue("employmentType", v, { shouldValidate: true })} options={EMPLOYMENT_TYPES} error={errors.employmentType?.message} disabled={isPending} />
-                    <div>
-                      <label className="block text-xs font-bold text-[#4e5c28] uppercase tracking-wider mb-1.5">Date d'Embauche <span className="text-rose-500">*</span></label>
-                      <div className="relative">
-                        <input type="date" {...register("hireDate")} disabled={isPending}
-                          className={["w-full px-3.5 py-2.5 pr-9 rounded-xl border-2 text-sm font-medium outline-none transition-all duration-200 focus:ring-4 focus:border-[#6b7c3a] focus:ring-[#6b7c3a]/10 focus:bg-white",
-                            errors.hireDate ? "border-rose-300 bg-rose-50" : "border-[#dde0ce] bg-[#f8f9f4] hover:border-[#6b7c3a]",
-                            isPending ? "opacity-40" : ""].join(" ")} />
-                        <Calendar size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a9060] pointer-events-none" />
-                      </div>
-                      {errors.hireDate && <p className="flex items-center gap-1 mt-1 text-xs text-rose-500"><AlertCircle size={11} />{errors.hireDate.message}</p>}
-                    </div>
-                    <TextInput label="Superviseur" {...register("supervisor")} placeholder="Matricule (optionnel)" disabled={isPending} error={errors.supervisor?.message} />
-                    <div>
-                      <label className="block text-xs font-bold text-[#4e5c28] uppercase tracking-wider mb-1.5">Domiciliation</label>
-                      <BankToggle value={bank} onChange={v => setValue("hasBankDomiciliation", v)} disabled={isPending} />
-                    </div>
-                  </div>
-                </SectionCard>
+              {/* Card 2 */}
+              <div style={{
+                background: C.card,
+                borderRadius: 12,
+                padding: "32px 32px 30px",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                border: `1.5px solid ${C.accent}`,
+              }}>
+                <SecHead icon={Briefcase} title="Affectation au Poste" sub="Département & rôle" />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
+                  <FSelect label="Département" req error={errors.department?.message} value={department} onChange={v => setValue("department", v, { shouldValidate: true })} options={DEPARTMENTS} disabled={isPending} delay={60} />
+                  <FSelect label="Poste Occupé" req error={errors.jobTitle?.message} value={jobTitle} onChange={v => setValue("jobTitle", v, { shouldValidate: true })} options={JOB_TITLES} disabled={isPending} delay={100} />
+                  <FSelect label="Ligne de Production" placeholder="Optionnel" value={productionLine} onChange={v => setValue("productionLine", v, { shouldValidate: true })} options={PRODUCTION_LINES} disabled={isPending} delay={140} />
+                  <FShift value={shift} onChange={v => setValue("shift", v, { shouldValidate: true })} disabled={isPending} delay={180} />
+                </div>
               </div>
 
-            </div>{/* end grouping wrapper */}
+              {/* Card 3 */}
+              <div style={{
+                background: C.card,
+                borderRadius: 12,
+                padding: "32px 32px 30px",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                border: `1.5px solid ${C.accent}`,
+              }}>
+                <SecHead icon={FileText} title="Contrat & Hiérarchie" sub="Détails contractuels" />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, alignItems: "start" }}>
+                  <FSelect label="Type de Contrat" req error={errors.employmentType?.message} value={employmentType} onChange={v => setValue("employmentType", v, { shouldValidate: true })} options={EMPLOYMENT_TYPES} disabled={isPending} delay={60} />
+                  <FInput label="Date d'Embauche" req type="date" error={errors.hireDate?.message} disabled={isPending} {...register("hireDate")} delay={100} />
+                  <FInput label="Superviseur" placeholder="Matricule (optionnel)" error={errors.supervisor?.message} disabled={isPending} {...register("supervisor")} delay={140} />
+                  <FBank value={bank} onChange={v => setValue("hasBankDomiciliation", v)} disabled={isPending} delay={180} />
+                </div>
+              </div>
 
-            {/* Submit bar */}
-            <div className="flex items-center justify-between bg-white rounded-2xl border border-[#e0e3ce] shadow-sm px-5 py-3.5 c4">
-              <p className="text-xs text-[#8a9060]"><span className="text-rose-500 font-bold">*</span> Champs obligatoires</p>
-              <div className="flex items-center gap-2.5">
+            </div>
+
+            {/* ── Submit bar ── */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: C.card, borderRadius: 16, padding: "18px 26px",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
+              border: `2px solid ${C.accent}`,
+              animation: "fadeUp 0.4s ease 200ms both",
+            }}>
+              <p style={{ margin: 0, fontSize: 12, color: C.textMuted, fontWeight: 500 }}>
+                <span style={{ color: "#e05050", fontWeight: 700 }}>*</span> Champs obligatoires
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
                 <button type="button" onClick={() => reset()} disabled={isPending}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-[#6b7c3a] border-2 border-[#dde0ce] bg-white hover:border-[#6b7c3a] hover:bg-[#f4f6ec] transition-all duration-200 disabled:opacity-40">
+                  style={{
+                    padding: "11px 24px", borderRadius: 10,
+                    border: `1.5px solid ${C.fieldBorder}`,
+                    background: "#fff", color: C.accentDark,
+                    fontSize: 13, fontWeight: 700,
+                    cursor: isPending ? "not-allowed" : "pointer",
+                    fontFamily: "inherit", opacity: isPending ? 0.4 : 1,
+                  }}>
                   Réinitialiser
                 </button>
                 <button type="submit" disabled={isPending}
-                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#4e5c28] to-[#6b7c3a] hover:from-[#3b4520] hover:to-[#4e5c28] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#4e5c28]/30 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0">
-                  {isPending ? <><Loader2 size={13} className="spin-anim" />Création…</> : <><Sparkles size={13} />Créer l'employé</>}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "11px 30px", borderRadius: 10,
+                    background: isPending ? "#aaa" : `linear-gradient(135deg,${C.accentDark},${C.accent})`,
+                    color: "#fff", fontSize: 13, fontWeight: 800,
+                    border: "none", cursor: isPending ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    boxShadow: isPending ? "none" : `0 6px 18px rgba(90,120,32,0.4)`,
+                  }}>
+                  {isPending ? <><Loader2 size={13} className="spin" /> Création…</> : <>Créer l'employé</>}
                 </button>
               </div>
             </div>
+
           </form>
         </div>
       </div>

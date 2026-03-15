@@ -4,7 +4,7 @@ import org.mapstruct.Mapper;
 import tn.sage.rh.organization.dto.ShiftMinimalDto;
 import tn.sage.rh.organization.entity.Shift;
 
-@Mapper
+@Mapper()
 public interface ShiftMapper {
     ShiftMinimalDto toMinimalDTO(Shift shift);
 }

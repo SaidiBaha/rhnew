@@ -255,4 +255,8 @@ public class EmployeeController {
     public ResponseEntity<List<OperatorAvailabilityDTO>> freeOperators() {
         return ResponseEntity.ok(employeeService.getFreeOperatorsForOperationalManager());
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9280c0834afd9c878e1bb8cd3b8fc31704f30849
 }

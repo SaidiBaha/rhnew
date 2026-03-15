@@ -73,3 +73,11 @@ export type EmployeeRequest = {
   hasBankDomiciliation: boolean;
   free: boolean;
 };
+
+export type ErrorDto = {
+  code?: string | number;   // selon ton backend (enum ou code int)
+  httpCode?: number;
+  message?: string;
+  errors?: string[];
+};
+

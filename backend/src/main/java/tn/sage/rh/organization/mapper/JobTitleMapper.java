@@ -4,7 +4,7 @@ import org.mapstruct.Mapper;
 import tn.sage.rh.organization.dto.JobTitleMinimalDto;
 import tn.sage.rh.organization.entity.JobTitle;
 
-@Mapper
+@Mapper()
 public interface JobTitleMapper {
     JobTitleMinimalDto toMinimalDTO(JobTitle jobTitle);
 }

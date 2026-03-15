@@ -4,7 +4,7 @@ import org.mapstruct.Mapper;
 import tn.sage.rh.organization.dto.ProductionLineMinimalDto;
 import tn.sage.rh.organization.entity.ProductionLine;
 
-@Mapper
+@Mapper()
 public interface ProductionLineMapper {
     ProductionLineMinimalDto toMinimalDTO(ProductionLine productionLine);
 }
