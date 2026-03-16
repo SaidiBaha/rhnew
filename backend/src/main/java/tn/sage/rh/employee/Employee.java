@@ -104,6 +104,8 @@ public class Employee {
     @Column(insertable = false)
     private LocalDateTime updatedAt;
 
+    private String email;
+
     private boolean deleted = Boolean.FALSE;
 
     @PrePersist

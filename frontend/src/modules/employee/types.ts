@@ -54,6 +54,7 @@ export type Employee = {
   operators?: Employee[];
   attendance: Attendance;
   hasBankDomiciliation: boolean;
+  email?: string;
   createdAt: Date;
   updatedAt?: Date;
   free: boolean;
@@ -71,7 +72,12 @@ export type EmployeeRequest = {
   hireDate: string; // ← changed from Date to string
   supervisor?: string;
   hasBankDomiciliation: boolean;
+<<<<<<< HEAD
   free: boolean;
+=======
+  email?: string;
+   free: boolean;
+>>>>>>> 614b404edee150ec3772526136f3e4f1af1a5c25
 };
 
 export type PageResponse<T> = {

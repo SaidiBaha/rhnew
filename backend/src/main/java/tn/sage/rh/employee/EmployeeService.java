@@ -129,13 +129,25 @@ public class EmployeeService {
     // =========================
 
     @Transactional(readOnly = true)
-    public Page<Employee> findAllByPagination(Principal connectedUser, String search, Pageable pageable) {
+    public Page<Employee> findAllByPagination(
+            Principal connectedUser,
+            String search,
+            String productionLine,
+            String shift,
+            String employmentType,
+            LocalDate hireDateFrom,
+            LocalDate hireDateTo,
+            Pageable pageable) {
         User user = getUserFromPrincipal(connectedUser);
 
         String supervisorMatricule = (user.getRole() == SUPERVISOR) ? user.getUsername() : null;
         String searchTerm = (search != null && !search.isBlank()) ? search.trim() : null;
+        String plTerm = (productionLine != null && !productionLine.isBlank()) ? productionLine.trim() : null;
+        String shiftTerm = (shift != null && !shift.isBlank()) ? shift.trim() : null;
+        String etTerm = (employmentType != null && !employmentType.isBlank()) ? employmentType.trim() : null;
 
-        return employeeRepository.findPagedWithSearch(supervisorMatricule, searchTerm, pageable);
+        return employeeRepository.findPagedWithFilters(
+                supervisorMatricule, searchTerm, plTerm, shiftTerm, etTerm, hireDateFrom, hireDateTo, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -354,6 +366,7 @@ public class EmployeeService {
         employee.setFullName(employeeRequest.getFullName());
         employee.setHireDate(employeeRequest.getHireDate());
         employee.setHasBankDomiciliation(employeeRequest.isHasBankDomiciliation());
+        employee.setEmail(employeeRequest.getEmail());
         employee.setDepartment(department);
         employee.setJobTitle(jobTitle);
         employee.setProductionLine(productionLine);

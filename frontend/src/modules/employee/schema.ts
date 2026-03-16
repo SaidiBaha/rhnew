@@ -54,6 +54,7 @@ export const EmployeeSchema = z
       .boolean()
       .optional()
       .default(false),
+    email: z.string().trim().optional().or(z.literal("")),
   })
   .transform((data) => {
     if (data.supervisor === data.matricule) {

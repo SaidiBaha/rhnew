@@ -4,6 +4,9 @@ import HomePage from "@/pages/HomePage";
 import EmployeesPage from "@/pages/EmployeesPage";
 import SalaryAdvancesPage from "@/pages/SalaryAdvancesPage";
 import LoginPage from "@/pages/LoginPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import VerifyOtpPage from "@/pages/VerifyOtpPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import { Layout } from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PersistLogin from "@/components/PersistLogin";
@@ -19,6 +22,9 @@ function App() {
     
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/verify-otp" element={<VerifyOtpPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       {/* <Route
   element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
 >
