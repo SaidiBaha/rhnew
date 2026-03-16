@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/backend/src/main/java/tn/sage/rh/employee/dto/**)",
+      "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/backend/src/main/java/tn/sage/rh/employee/**)",
+      "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/backend/**)",
+      "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\w.boujlida\\Desktop\\Baha-dev\\rh-main\\rh\\backend\\src\\main\\java\\tn\\sage\\rh\\employee",
+      "c:\\Users\\w.boujlida\\Desktop\\Baha-dev\\rh-main\\rh"
+    ]
+  }
+}

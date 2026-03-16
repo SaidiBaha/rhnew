@@ -210,6 +210,46 @@ VITE_API_BASE_URL=http://<IP>:9000/api/v1
 
 ---
 
+---
+
+## Email + Filtres Employés (session 2026-03-16)
+
+### Champ `email` ajouté
+
+- Nullable/optionnel dans l'entité, le DTO et le RequestDto
+- Import Excel : colonne `Email` ou `E-mail` (case-insensitive) → mappée vers `email`
+- Affiché dans la table et exporté Excel (colonne `EMAIL`)
+
+### Filtres serveur sur `/pagination`
+
+L'endpoint `GET /api/v1/employees/pagination` accepte désormais des paramètres de filtre optionnels combinables :
+
+| Param | Type | Description |
+|---|---|---|
+| `productionLine` | `string` | Filtre exact sur le nom de la ligne (insensible à la casse) |
+| `shift` | `string` | Filtre exact sur le nom du poste |
+| `employmentType` | `string` | Filtre exact sur le type de travail |
+| `hireDateFrom` | `date` (ISO 8601) | Date d'embauche ≥ |
+| `hireDateTo` | `date` (ISO 8601) | Date d'embauche ≤ |
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `employee/Employee.java` | Champ `email` (nullable) |
+| `employee/dto/EmployeeDto.java` | Champ `email` |
+| `employee/dto/EmployeeRequestDto.java` | Champ `email` (sans validation) |
+| `employee/EmployeeRepository.java` | `findPagedWithFilters(...)` — nouvelle query JPQL avec 5 filtres optionnels |
+| `employee/EmployeeService.java` | `findAllByPagination` étendu + `setEmployeeFromRequestDTO` mappe `email` |
+| `employee/EmployeeController.java` | 5 nouveaux `@RequestParam` optionnels |
+| `modules/employee/types.ts` | `email?: string` dans `Employee` et `EmployeeRequest` |
+| `modules/employee/schema.ts` | `email` optionnel |
+| `modules/employee/components/columns.tsx` | Colonne `Email` ajoutée |
+| `modules/employee/utils.ts` | `formatEmployee` + `COLUMN_MAP` mis à jour pour email |
+| `modules/employee/hooks/useFetchEmployeesPaged.ts` | Accepte `filters` (productionLine, shift, employmentType, hireDateFrom, hireDateTo) |
+| `modules/employee/hooks/useFetchEmployeesForFilters.ts` | **NOUVEAU** — charge tous les employés pour peupler les dropdowns des filtres |
+| `modules/employee/components/EmployeesClient.tsx` | Barre de filtres UI + export Excel email + filtres transmis à l'API |
+
 ### Règles UI (NE PAS TOUCHER)
 - Logique métier, hooks, services, utils
 - Appels API / Axios

@@ -53,10 +53,16 @@ public class EmployeeController {
             Principal connectedUser,
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "25") int size,
-            @RequestParam(required = false)    String search
+            @RequestParam(required = false)    String search,
+            @RequestParam(required = false)    String productionLine,
+            @RequestParam(required = false)    String shift,
+            @RequestParam(required = false)    String employmentType,
+            @RequestParam(required = false)    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDateFrom,
+            @RequestParam(required = false)    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDateTo
     ) {
         Page<Employee> employeePage = employeeService.findAllByPagination(
-                connectedUser, search, PageRequest.of(page, size));
+                connectedUser, search, productionLine, shift, employmentType, hireDateFrom, hireDateTo,
+                PageRequest.of(page, size));
 
         return ResponseEntity.ok(
                 PageResponse.<EmployeeDto>builder()

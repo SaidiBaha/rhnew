@@ -14,6 +14,7 @@ import type { EmployeeRequest } from "@/modules/employee/types";
 import { UploadEmployeeSchema } from "@/modules/employee/schema";
 import { useBatchSaveEmployees } from "@/lib/data/employee";
 import { useFetchEmployeesPaged } from "@/modules/employee/hooks/useFetchEmployeesPaged";
+import { useFetchEmployeesForFilters } from "@/modules/employee/hooks/useFetchEmployeesForFilters";
 import { formatEmployee, parseEmployee } from "../utils";
 
 import type { Employee, PageResponse } from "@/modules/employee/types";
@@ -63,6 +64,30 @@ export function EmployeesClient() {
   const batchSaveEmployees = useBatchSaveEmployees();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Filtres avancés ──
+  const [filterProductionLine, setFilterProductionLine] = useState("");
+  const [filterShift, setFilterShift] = useState("");
+  const [filterEmploymentType, setFilterEmploymentType] = useState("");
+  const [filterHireDateFrom, setFilterHireDateFrom] = useState("");
+  const [filterHireDateTo, setFilterHireDateTo] = useState("");
+
+  const hasActiveFilters = !!(filterProductionLine || filterShift || filterEmploymentType || filterHireDateFrom || filterHireDateTo);
+
+  function resetFilters() {
+    setFilterProductionLine("");
+    setFilterShift("");
+    setFilterEmploymentType("");
+    setFilterHireDateFrom("");
+    setFilterHireDateTo("");
+    setPage(0);
+  }
+
+  // Options pour les selects — issues de la liste complète des employés
+  const { data: allEmployeesForFilters = [] } = useFetchEmployeesForFilters();
+  const productionLineOptions = [...new Set(allEmployeesForFilters.map((e) => e.productionLine?.name).filter(Boolean))] as string[];
+  const shiftOptions = [...new Set(allEmployeesForFilters.map((e) => e.shift?.name).filter(Boolean))] as string[];
+  const employmentTypeOptions = [...new Set(allEmployeesForFilters.map((e) => e.employmentType?.type).filter(Boolean))] as string[];
+
   // Debounce 400ms : reset page to 0 à chaque nouvelle recherche
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -73,7 +98,15 @@ export function EmployeesClient() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchInput]);
 
-  const { data: pageData, isLoading, isFetching } = useFetchEmployeesPaged(page, PAGE_SIZE, search);
+  const filters = {
+    productionLine: filterProductionLine || undefined,
+    shift: filterShift || undefined,
+    employmentType: filterEmploymentType || undefined,
+    hireDateFrom: filterHireDateFrom || undefined,
+    hireDateTo: filterHireDateTo || undefined,
+  };
+
+  const { data: pageData, isLoading, isFetching } = useFetchEmployeesPaged(page, PAGE_SIZE, search, filters);
 
   const formattedEmployees = (pageData?.content ?? []).map(formatEmployee);
   const totalElements = pageData?.totalElements ?? 0;
@@ -88,7 +121,7 @@ async function handleExportExcel() {
     const { data } = await axios.get<PageResponse<Employee>>("/employees/pagination", {
       baseURL: API_BASE_URL,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
-      params: { page: 0, size: totalElements || 10000, ...(search.trim() ? { search: search.trim() } : {}) },
+      params: { page: 0, size: totalElements || 10000, ...(search.trim() ? { search: search.trim() } : {}), ...filters },
     });
 
     const all = (data.content ?? []).map(formatEmployee);
@@ -106,8 +139,8 @@ async function handleExportExcel() {
       hireDate:            "DATE D'EMBAUCHE",
       supervisor:          "SUPERVISEUR",
       hasBankDomiciliation:"DOMICILIÉ",
+      email:               "EMAIL",
       attendance:          "PRÉSENCE",
-      // ajoute ici d'autres clés si besoin
     };
 
     if (all.length === 0) {
@@ -139,6 +172,7 @@ async function handleExportExcel() {
       "DATE D'EMBAUCHE": 18,
       "SUPERVISEUR": 28,
       "DOMICILIÉ": 12,
+      "EMAIL": 28,
       "PRÉSENCE": 12,
     };
 
@@ -275,6 +309,88 @@ async function handleExportExcel() {
         {/* Indicateur chargement */}
         {isFetching && !isLoading && (
           <span className="text-xs shrink-0" style={{ color: "var(--muted)" }}>Chargement…</span>
+        )}
+      </div>
+
+      {/* ── Filtres avancés ── */}
+      <div className="flex flex-wrap items-end gap-3">
+        {/* Ligne de Production */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Ligne de Production</label>
+          <select
+            value={filterProductionLine}
+            onChange={(e) => { setFilterProductionLine(e.target.value); setPage(0); }}
+            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 160 }}
+          >
+            <option value="">Toutes</option>
+            {productionLineOptions.map((pl) => <option key={pl} value={pl}>{pl}</option>)}
+          </select>
+        </div>
+
+        {/* Poste */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Poste</label>
+          <select
+            value={filterShift}
+            onChange={(e) => { setFilterShift(e.target.value); setPage(0); }}
+            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 130 }}
+          >
+            <option value="">Tous</option>
+            {shiftOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {/* Type de Travail */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Type de Travail</label>
+          <select
+            value={filterEmploymentType}
+            onChange={(e) => { setFilterEmploymentType(e.target.value); setPage(0); }}
+            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }}
+          >
+            <option value="">Tous</option>
+            {employmentTypeOptions.map((et) => <option key={et} value={et}>{et}</option>)}
+          </select>
+        </div>
+
+        {/* Date d'Embauche — début */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Embauche — début</label>
+          <input
+            type="date"
+            value={filterHireDateFrom}
+            onChange={(e) => { setFilterHireDateFrom(e.target.value); setPage(0); }}
+            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }}
+          />
+        </div>
+
+        {/* Date d'Embauche — fin */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Embauche — fin</label>
+          <input
+            type="date"
+            value={filterHireDateTo}
+            onChange={(e) => { setFilterHireDateTo(e.target.value); setPage(0); }}
+            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }}
+          />
+        </div>
+
+        {/* Bouton Réinitialiser */}
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm transition-colors"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--accent4)" }}
+          >
+            <X className="size-3.5" />
+            Réinitialiser
+          </button>
         )}
       </div>
 

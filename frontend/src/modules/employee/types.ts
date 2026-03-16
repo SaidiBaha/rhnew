@@ -54,6 +54,7 @@ export type Employee = {
   operators?: Employee[];
   attendance: Attendance;
   hasBankDomiciliation: boolean;
+  email?: string;
   createdAt: Date;
   updatedAt?: Date;
    free: boolean;
@@ -71,6 +72,7 @@ export type EmployeeRequest = {
   hireDate: Date;
   supervisor?: string;
   hasBankDomiciliation: boolean;
+  email?: string;
    free: boolean;
 };
 

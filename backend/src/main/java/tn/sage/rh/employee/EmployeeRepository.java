@@ -91,6 +91,58 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
             Pageable pageable
     );
 
+    @Query(
+        value = """
+            select e from Employee e
+            left join e.productionLine pl
+            left join e.shift sh
+            where e.deleted = false
+              and (:supervisorMatricule is null
+                   or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
+              and (:search is null or :search = ''
+                   or upper(e.fullName) like concat('%', upper(:search), '%')
+                   or upper(e.matricule) like concat('%', upper(:search), '%'))
+              and (:productionLine is null or :productionLine = ''
+                   or (pl is not null and upper(pl.name) = upper(:productionLine)))
+              and (:shift is null or :shift = ''
+                   or (sh is not null and upper(sh.name) = upper(:shift)))
+              and (:employmentType is null or :employmentType = ''
+                   or upper(e.employmentType.type) = upper(:employmentType))
+              and (:hireDateFrom is null or e.hireDate >= :hireDateFrom)
+              and (:hireDateTo is null or e.hireDate <= :hireDateTo)
+            order by cast(e.matricule as integer) asc
+            """,
+        countQuery = """
+            select count(e) from Employee e
+            left join e.productionLine pl
+            left join e.shift sh
+            where e.deleted = false
+              and (:supervisorMatricule is null
+                   or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
+              and (:search is null or :search = ''
+                   or upper(e.fullName) like concat('%', upper(:search), '%')
+                   or upper(e.matricule) like concat('%', upper(:search), '%'))
+              and (:productionLine is null or :productionLine = ''
+                   or (pl is not null and upper(pl.name) = upper(:productionLine)))
+              and (:shift is null or :shift = ''
+                   or (sh is not null and upper(sh.name) = upper(:shift)))
+              and (:employmentType is null or :employmentType = ''
+                   or upper(e.employmentType.type) = upper(:employmentType))
+              and (:hireDateFrom is null or e.hireDate >= :hireDateFrom)
+              and (:hireDateTo is null or e.hireDate <= :hireDateTo)
+            """
+    )
+    Page<Employee> findPagedWithFilters(
+            @Param("supervisorMatricule") String supervisorMatricule,
+            @Param("search") String search,
+            @Param("productionLine") String productionLine,
+            @Param("shift") String shift,
+            @Param("employmentType") String employmentType,
+            @Param("hireDateFrom") LocalDate hireDateFrom,
+            @Param("hireDateTo") LocalDate hireDateTo,
+            Pageable pageable
+    );
+
     @Query("""
     select new tn.sage.rh.employee.dto.SupervisorDto(
         e.id,

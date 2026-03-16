@@ -35,4 +35,5 @@ public class EmployeeDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean free =false;  // free operator
+    private String email;
 }

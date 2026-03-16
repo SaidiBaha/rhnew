@@ -16,6 +16,7 @@ export type EmployeeColumn = {
   hireDate: string;
   hasBankDomiciliation: string;
   supervisor: string;
+  email?: string;
   attendance: AttendanceColumn;
 };
 
@@ -63,5 +64,9 @@ export const columns: ColumnDef<EmployeeColumn>[] = [
   {
     accessorKey: "hasBankDomiciliation",
     header: "Domiciliation",
+  },
+  {
+    accessorKey: "email",
+    header: "Email",
   },
 ];

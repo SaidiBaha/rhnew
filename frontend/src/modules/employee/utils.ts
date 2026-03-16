@@ -19,6 +19,7 @@ export function formatEmployee(employee: Employee): EmployeeColumn {
     hireDate: format(employee.hireDate, "dd / MM / yyyy"),
     hasBankDomiciliation: employee.hasBankDomiciliation ? "oui" : "non",
     supervisor: employee.supervisor?.fullName || "",
+    email: employee.email || "",
     attendance: employee.attendance,
   };
 }
@@ -35,6 +36,8 @@ const COLUMN_MAP: Record<string, keyof z.infer<typeof EmployeeSchema>> = {
   "date d'embauche société": "hireDate",
   superviseur: "supervisor",
   domiciliation: "hasBankDomiciliation",
+  email: "email",
+  "e-mail": "email",
 };
 
 export function parseEmployee(row: any, index: number) {
