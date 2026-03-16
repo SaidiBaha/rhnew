@@ -6,13 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-<<<<<<< HEAD
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-=======
 import tn.sage.rh.employee.dto.SupervisorDto;
 import tn.sage.rh.employee.projection.ProjectBestSupervisorRow;
->>>>>>> e39960116e8b13adc77c071927f1cdecf16443b2
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -27,9 +22,17 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @Override
     List<Employee> findAll();
 
-<<<<<<< HEAD
-    @Query("select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc")
+    @Query(
+            value      = "select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc",
+            countQuery = "select count(e) from Employee e where e.deleted = false"
+    )
     Page<Employee> findAll(Pageable pageable);
+
+    @Query(
+            value      = "select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc",
+            countQuery = "select count(e) from Employee e where e.deleted = false"
+    )
+    Page<Employee> findAllPaged(Pageable pageable);
 
     @Query("""
         select e from Employee e
@@ -39,19 +42,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           and e.matricule <> :matricule
         order by cast(e.matricule as integer) asc
     """)
-=======
-    @Query(
-        value      = "select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc",
-        countQuery = "select count(e) from Employee e where e.deleted = false"
-    )
-    Page<Employee> findAllPaged(Pageable pageable);
-/*
-    @Query("select e " +
-            "from Employee e " +
-            "where (e.matricule = :matricule or e.supervisor.matricule = :matricule) " +
-            "and e.deleted = false  " +
-            "order by cast(e.matricule as integer) asc")
->>>>>>> e39960116e8b13adc77c071927f1cdecf16443b2
     List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
 
     @Query("""
@@ -65,7 +55,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Page<Employee> findAllBySupervisor(@Param("matricule") String matricule, Pageable pageable);
 
     @Query(
-        value      = """
+            value      = """
             select e from Employee e
             where e.deleted = false
               and e.supervisor is not null
@@ -73,7 +63,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
               and e.matricule <> :matricule
             order by cast(e.matricule as integer) asc
             """,
-        countQuery = """
+            countQuery = """
             select count(e) from Employee e
             where e.deleted = false
               and e.supervisor is not null
@@ -84,7 +74,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Page<Employee> findAllBySupervisorPaged(@Param("matricule") String matricule, Pageable pageable);
 
     @Query(
-        value = """
+            value = """
             select e from Employee e
             where e.deleted = false
               and (:supervisorMatricule is null
@@ -94,7 +84,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
                    or upper(e.matricule) like concat('%', upper(:search), '%'))
             order by cast(e.matricule as integer) asc
             """,
-        countQuery = """
+            countQuery = """
             select count(e) from Employee e
             where e.deleted = false
               and (:supervisorMatricule is null
@@ -111,36 +101,26 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     );
 
     @Query("""
-<<<<<<< HEAD
-        select e
+        select new tn.sage.rh.employee.dto.SupervisorDto(
+            e.id,
+            e.matricule,
+            e.fullName,
+            d.name,
+            jt.title
+        )
         from Employee e
+        join e.department d
         join e.jobTitle jt
-        where (e.deleted = false or e.deleted is null)
-          and jt.title like '%SUPERVISEUR%'
+        where e.deleted = false
+          and exists (
+              select 1
+              from Employee op
+              where op.supervisor = e
+          )
+          and d.name not in ('RESSOURCES HUMAINES','IT','MAINTENANCE')
     """)
-    List<Employee> findAllSupervisors();
-
-=======
-    select new tn.sage.rh.employee.dto.SupervisorDto(
-        e.id,
-        e.matricule,
-        e.fullName,
-        d.name,
-        jt.title
-    )
-    from Employee e
-    join e.department d
-    join e.jobTitle jt
-    where e.deleted = false
-      and exists (
-          select 1
-          from Employee op
-          where op.supervisor = e
-      )
-      and d.name not in ('RESSOURCES HUMAINES','IT','MAINTENANCE')
-""")
     List<SupervisorDto> findAllSupervisors();
->>>>>>> e39960116e8b13adc77c071927f1cdecf16443b2
+
     List<Employee> findAllByMatriculeIn(Collection<String> matricules);
 
     @Query("""
@@ -174,7 +154,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           )
         order by cast(e.matricule as integer) asc
     """)
-    Page<Employee> findAllBySupervisorWithSearch(@Param("matricule") String matricule, @Param("search") String search, Pageable pageable);
+    Page<Employee> findAllBySupervisorWithSearch(
+            @Param("matricule") String matricule,
+            @Param("search") String search,
+            Pageable pageable
+    );
 
     @Query("""
         select e from Employee e
@@ -231,7 +215,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           and e.deleted = false
           and (e.supervisor is null or e.supervisor.matricule <> :supervisorMatricule)
     """)
-    List<Employee> findFreeEmployeesExcludingSupervisorOperators(String supervisorMatricule);
+    List<Employee> findFreeEmployeesExcludingSupervisorOperators(
+            @Param("supervisorMatricule") String supervisorMatricule
+    );
 
     @Modifying
     @Query("""
@@ -294,25 +280,21 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             @Param("startTime") java.time.LocalTime startTime,
             @Param("endTime") java.time.LocalTime endTime
     );
-<<<<<<< HEAD
-}
-=======
 
     @Query("""
-    select
-        pl.id as projectId,
-        sup.id as supervisorId,
-        sup.fullName as supervisorFullName,
-        sup.matricule as supervisorMatricule,
-        count(op.id) as operatorsCount
-    from Employee op
-    join op.productionLine pl
-    join op.supervisor sup
-    where (op.deleted = false or op.deleted is null)
-      and (sup.deleted = false or sup.deleted is null)
-    group by pl.id, sup.id, sup.fullName, sup.matricule
-    order by pl.id asc, count(op.id) desc
-""")
+        select
+            pl.id as projectId,
+            sup.id as supervisorId,
+            sup.fullName as supervisorFullName,
+            sup.matricule as supervisorMatricule,
+            count(op.id) as operatorsCount
+        from Employee op
+        join op.productionLine pl
+        join op.supervisor sup
+        where (op.deleted = false or op.deleted is null)
+          and (sup.deleted = false or sup.deleted is null)
+        group by pl.id, sup.id, sup.fullName, sup.matricule
+        order by pl.id asc, count(op.id) desc
+    """)
     List<ProjectBestSupervisorRow> findSupervisorCountsByProject();
 }
->>>>>>> e39960116e8b13adc77c071927f1cdecf16443b2

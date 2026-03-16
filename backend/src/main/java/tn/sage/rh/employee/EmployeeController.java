@@ -14,7 +14,6 @@ import tn.sage.rh.employee.dto.*;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
-import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/api/v1/employees")
@@ -49,133 +48,8 @@ public class EmployeeController {
         return ResponseEntity.noContent().build();
     }
 
-<<<<<<< HEAD
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-=======
     @GetMapping("/pagination")
-    public ResponseEntity<PageResponse<EmployeeDto>> findAll(
+    public ResponseEntity<PageResponse<EmployeeDto>> findAllPaginated(
             Principal connectedUser,
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "25") int size,
@@ -198,7 +72,6 @@ public class EmployeeController {
                         .build()
         );
     }
->>>>>>> e39960116e8b13adc77c071927f1cdecf16443b2
 
     @GetMapping
     public ResponseEntity<Page<EmployeeDto>> findAll(
@@ -212,6 +85,7 @@ public class EmployeeController {
                         .map(employeeMapper::toDTO)
         );
     }
+
     @GetMapping("/search")
     public ResponseEntity<Page<EmployeeDto>> search(
             Principal connectedUser,
@@ -224,8 +98,6 @@ public class EmployeeController {
                         .map(employeeMapper::toDTO)
         );
     }
-
-
 
     @GetMapping("/supervisors")
     public ResponseEntity<List<SupervisorDto>> findAllSupervisors() {
@@ -278,8 +150,4 @@ public class EmployeeController {
     public ResponseEntity<List<OperatorAvailabilityDTO>> freeOperators() {
         return ResponseEntity.ok(employeeService.getFreeOperatorsForOperationalManager());
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> 9280c0834afd9c878e1bb8cd3b8fc31704f30849
 }
