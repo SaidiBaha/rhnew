@@ -22,7 +22,6 @@ import tn.sage.rh.organization.service.*;
 import tn.sage.rh.user.User;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.security.Principal;
@@ -40,6 +39,7 @@ import static tn.sage.rh.user.UserRole.SUPERVISOR;
 @Slf4j
 public class EmployeeService {
 
+
     private final EmployeeRepository employeeRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DepartmentService departmentService;
@@ -54,6 +54,7 @@ public class EmployeeService {
 
     @Transactional
     public void save(EmployeeRequestDto employeeRequest) {
+
         validateEmployeeRequest(employeeRequest);
 
         employeeRepository.findByMatricule(employeeRequest.getMatricule())
@@ -73,6 +74,7 @@ public class EmployeeService {
 
     @Transactional
     public void update(Long id, EmployeeRequestDto employeeRequest) {
+
         if (id == null) {
             throw new InvalidOperationException(
                     "L'id de l'employé est obligatoire pour la mise à jour",
@@ -88,6 +90,7 @@ public class EmployeeService {
                         ErrorCodes.EMPLOYEE_NOT_FOUND
                 ));
 
+        // Si le matricule change, on empêche la collision avec un autre employé
         employeeRepository.findByMatricule(employeeRequest.getMatricule())
                 .filter(existing -> !Objects.equals(existing.getId(), employee.getId()))
                 .ifPresent(existing -> {
@@ -103,6 +106,7 @@ public class EmployeeService {
 
     @Transactional
     public void delete(Long id) {
+
         if (id == null) {
             throw new InvalidOperationException(
                     "L'id de l'employé est obligatoire pour la suppression",
@@ -116,6 +120,7 @@ public class EmployeeService {
                         ErrorCodes.EMPLOYEE_NOT_FOUND
                 ));
 
+        // logique métier inchangée
         if (employee.getOperators() != null && !employee.getOperators().isEmpty()) {
             employee.getOperators().forEach(operator -> operator.setSupervisor(null));
         }
@@ -161,28 +166,6 @@ public class EmployeeService {
         return employeeRepository.findAll();
     }
 
-    public Page<Employee> search(Principal connectedUser, String query, int page, int size) {
-        User user = getUserFromPrincipal(connectedUser);
-        Pageable pageable = PageRequest.of(page, size);
-
-        if (user.getRole() == SUPERVISOR) {
-            return employeeRepository.findAllBySupervisorWithSearch(user.getUsername(), query, pageable);
-        }
-
-        return employeeRepository.findAllWithSearch(query, pageable);
-    }
-
-    public Page<Employee> findAll(Principal connectedUser, int page, int size) {
-        User user = getUserFromPrincipal(connectedUser);
-        Pageable pageable = PageRequest.of(page, size);
-
-        if (user.getRole() == SUPERVISOR) {
-            return employeeRepository.findAllBySupervisor(user.getUsername(), pageable);
-        }
-
-        return employeeRepository.findAll(pageable);
-    }
-
     @Transactional(readOnly = true)
     public Optional<Employee> findByIdOrMatricule(Long id, String matricule) {
         if (id != null) return employeeRepository.findById(id);
@@ -200,6 +183,7 @@ public class EmployeeService {
 
     @Transactional
     public void batchSave(List<EmployeeRequestDto> employeeRequests) {
+
         if (employeeRequests == null || employeeRequests.isEmpty()) {
             throw new InvalidOperationException(
                     "La liste des employés à importer ne peut pas être vide",
@@ -207,6 +191,7 @@ public class EmployeeService {
             );
         }
 
+        // 1) Validation de chaque ligne (accumulation des erreurs)
         List<String> allErrors = new ArrayList<>();
         for (int i = 0; i < employeeRequests.size(); i++) {
             List<String> errors = EmployeeValidator.validate(employeeRequests.get(i));
@@ -222,6 +207,7 @@ public class EmployeeService {
             );
         }
 
+        // 2) Vérifier doublons matricule dans le batch
         Set<String> seen = new HashSet<>();
         List<String> duplicates = employeeRequests.stream()
                 .map(EmployeeRequestDto::getMatricule)
@@ -260,6 +246,7 @@ public class EmployeeService {
         Context context = buildContext(employeeRequests);
 
         for (EmployeeRequestDto employeeRequest : employeeRequests) {
+
             Employee employee = existingEmployeesMap.getOrDefault(employeeRequest.getMatricule(), new Employee());
             setEmployeeFromRequestDTO(employee, employeeRequest, context);
 
@@ -271,6 +258,7 @@ public class EmployeeService {
             processedEmployees.put(employeeRequest.getMatricule(), employee);
         }
 
+        // 2ème passe : lier superviseur si pas en DB mais présent dans le batch
         for (EmployeeRequestDto employeeRequest : employeeRequests) {
             Employee employee = processedEmployees.get(employeeRequest.getMatricule());
 

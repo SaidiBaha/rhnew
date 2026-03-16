@@ -69,15 +69,11 @@ export type EmployeeRequest = {
   productionLine?: string;
   shift?: string;
   employmentType: string;
-  hireDate: string; // ← changed from Date to string
+  hireDate: string;
   supervisor?: string;
   hasBankDomiciliation: boolean;
-<<<<<<< HEAD
-  free: boolean;
-=======
   email?: string;
-   free: boolean;
->>>>>>> 614b404edee150ec3772526136f3e4f1af1a5c25
+  free: boolean;
 };
 
 export type PageResponse<T> = {
@@ -96,4 +92,3 @@ export type ErrorDto = {
   message?: string;
   errors?: string[];
 };
-
