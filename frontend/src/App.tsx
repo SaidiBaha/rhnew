@@ -16,14 +16,28 @@ import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
 
 function App() {
   return (
+    
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* <Route
+  element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
+>
+  <Route
+    path="/todo"
+    element={
+      <Layout>
+        <TodoRH />
+      </Layout>
+    }
+  />
+</Route> */}
 
       <Route element={<PersistLogin />}>
         {/* Routes accessibles par ADMIN, SUPERVISOR et OPERATIONAL_MANAGER */}
         <Route
           element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
         >
+          
           <Route
             path="/"
             element={

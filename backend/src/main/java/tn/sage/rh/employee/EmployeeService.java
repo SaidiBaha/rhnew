@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.employee.dto.EmployeeDto;
 import tn.sage.rh.employee.dto.EmployeeRequestDto;
 import tn.sage.rh.employee.dto.OperatorAvailabilityDTO;
+import tn.sage.rh.employee.dto.SupervisorDto;
 import tn.sage.rh.employee.event.EmployeeBatchSaveEvent;
 import tn.sage.rh.employee.event.EmployeeCreationEvent;
 import tn.sage.rh.exeption.EntityNotFoundException;
@@ -19,6 +20,9 @@ import tn.sage.rh.exeption.InvalidOperationException;
 import tn.sage.rh.organization.entity.*;
 import tn.sage.rh.organization.service.*;
 import tn.sage.rh.user.User;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.security.Principal;
 import java.time.LocalDate;
@@ -131,6 +135,16 @@ public class EmployeeService {
     // =========================
     // LISTING
     // =========================
+
+    @Transactional(readOnly = true)
+    public Page<Employee> findAllByPagination(Principal connectedUser, String search, Pageable pageable) {
+        User user = getUserFromPrincipal(connectedUser);
+
+        String supervisorMatricule = (user.getRole() == SUPERVISOR) ? user.getUsername() : null;
+        String searchTerm = (search != null && !search.isBlank()) ? search.trim() : null;
+
+        return employeeRepository.findPagedWithSearch(supervisorMatricule, searchTerm, pageable);
+    }
 
     @Transactional(readOnly = true)
     public List<Employee> findAll(Principal connectedUser) {
@@ -516,7 +530,7 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public List<Employee> findAllSupervisors() {
+    public List<SupervisorDto> findAllSupervisors() {
         return employeeRepository.findAllSupervisors();
     }
 

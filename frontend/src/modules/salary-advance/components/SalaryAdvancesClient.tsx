@@ -2,14 +2,13 @@ import { useState } from "react";
 import { Save, Lock, Unlock } from "lucide-react";
 
 import { Heading } from "@/components/Heading";
-import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import {
   columns,
   type SalaryAdvanceColumn,
 } from "@/modules/salary-advance/components/columns";
 import { useBatchUpdateSalaryAdvances } from "@/lib/data/salary-advance";
-import { isEmpty } from "@/lib/utils";
+import { isEmpty, parseDuration } from "@/lib/utils";
 import { Toggle } from "@/components/ui/Toggle";
 import {
   useCreateSalaryAdvanceDeadline,
@@ -19,14 +18,32 @@ import {
 import useAuth from "@/hooks/useAuth";
 import { DataTable } from "@/components/ui/DataTable";
 
+const DEFAULT_ELIGIBLE_AMOUNT = 0;
+
+function applyDefaultAmount(data: SalaryAdvanceColumn[], isAdmin: boolean): SalaryAdvanceColumn[] {
+  return data.map((row) => {
+    if (row.amount !== 0) return row;
+    if (isAdmin) return row;
+    const emp = row.employee;
+    if (emp.hasBankDomiciliation === "oui") return row;
+    const absenceReasons = emp.attendance.absenceReasons;
+    if (absenceReasons.some((ar) => ["MALADIE L-D", "MATERNITÉ"].includes(ar.absenceReason))) return row;
+    const { hours } = parseDuration(emp.attendance.totalAttendance) ?? { hours: 0, minutes: 0 };
+    if (hours < 40) return row;
+    return { ...row, amount: DEFAULT_ELIGIBLE_AMOUNT };
+  });
+}
+
 interface SalaryAdvancesClientProps {
   data: SalaryAdvanceColumn[];
 }
 
 export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
-  const [salaryAdvanceData, setSalaryAdvanceData] =
-    useState<SalaryAdvanceColumn[]>(data);
   const { auth } = useAuth();
+  const isAdmin = auth.user?.role === "ADMIN";
+
+  const [salaryAdvanceData, setSalaryAdvanceData] =
+    useState<SalaryAdvanceColumn[]>(() => applyDefaultAmount(data, isAdmin));
 
   const batchUpdateSalaryAdvances = useBatchUpdateSalaryAdvances();
   const fetchSalaryAdvanceDeadline = useFetchSalaryAdvanceDeadline();
@@ -36,7 +53,6 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const deadline = fetchSalaryAdvanceDeadline.data?.deadline;
 
   const isLocked = deadline ? new Date(deadline) <= new Date() : false;
-  const isAdmin = auth.user?.role === "ADMIN";
 
   const isLoading =
     fetchSalaryAdvanceDeadline.isLoading ||
@@ -108,14 +124,15 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
             </Toggle>
           )}
 
-          <Button
+          <button
+            type="button"
             onClick={handleSave}
             disabled={isDisabled}
-            className="bg-[#687818] text-white"
+            className="ds-btn-primary"
           >
-            <Save className="mr-2 size-4" />
+            <Save className="size-4" />
             Enregistrer
-          </Button>
+          </button>
         </div>
       </div>
       <Separator />

@@ -10,7 +10,7 @@ import tn.sage.rh.permutations.repository.FreeOperatorsRepository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
+
 @Component
 @RequiredArgsConstructor
 public class FreeOperatorsResetScheduler {
@@ -19,8 +19,10 @@ public class FreeOperatorsResetScheduler {
     private final EmployeeRepository employeeRepository;
 //    @Scheduled(cron = "0 5 0 * * *", zone = "Africa/Tunis")
 
+
 //    @Scheduled(cron = "0 */1 * * * *", zone = "Africa/Tunis") // ✅ test: chaque minute
 @Scheduled(cron = "0 0 6,14,22 * * *", zone = "Africa/Tunis")
+
     @Transactional
     public void resetExpiredFreeOperators() {
 

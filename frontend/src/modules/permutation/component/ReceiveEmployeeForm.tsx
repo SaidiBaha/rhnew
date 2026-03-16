@@ -48,7 +48,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#6b7a12]"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-(--accent)"
                             required
                         />
                     </div>
@@ -61,7 +61,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#6b7a12]"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-(--accent)"
                             required
                         />
                     </div>
@@ -74,7 +74,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
                         Opérateurs concernés
                     </h3>
-                    <span className="text-xs text-[#6b7a12]">
+                    <span className="text-xs" style={{ color: "var(--accent)" }}>
                         {selectedOperators.length} opérateur{selectedOperators.length !== 1 ? 's' : ''} sélectionné{selectedOperators.length !== 1 ? 's' : ''}
                     </span>
                 </div>
@@ -84,7 +84,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                     placeholder="Rechercher par nom, matricule ou id..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="mb-3 w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#6b7a12]"
+                    className="mb-3 w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-(--accent)"
                 />
 
                 {/* Filtres */}
@@ -92,7 +92,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                     <span className="text-slate-600">Filtrer par :</span>
                     {/*<button
                         type="button"
-                        className="rounded-full bg-[#6b7a12] px-3 py-1.5 font-medium text-white"
+                        className="ds-btn-primary rounded-full px-3 py-1.5"
                     >
                         Tous <span className="ml-1.5">127</span>
                     </button>*/}
@@ -100,7 +100,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                         type="button"
                         className="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-200"
                     >
-                        Libres <span className="ml-1.5 text-[#6b7a12]">6</span>
+                        Libres <span className="ml-1.5" style={{ color: "var(--accent)" }}>6</span>
                     </button>
                     {/*<button
                         type="button"
@@ -124,7 +124,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
                                 checked={selectedOperators.includes(operator.id)}
                                 onChange={() => toggleOperator(operator.id)}
                                 disabled={operator.status === "occupé"}
-                                className="h-4 w-4 rounded border-slate-300 text-[#6b7a12] focus:ring-[#6b7a12]"
+                                className="h-4 w-4 rounded border-slate-300"
                             />
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export function ReceiveEmployeeForm({ onCreated }: Props) {
             <div className="flex justify-end pt-4">
                 <button
                     type="submit"
-                    className="rounded-xl bg-[#6b7a12] px-6 py-3 font-medium text-white hover:bg-[#5a6610] transition-colors"
+                    className="ds-btn-primary px-6 py-3"
                 >
                     Créer la permutation
                 </button>

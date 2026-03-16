@@ -1,7 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* ===================== DESIGN TOKENS ===================== */
+:root {
+  /* ── New design system ── */
+  --bg:             #f4f6fb;
+  --white:          #ffffff;
+  --sidebar-bg:     #1b2444;
+  --sidebar-active: #2d3a5e;
+  --sidebar-hover:  #232f52;
+  --sidebar-w:      250px;
+  --accent:         #2f6bff;
+  --accent-light:   #eef3ff;
+  --accent2:        #00c48c;
+  --accent2-light:  #e6faf5;
+  --accent3:        #ff8c00;
+  --accent3-light:  #fff4e6;
+  --accent4:        #f03e3e;
+  --accent4-light:  #fff0f0;
+  --text:           #1a2340;
+  --text2:          #4b5675;
+  --muted:          #9aa3b8;
+  --border:         #e4e8f0;
+  --shadow:         0 1px 3px rgba(30,40,90,0.07), 0 4px 16px rgba(30,40,90,0.05);
+  --header-h:       64px;
+
+  /* ── Backward-compat aliases (used by existing components) ── */
+  --navy:         var(--text);
+  --navy-mid:     var(--sidebar-active);
+  --steel-light:  #e8ecf2;
+  --accent-hover: #1a56e8;
+  --accent-soft:  var(--accent-light);
+  --teal:         var(--accent2);
+  --teal-soft:    var(--accent2-light);
+  --surface:      var(--white);
+  --surface2:     #f7f8fa;
+  --border-mid:   #c8d0dc;
+  --text-1:       var(--text);
+  --text-2:       var(--text2);
+  --text-3:       var(--muted);
+  --green:        var(--accent2);
+  --green-soft:   var(--accent2-light);
+  --amber:        var(--accent3);
+  --amber-soft:   var(--accent3-light);
+  --red:          var(--accent4);
+  --red-soft:     var(--accent4-light);
+
+  /* ── Tailwind compat ── */
+  --radius: 14px;
+  --background: var(--white);
+  --foreground: var(--text);
+  --card: var(--white);
+  --card-foreground: var(--text);
+  --popover: var(--white);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--steel-light);
+  --secondary-foreground: var(--text);
+  --muted-tw: var(--surface2);
+  --muted-foreground: var(--muted);
+  --accent-tw: var(--accent-light);
+  --accent-foreground: var(--accent);
+  --destructive: var(--accent4);
+  --input: var(--border);
+  --ring: var(--accent);
+  --sidebar: var(--sidebar-bg);
+  --sidebar-foreground: rgba(255,255,255,0.75);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--sidebar-active);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-ring: var(--accent);
+}
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -20,17 +95,12 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
+  --color-accent: var(--accent-tw);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -41,73 +111,160 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+/* ===================== SCROLLBAR ===================== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ===================== GLOBAL BASE ===================== */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+::selection { background: rgba(232, 93, 38, 0.18); }
+
+/* Mono utility */
+.font-mono-data {
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+/* ===================== TABLE ===================== */
+.ds-table thead th {
+  background: #f4f6f9;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.ds-table tbody tr {
+  transition: background 0.15s ease;
+}
+.ds-table tbody tr:hover {
+  background: #f8f9fc;
+}
+
+/* ===================== STATUS PILLS ===================== */
+.ds-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+}
+.ds-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ds-pill-green  { background: var(--green-soft); color: var(--green); }
+.ds-pill-green::before  { background: var(--green); }
+.ds-pill-amber  { background: var(--amber-soft); color: var(--amber); }
+.ds-pill-amber::before  { background: var(--amber); }
+.ds-pill-red    { background: var(--red-soft);   color: var(--red);   }
+.ds-pill-red::before    { background: var(--red); }
+
+/* ===================== CARD ===================== */
+.ds-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(26, 35, 50, 0.08);
+}
+
+/* ===================== STAT CARD ===================== */
+.ds-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(26, 35, 50, 0.06);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+.ds-stat-card:hover {
+  box-shadow: 0 4px 16px rgba(26, 35, 50, 0.12);
+  transform: translateY(-1px);
+}
+.ds-stat-card.active {
+  box-shadow: 0 4px 20px rgba(26, 35, 50, 0.14);
+}
+
+/* ===================== BTN PRIMARY ===================== */
+.ds-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 18px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(47, 107, 255, 0.28);
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+.ds-btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(47, 107, 255, 0.38);
+}
+.ds-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ===================== INPUT / SELECT ===================== */
+.ds-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text2);
+  padding: 7px 12px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ds-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.10);
+}
+
+/* ===================== SIDEBAR LAYOUT SYNC ===================== */
+body:has(aside[data-expanded="false"]) main {
+  margin-left: 5rem;
+}
+
+/* ===================== ROW ANIMATION ===================== */
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ds-table tbody tr {
+  animation: rowFadeIn 0.2s ease both;
 }
 
 @layer base {

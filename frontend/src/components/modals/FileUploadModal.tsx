@@ -90,15 +90,17 @@ export const FileUploadModal = ({
                       }}
                       multiple
                     >
-                      <FileUploadDropzone className="flex-row border-dotted">
-                        <CloudUpload className="size-4" />
-                        Glisser-déposer ou
-                        <FileUploadTrigger asChild>
-                          <Button variant="link" size="sm" className="p-0">
-                            sélectionner les fichiers
-                          </Button>
-                        </FileUploadTrigger>
-                        à importer
+                      <FileUploadDropzone className="border-dotted gap-3 py-6">
+                        <CloudUpload className="size-6 text-muted-foreground" />
+                        <div className="flex flex-wrap items-center justify-center gap-1 text-sm text-center">
+                          <span className="text-muted-foreground">Glisser-déposer ou</span>
+                          <FileUploadTrigger asChild>
+                            <Button variant="link" size="sm" className="p-0 h-auto text-sm">
+                              sélectionner les fichiers
+                            </Button>
+                          </FileUploadTrigger>
+                          <span className="text-muted-foreground">à importer</span>
+                        </div>
                       </FileUploadDropzone>
                       <FileUploadList>
                         {field.value.map((file, index) => (
@@ -143,7 +145,7 @@ export const FileUploadModal = ({
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="bg-[#687818] text-white"
+                className="ds-btn-primary"
               >
                 Importer
               </Button>

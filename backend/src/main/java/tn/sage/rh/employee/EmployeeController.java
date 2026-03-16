@@ -3,14 +3,13 @@ package tn.sage.rh.employee;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.mapstruct.factory.Mappers;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import tn.sage.rh.employee.dto.EmployeeDto;
-import tn.sage.rh.employee.dto.EmployeeFreeRequestDto;
-import tn.sage.rh.employee.dto.EmployeeRequestDto;
-import tn.sage.rh.employee.dto.OperatorAvailabilityDTO;
+import tn.sage.rh.employee.dto.*;
 
 import java.security.Principal;
 import java.time.LocalDate;
@@ -50,6 +49,7 @@ public class EmployeeController {
         return ResponseEntity.noContent().build();
     }
 
+<<<<<<< HEAD
 
 
 
@@ -173,6 +173,32 @@ public class EmployeeController {
 
 
 
+=======
+    @GetMapping("/pagination")
+    public ResponseEntity<PageResponse<EmployeeDto>> findAll(
+            Principal connectedUser,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false)    String search
+    ) {
+        Page<Employee> employeePage = employeeService.findAllByPagination(
+                connectedUser, search, PageRequest.of(page, size));
+
+        return ResponseEntity.ok(
+                PageResponse.<EmployeeDto>builder()
+                        .content(employeePage.getContent().stream()
+                                .map(employeeMapper::toDTO)
+                                .toList())
+                        .pageNumber(employeePage.getNumber())
+                        .pageSize(employeePage.getSize())
+                        .totalElements(employeePage.getTotalElements())
+                        .totalPages(employeePage.getTotalPages())
+                        .first(employeePage.isFirst())
+                        .last(employeePage.isLast())
+                        .build()
+        );
+    }
+>>>>>>> e39960116e8b13adc77c071927f1cdecf16443b2
 
     @GetMapping
     public ResponseEntity<Page<EmployeeDto>> findAll(
@@ -199,14 +225,11 @@ public class EmployeeController {
         );
     }
 
+
+
     @GetMapping("/supervisors")
-    public ResponseEntity<List<EmployeeDto>> findAllSupervisors() {
-        return ResponseEntity.ok(
-                employeeService.findAllSupervisors()
-                        .stream()
-                        .map(employeeMapper::toDTO)
-                        .toList()
-        );
+    public ResponseEntity<List<SupervisorDto>> findAllSupervisors() {
+        return ResponseEntity.ok(employeeService.findAllSupervisors());
     }
 
     @GetMapping("/{id}")

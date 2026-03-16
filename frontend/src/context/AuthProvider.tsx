@@ -6,6 +6,7 @@ import {
   type Dispatch,
   type SetStateAction,
   type ReactNode,
+  
 } from "react";
 
 export interface User {
@@ -23,7 +24,8 @@ export interface Auth {
 
 export interface AuthContextProps {
   auth: Auth;
-  setAuth: (auth: Auth) => void;
+  // ✅ accepte un objet Auth OU une fonction d'update (comme setState)
+  setAuth: (auth: Auth | ((prev: Auth) => Auth)) => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
@@ -39,7 +41,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [auth, setAuth] = useState<Auth>(() => {
     const refreshToken = localStorage.getItem("refreshToken");
     const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : undefined;
+    const user = userStr ? (JSON.parse(userStr) as User) : undefined;
 
     return {
       user,
@@ -47,15 +49,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   });
 
-  const updateAuth: Dispatch<SetStateAction<Auth>> = (newAuth) => {
+  // ✅ Version sans Dispatch/SetStateAction + typings explicites
+  const updateAuth = (newAuth: Auth | ((prev: Auth) => Auth)) => {
     setAuth((prevAuth) => {
-      const authToSet = typeof newAuth === "function" ? newAuth(prevAuth) : newAuth;
+      const authToSet =
+        typeof newAuth === "function" ? (newAuth as (p: Auth) => Auth)(prevAuth) : newAuth;
 
+      // 🔐 Persistance locale sécurisée
       if (authToSet.user) {
         localStorage.setItem("user", JSON.stringify(authToSet.user));
+      } else {
+        localStorage.removeItem("user");
       }
+
       if (authToSet.refreshToken) {
         localStorage.setItem("refreshToken", authToSet.refreshToken);
+      } else {
+        localStorage.removeItem("refreshToken");
       }
 
       return authToSet;

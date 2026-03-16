@@ -102,7 +102,7 @@ export const EditableCell = ({
       onChange={onChange}
       onBlur={onBlur}
       disabled={isDisabled}
-      className={cn("w-full", !isDisabled && "border-[#687818]")}
+      className={cn("w-full", !isDisabled && "border-(--accent)")}
     />
   );
 };

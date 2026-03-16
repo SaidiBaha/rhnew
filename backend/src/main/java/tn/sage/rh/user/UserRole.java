@@ -36,6 +36,7 @@ public enum UserRole {
                     REQUEST_CREATE
             )
     ),
+
     SUPERVISOR(
             Set.of(
                     EMPLOYEE_READ,

@@ -15,6 +15,7 @@ import tn.sage.rh.permutations.entity.Permutation;
 import tn.sage.rh.permutations.entity.PermutationStatus;
 import tn.sage.rh.permutations.entity.TypePermutation;
 import tn.sage.rh.permutations.mapper.PermutationMapper;
+import tn.sage.rh.permutations.repository.FreeOperatorsRepository;
 import tn.sage.rh.permutations.repository.PermutationRepository;
 import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserRepository;
@@ -33,7 +34,7 @@ public class PermutationServiceImpl implements PermutationService {
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
     private final ProductionLineRepository productionLineRepository;
-
+    private final FreeOperatorsRepository freeOperatorsRepository;
     @Override
     public List<PermutationResponseDTO> getPermutationsForCurrentUser() {
         User current = getCurrentUser();
@@ -229,6 +230,7 @@ public class PermutationServiceImpl implements PermutationService {
     }
 
     private PermutationResponseDTO updateStatus(Long id, PermutationStatus status) {
+
         User current = getCurrentUser();
         if (!isSupervisor(current)) {
             throw new AccessDeniedException("Only SUPERVISOR can validate permutations");
@@ -239,7 +241,6 @@ public class PermutationServiceImpl implements PermutationService {
         Permutation p = permutationRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Permutation not found"));
 
-        // ✅ receiver validates
         if (!Objects.equals(p.getReceiver().getId(), me.getId())) {
             throw new AccessDeniedException("Only receiver can validate this permutation");
         }
@@ -249,6 +250,8 @@ public class PermutationServiceImpl implements PermutationService {
         }
 
         if (status == PermutationStatus.ACCEPTEE) {
+
+            // ✅ 1) Concurrency safety: re-check overlaps
             List<Long> blocked = new ArrayList<>();
             for (Employee op : p.getOperators()) {
                 boolean overlap = permutationRepository.existsOverlap(
@@ -275,12 +278,20 @@ public class PermutationServiceImpl implements PermutationService {
                 return dto;
             }
 
-            // ✅ Mettre free = false pour tous les opérateurs concernés
-            for (Employee operator : p.getOperators()) {
-                operator.setFree(false);
+            // ✅ 2) IMPORTANT: operators become BUSY immediately
+            List<String> matricules = p.getOperators().stream()
+                    .map(Employee::getMatricule)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+
+            if (!matricules.isEmpty()) {
+                // employee.free = false
+                employeeRepository.markFreeFalseByMatricules(matricules);
+
+                // remove from FreeOperators table => they disappear from "free pool"
+                freeOperatorsRepository.deleteByMatricules(matricules);
             }
-            // Sauvegarder les modifications des opérateurs
-            employeeRepository.saveAll(p.getOperators());
         }
 
         p.setStatus(status);
@@ -312,4 +323,5 @@ public class PermutationServiceImpl implements PermutationService {
     private boolean isOperationalManger(User user) {
         return user.getRole() != null && "OPERATIONAL_MANAGER".equals(user.getRole().name());
     }
+
 }

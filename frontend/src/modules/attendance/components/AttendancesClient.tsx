@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 
 import { Heading } from "@/components/Heading";
-import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { FileUploadModal } from "@/components/modals/FileUploadModal";
 import { UploadAttendanceSchema } from "@/modules/attendance/schema";
@@ -84,14 +83,14 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
         />
 
         <div className="flex items-center justify-center gap-x-4">
-          <Button
+          <button
+            type="button"
             onClick={() => setIsFileUploadOpen(true)}
-            variant="outline"
-            className="bg-[#687818] text-white"
+            className="ds-btn-primary"
           >
-            <Upload className="mr-2 size-4" />
+            <Upload className="size-4" />
             Importer
-          </Button>
+          </button>
         </div>
       </div>
       <Separator />

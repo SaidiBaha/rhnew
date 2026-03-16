@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Heading } from "@/components/Heading";
-import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { DataTable } from "@/components/ui/DataTable";
 import {
@@ -32,14 +31,14 @@ export function RequestsClient({ data }: RequestsClientProps) {
         />
 
         <div className="flex items-center justify-center gap-x-4">
-          <Button
-            className="bg-[#687818] text-white"
-            size="lg"
+          <button
+            type="button"
+            className="ds-btn-primary"
             onClick={() => setIsFormOpen(true)}
           >
-            <Plus className="mr-2 size-4" />
+            <Plus className="size-4" />
             Ajouter
-          </Button>
+          </button>
         </div>
       </div>
       <Separator />

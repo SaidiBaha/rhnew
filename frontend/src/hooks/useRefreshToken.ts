@@ -18,7 +18,15 @@ const useRefreshToken = () => {
 
     const { accessToken, refreshToken, user } = response.data;
 
-    setAuth({ accessToken, refreshToken, user });
+    setAuth((prev) => ({
+      accessToken,
+      refreshToken,
+      user: {
+        ...prev.user,
+        ...user,
+        fullName: user?.fullName || prev.user?.fullName,
+      },
+    }));
     localStorage.setItem("refreshToken", refreshToken);
 
     return accessToken;

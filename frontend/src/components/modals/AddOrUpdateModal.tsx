@@ -29,7 +29,7 @@ export const AddOrUpdateModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onChange}>
-      <DialogContent className="border-[#687818] border-4 shadow-xl">
+      <DialogContent className="border-4 shadow-xl" style={{ borderColor: "var(--accent)" }}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

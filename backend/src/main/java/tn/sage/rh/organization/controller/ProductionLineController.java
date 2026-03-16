@@ -20,22 +20,12 @@ public class ProductionLineController {
     // GET /api/v1/production-lines
     @GetMapping
     public List<ProductionLineMinimalDto> findAll() {
-        return productionLineService.findAll()
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return productionLineService.findAll();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductionLineMinimalDto> findById(@PathVariable Long id) {
-        ProductionLine line = productionLineService.getByIdOrThrow(id);
-        return ResponseEntity.ok(toDto(line));
+        return ResponseEntity.ok(productionLineService.findById(id));
     }
 
-    private ProductionLineMinimalDto toDto(ProductionLine entity) {
-        return ProductionLineMinimalDto.builder()
-                .id(entity.getId())
-                .name(entity.getName())
-                .build();
-    }
 }

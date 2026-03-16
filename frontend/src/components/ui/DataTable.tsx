@@ -18,7 +18,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  ChevronsLeft,
+  ChevronsRight,
   Download,
+  Search,
 } from "lucide-react";
 import { Workbook } from "exceljs";
 import { saveAs } from "file-saver";
@@ -56,7 +59,8 @@ interface DataTableProps<TData, TValue> {
   globalFilterFn?: FilterFnOption<TData>;
   meta?: TableMeta;
   showExport?: boolean;
-  showPagination?: boolean;
+  initialPageSize?: number;
+  hidePagination?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -69,7 +73,8 @@ export function DataTable<TData, TValue>({
   globalFilterFn,
   meta,
   showExport = false,
-  showPagination = true,
+  initialPageSize,
+  hidePagination = false,
 }: DataTableProps<TData, TValue>) {
   const [expanded, setExpanded] = React.useState({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -110,7 +115,7 @@ export function DataTable<TData, TValue>({
     },
     initialState: {
       pagination: {
-        pageSize: 25,
+        pageSize: initialPageSize ?? 25,
       },
     },
     meta: meta && {
@@ -164,56 +169,80 @@ export function DataTable<TData, TValue>({
     saveAs(new Blob([buf]), "export.xlsx");
   };
 
+  /* ── Pagination info ── */
+  const { pageIndex, pageSize } = table.getState().pagination;
+  const totalFiltered = table.getFilteredRowModel().rows.length;
+  const from = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
+  const to = Math.min((pageIndex + 1) * pageSize, totalFiltered);
+
   return (
-    <div>
+    <div className="space-y-3">
       {title && (
-        <h2 className="text-2xl font-bold tracking-tight py-4">{title}</h2>
+        <h2 className="text-2xl font-bold tracking-tight py-2">{title}</h2>
       )}
 
-      {(searchKey || globalFilterFn) && (
-        <div className="flex items-center py-4">
-          <Input
-            placeholder="Rechercher"
-            value={
-              globalFilterFn
-                ? (table.getState().globalFilter as string) ?? ""
-                : searchKey
-                ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
-                : ""
-            }
-            onChange={(event) =>
-              globalFilterFn
-                ? table.setGlobalFilter(event.target.value)
-                : searchKey
-                ? table.getColumn(searchKey)?.setFilterValue(event.target.value)
-                : ""
-            }
-            className="max-w-sm border-[#687818]"
-          />
+      {/* ── Toolbar: search + export ── */}
+      {(searchKey || globalFilterFn || showExport) && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {(searchKey || globalFilterFn) && (
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <Input
+                placeholder="Rechercher..."
+                value={
+                  globalFilterFn
+                    ? (table.getState().globalFilter as string) ?? ""
+                    : searchKey
+                    ? (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
+                    : ""
+                }
+                onChange={(event) =>
+                  globalFilterFn
+                    ? table.setGlobalFilter(event.target.value)
+                    : searchKey
+                    ? table.getColumn(searchKey)?.setFilterValue(event.target.value)
+                    : ""
+                }
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
+
+          {showExport && (
+            <button
+              type="button"
+              onClick={exportToExcel}
+              className="ds-btn-primary h-9 shrink-0"
+            >
+              <Download className="size-4" />
+              Exporter Excel
+            </button>
+          )}
         </div>
       )}
 
-      {showExport && (
-        <div className="flex items-center justify-end pb-4">
-          <Button onClick={exportToExcel} className="bg-[#687818]">
-            <Download className="mr-2 size-4" />
-            Exporter
-          </Button>
-        </div>
-      )}
-
-      <div className="w-full rounded-md border">
+      {/* ── Table ── */}
+      <div className="ds-card overflow-hidden" style={{ padding: 0 }}>
         <Table>
-          <TableHeader className="bg-[#687818] grow">
+          <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="bg-[#687818] text-white grow"
+                style={{ background: "#f4f6f9", borderBottom: "1px solid var(--border)" }}
               >
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="bg-[#687818] text-white grow"
+                    style={{
+                      background: "#f4f6f9",
+                      color: "var(--text-3)",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      height: "44px",
+                      padding: "0 16px",
+                    }}
                   >
                     {header.isPlaceholder
                       ? null
@@ -228,14 +257,20 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row, rowIndex) => (
                 <React.Fragment key={row.id}>
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
+                    style={{
+                      background: rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)",
+                      transition: "background 0.12s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--steel-light)"}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)"}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="px-4 py-3">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -243,25 +278,24 @@ export function DataTable<TData, TValue>({
                       </TableCell>
                     ))}
                     {row.getCanExpand() && (
-                      <TableCell>
+                      <TableCell className="px-4 py-3">
                         <Button
                           variant="ghost"
-                          className="h-8 w-8 p-0"
+                          className="h-7 w-7 p-0"
                           onClick={row.getToggleExpandedHandler()}
                         >
-                          {row.getCanExpand() &&
-                            (row.getIsExpanded() ? (
-                              <ChevronUp />
-                            ) : (
-                              <ChevronDown />
-                            ))}
+                          {row.getIsExpanded() ? (
+                            <ChevronUp className="size-4" />
+                          ) : (
+                            <ChevronDown className="size-4" />
+                          )}
                         </Button>
                       </TableCell>
                     )}
                   </TableRow>
                   {row.getIsExpanded() && renderSubComponent && (
                     <TableRow>
-                      <TableCell colSpan={columns.length + 1}>
+                      <TableCell colSpan={columns.length + 1} className="p-0">
                         {renderSubComponent(row, table)}
                       </TableCell>
                     </TableRow>
@@ -272,9 +306,9 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-32 text-center" style={{ color: "var(--text-3)" }}
                 >
-                  No results.
+                  Aucun résultat trouvé.
                 </TableCell>
               </TableRow>
             )}
@@ -282,29 +316,56 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      {showPagination && (
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <strong className="text-sm font-medium">
-            {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </strong>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-         
-          >
-            <ChevronRight className="size-4" />
-          </Button>
+      {/* ── Pagination ── */}
+      {!hidePagination && <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
+        <p className="text-sm" style={{ color: "var(--text-3)" }}>
+          {totalFiltered === 0
+            ? "Aucun résultat"
+            : `Affichage de ${from} à ${to} sur ${totalFiltered} résultat${totalFiltered !== 1 ? "s" : ""}`}
+        </p>
+
+        <div className="flex items-center gap-1">
+          {(["first", "prev", "next", "last"] as const).map((type) => {
+            const isFirst = type === "first";
+            const isPrev = type === "prev";
+            const isNext = type === "next";
+            const disabled =
+              (isFirst || isPrev) ? !table.getCanPreviousPage() : !table.getCanNextPage();
+            const onClick = isFirst
+              ? () => table.setPageIndex(0)
+              : isPrev
+              ? () => table.previousPage()
+              : isNext
+              ? () => table.nextPage()
+              : () => table.setPageIndex(table.getPageCount() - 1);
+            const icon = isFirst ? <ChevronsLeft className="size-4" />
+              : isPrev ? <ChevronLeft className="size-4" />
+              : isNext ? <ChevronRight className="size-4" />
+              : <ChevronsRight className="size-4" />;
+            const title = isFirst ? "Première page" : isPrev ? "Page précédente" : isNext ? "Page suivante" : "Dernière page";
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={onClick}
+                disabled={disabled}
+                title={title}
+                className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+                style={{
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-2)",
+                }}
+              >
+                {icon}
+              </button>
+            );
+          })}
+          <span className="px-3 text-sm font-medium select-none" style={{ color: "var(--text-2)" }}>
+            Page {table.getState().pagination.pageIndex + 1} / {table.getPageCount() || 1}
+          </span>
         </div>
-      )}
+      </div>}
     </div>
   );
 }
