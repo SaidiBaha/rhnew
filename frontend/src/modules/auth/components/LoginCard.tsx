@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/Input";
 import useAuth from "@/hooks/useAuth";
 import axios from "axios";
 import { TriangleAlert } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import type { Auth } from "@/context/AuthProvider";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -168,6 +168,15 @@ export const LoginCard = () => {
                 </FormItem>
               )}
             />
+
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                style={{ fontSize: "12px", color: "var(--accent)", fontWeight: 500 }}
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
 
             <button
               type="submit"

@@ -13,6 +13,8 @@ import java.util.Set;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmployee_Matricule(String matricule);
 
+    Optional<User> findByEmployee_Email(String email);
+
     @Query("select u.employee.matricule " +
             "from User u " +
             "where u.employee.matricule in :matricules"
