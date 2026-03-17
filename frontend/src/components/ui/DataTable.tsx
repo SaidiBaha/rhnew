@@ -46,6 +46,16 @@ export interface ColumnMeta {
   exportLabel?: string;
 }
 
+export interface ServerPaginationProps {
+  page: number;           // 0-based current page
+  totalPages: number;
+  totalElements: number;
+  isFetching: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  onPageChange: (page: number) => void;
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -61,6 +71,7 @@ interface DataTableProps<TData, TValue> {
   showExport?: boolean;
   initialPageSize?: number;
   hidePagination?: boolean;
+  serverPagination?: ServerPaginationProps;
 }
 
 export function DataTable<TData, TValue>({
@@ -75,6 +86,7 @@ export function DataTable<TData, TValue>({
   showExport = false,
   initialPageSize,
   hidePagination = false,
+  serverPagination,
 }: DataTableProps<TData, TValue>) {
   const [expanded, setExpanded] = React.useState({});
 
@@ -176,8 +188,24 @@ export function DataTable<TData, TValue>({
   /* ── Pagination info ── */
   const { pageIndex, pageSize } = table.getState().pagination;
   const totalFiltered = table.getFilteredRowModel().rows.length;
-  const from = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
-  const to = Math.min((pageIndex + 1) * pageSize, totalFiltered);
+  const clientFrom = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
+  const clientTo = Math.min((pageIndex + 1) * pageSize, totalFiltered);
+
+  // Server pagination values (used when serverPagination prop is provided)
+  const sp = serverPagination;
+  const activePage     = sp ? sp.page : pageIndex;
+  const activeTotalPages = sp ? sp.totalPages : table.getPageCount();
+  const activeFrom     = sp ? sp.page * (initialPageSize ?? 25) + 1 : clientFrom;
+  const activeTo       = sp ? Math.min((sp.page + 1) * (initialPageSize ?? 25), sp.totalElements) : clientTo;
+  const activeTotal    = sp ? sp.totalElements : totalFiltered;
+  const activeIsFetching = sp?.isFetching ?? false;
+
+  const goToPage = (i: number) => {
+    if (sp) sp.onPageChange(i);
+    else table.setPageIndex(i);
+  };
+  const canPrev = sp ? !sp.isFirst : table.getCanPreviousPage();
+  const canNext = sp ? !sp.isLast  : table.getCanNextPage();
 
   return (
     <div className="space-y-3">
@@ -321,55 +349,87 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* ── Pagination ── */}
-      {!hidePagination && <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
-        <p className="text-sm" style={{ color: "var(--text-3)" }}>
-          {totalFiltered === 0
-            ? "Aucun résultat"
-            : `Affichage de ${from} à ${to} sur ${totalFiltered} résultat${totalFiltered !== 1 ? "s" : ""}`}
-        </p>
+      {!hidePagination && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
+          {/* Info texte */}
+          <p className="text-sm" style={{ color: "var(--text-3)" }}>
+            {activeTotal === 0
+              ? "Aucun résultat"
+              : `Affichage de ${activeFrom} à ${activeTo} sur ${activeTotal} résultat${activeTotal !== 1 ? "s" : ""}`}
+          </p>
 
-        <div className="flex items-center gap-1">
-          {(["first", "prev", "next", "last"] as const).map((type) => {
-            const isFirst = type === "first";
-            const isPrev = type === "prev";
-            const isNext = type === "next";
-            const disabled =
-              (isFirst || isPrev) ? !table.getCanPreviousPage() : !table.getCanNextPage();
-            const onClick = isFirst
-              ? () => table.setPageIndex(0)
-              : isPrev
-              ? () => table.previousPage()
-              : isNext
-              ? () => table.nextPage()
-              : () => table.setPageIndex(table.getPageCount() - 1);
-            const icon = isFirst ? <ChevronsLeft className="size-4" />
-              : isPrev ? <ChevronLeft className="size-4" />
-              : isNext ? <ChevronRight className="size-4" />
-              : <ChevronsRight className="size-4" />;
-            const title = isFirst ? "Première page" : isPrev ? "Page précédente" : isNext ? "Page suivante" : "Dernière page";
-            return (
-              <button
-                key={type}
-                type="button"
-                onClick={onClick}
-                disabled={disabled}
-                title={title}
-                className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
-                style={{
-                  background: "var(--surface2)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text-2)",
-                }}
-              >
-                {icon}
-              </button>
-            );
-          })}
-          <span className="px-3 text-sm font-medium select-none" style={{ color: "var(--text-2)" }}>
-            Page {table.getState().pagination.pageIndex + 1} / {table.getPageCount() || 1}
-          </span>
+          {/* Contrôles de pagination */}
+          <div className="flex items-center gap-1">
+            {/* Bouton première page */}
+            <button
+              type="button"
+              onClick={() => goToPage(0)}
+              disabled={!canPrev || activeIsFetching}
+              title="Première page"
+              className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+              style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+            >
+              <ChevronsLeft className="size-4" />
+            </button>
+
+            {/* Bouton page précédente */}
+            <button
+              type="button"
+              onClick={() => goToPage(activePage - 1)}
+              disabled={!canPrev || activeIsFetching}
+              title="Page précédente"
+              className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+              style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+
+            {/* Pages numérotées (fenêtre glissante de ±2) */}
+            {Array.from({ length: activeTotalPages }, (_, i) => i)
+              .filter((i) => Math.abs(i - activePage) <= 2)
+              .map((i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => goToPage(i)}
+                  disabled={activeIsFetching}
+                  className="flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium transition-colors"
+                  style={{
+                    background: i === activePage ? "var(--accent)" : "var(--surface2)",
+                    border: `1px solid ${i === activePage ? "var(--accent)" : "var(--border)"}`,
+                    color: i === activePage ? "#fff" : "var(--text-2)",
+                  }}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+            {/* Bouton page suivante */}
+            <button
+              type="button"
+              onClick={() => goToPage(activePage + 1)}
+              disabled={!canNext || activeIsFetching}
+              title="Page suivante"
+              className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+              style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+            >
+              <ChevronRight className="size-4" />
+            </button>
+
+            {/* Bouton dernière page */}
+            <button
+              type="button"
+              onClick={() => goToPage(activeTotalPages - 1)}
+              disabled={!canNext || activeIsFetching}
+              title="Dernière page"
+              className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+              style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+            >
+              <ChevronsRight className="size-4" />
+            </button>
+          </div>
         </div>
-      </div>}
+      )}
     </div>
   );
 }

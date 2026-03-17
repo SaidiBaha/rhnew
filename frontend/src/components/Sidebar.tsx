@@ -100,7 +100,7 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
 /* ===================== SIDEBAR ===================== */
 const PRINCIPAL_ITEMS: NavigationItem[] = [
   { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN"] },
+  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN","SUPERVISOR", "OPERATIONAL_MANAGER"] },
   { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN"] },
   { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
   { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR"] },
