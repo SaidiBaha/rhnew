@@ -34,5 +34,6 @@ export function useFetchProjectHours(du: string, au: string) {
             return res.data;
         },
         staleTime: 20_000,
+        retry: false,
     });
 }

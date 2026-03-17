@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthProvider.tsx";
 import QueryProvider from "@/lib/query-provider.tsx";
 
 import "./index.css";
+import "@/lib/axiosInterceptor";
 import { Toaster } from "react-hot-toast";
 
 createRoot(document.getElementById("root")!).render(

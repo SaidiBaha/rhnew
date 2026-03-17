@@ -15,10 +15,14 @@ const PersistLogin = () => {
     const verifyRefreshToken = async () => {
       try {
         await refreshToken();
-      } catch (error) {
-        console.error(error);
-      } finally {
         if (isMounted) setIsLoading(false);
+      } catch {
+        // Refresh token invalid or expired (401, 500, network error)
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        sessionStorage.setItem("session_expired", "1");
+        window.location.replace("/login");
+        // Do not call setIsLoading — page is navigating away
       }
     };
 
