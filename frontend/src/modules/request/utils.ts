@@ -12,6 +12,7 @@ export function formatRequest(request: Request): RequestColumn {
     comment: request.comment || "",
     status: request.status,
     employee: formatEmployee(request.employee),
+    supervisor: request.employee.supervisor?.fullName || "—",
     createdAt: format(request.createdAt, "dd MMMM HH:mm", { locale: fr }),
     updatedAt: request.updatedAt
       ? format(request.updatedAt, "dd MMMM HH:mm", { locale: fr })

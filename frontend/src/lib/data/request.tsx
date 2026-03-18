@@ -109,3 +109,28 @@ export const useUpdateRequest = () => {
     },
   });
 };
+
+export const useCloseRequest = () => {
+  const { auth } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => {
+      return axios.patch(`/requests/${id}/close`, null, {
+        baseURL: API_BASE_URL,
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] });
+      toast.success("Demande clôturée !");
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Erreur lors de la clôture de la demande");
+    },
+  });
+};

@@ -5,20 +5,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { RequestSchema } from "@/modules/request/schema";
 import { RequestTypes, type RequestStatus } from "@/modules/request/types";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/Form";
 import { Input } from "@/components/ui/Input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Combobox } from "@/components/ui/Combobox";
@@ -31,27 +22,32 @@ interface RequestFormProps {
   onSubmit: (data: z.infer<typeof RequestSchema>) => void;
   isLoading: boolean;
   action: string;
+  currentStatus?: RequestStatus;
 }
 
 export function RequestForm({
-  defaultValues,
-  employees,
-  onSubmit,
-  isLoading,
-  action,
+  defaultValues, employees, onSubmit, isLoading, action, currentStatus,
 }: RequestFormProps) {
   const { auth } = useAuth();
+  const isAdmin = auth.user?.role === "ADMIN";
 
   const form = useForm<z.infer<typeof RequestSchema>>({
     resolver: zodResolver(RequestSchema),
     defaultValues,
   });
 
-  const filterRequestStatuses = (): RequestStatus[] => {
-    return auth.user?.role == "ADMIN"
-      ? ["EN_PROGRESSION", "TRAITÉ", "ANNULÉ"]
-      : ["EN_PROGRESSION", "ANNULÉ"];
+  const statusOptions = (): RequestStatus[] => {
+    if (isAdmin) {
+      // Admin can treat or reject a SOUMIS request
+      if (currentStatus === "SOUMIS") return ["SOUMIS", "TRAITÉ", "REJETÉ"];
+      return currentStatus ? [currentStatus] : ["SOUMIS"];
+    }
+    // Supervisor can only cancel a SOUMIS request
+    if (currentStatus === "SOUMIS") return ["SOUMIS", "ANNULÉ"];
+    return currentStatus ? [currentStatus] : ["SOUMIS"];
   };
+
+  const isStatusLocked = currentStatus !== "SOUMIS" && !!currentStatus;
 
   return (
     <Form {...form}>
@@ -64,7 +60,6 @@ export function RequestForm({
               <FormLabel>Type de Demande</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                defaultValue={field.value}
                 {...field}
                 value={field.value || ""}
                 disabled={isLoading}
@@ -75,9 +70,9 @@ export function RequestForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {RequestTypes.map((requestType) => (
-                    <SelectItem key={requestType} value={requestType}>
-                      {requestType}
+                  {RequestTypes.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t.replace(/_/g, " ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -95,28 +90,31 @@ export function RequestForm({
               <FormLabel>Status</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                defaultValue={field.value}
                 {...field}
                 value={field.value || ""}
-                disabled={isLoading}
+                disabled={isLoading || isStatusLocked}
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sélectionner le status de la demande" />
+                    <SelectValue placeholder="Sélectionner le status" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {filterRequestStatuses().map((requestStatus) => (
-                    <SelectItem key={requestStatus} value={requestStatus}>
-                      {requestStatus}
-                    </SelectItem>
+                  {statusOptions().map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {isStatusLocked && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ce statut ne peut plus être modifié.
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="employee"
@@ -124,9 +122,9 @@ export function RequestForm({
             <FormItem>
               <FormLabel>Employé</FormLabel>
               <Combobox
-                options={(employees ?? []).map((employee) => ({
-                  label: `${employee.matricule}\t ${employee.fullName}`,
-                  value: employee.matricule,
+                options={(employees ?? []).map((e) => ({
+                  label: `${e.matricule}\t ${e.fullName}`,
+                  value: e.matricule,
                 }))}
                 onValueChange={(value) => field.onChange(value)}
                 defaultValue={field.value}
@@ -137,6 +135,7 @@ export function RequestForm({
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="comment"
@@ -149,20 +148,15 @@ export function RequestForm({
                   {...field}
                   value={field.value || ""}
                   disabled={isLoading}
-                  className=""
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="pt-6 space-x-2 flex items-center justify-end">
-          <Button
-            disabled={isLoading}
-            size="lg"
-            type="submit"
-            className="ds-btn-primary"
-          >
+
+        <div className="pt-6 flex items-center justify-end">
+          <Button disabled={isLoading} size="lg" type="submit" className="ds-btn-primary">
             {action}
           </Button>
         </div>

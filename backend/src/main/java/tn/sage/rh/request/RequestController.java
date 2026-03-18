@@ -49,4 +49,12 @@ public class RequestController {
         return ResponseEntity.accepted().build();
     }
 
+    /**
+     * Called when the supervisor downloads the document — automatically closes the request.
+     */
+    @PatchMapping("/{id}/close")
+    public ResponseEntity<?> close(Principal connectedUser, @PathVariable Long id) {
+        requestService.close(connectedUser, id);
+        return ResponseEntity.accepted().build();
+    }
 }

@@ -1,9 +1,8 @@
 import * as z from "zod";
-
 import { RequestStatuses, RequestTypes } from "@/modules/request/types";
 
 export const RequestSchema = z.object({
-  requestType: z.enum(RequestTypes, "Champ obligatoire"),
+  requestType: z.enum(RequestTypes, { message: "Champ obligatoire" }),
   comment: z.coerce
     .string<string>()
     .trim()

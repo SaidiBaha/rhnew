@@ -1,7 +1,9 @@
 package tn.sage.rh.request;
 
 public enum RequestStatus {
-    EN_PROGRESSION,
+    SOUMIS,
     TRAITÉ,
-    ANNULÉ
+    REJETÉ,
+    ANNULÉ,
+    CLÔTURÉ
 }

@@ -15,7 +15,7 @@ import java.security.Principal;
 import java.util.List;
 
 import static tn.sage.rh.request.RequestStatus.ANNULÉ;
-import static tn.sage.rh.request.RequestStatus.EN_PROGRESSION;
+import static tn.sage.rh.request.RequestStatus.SOUMIS;
 import static tn.sage.rh.user.UserRole.ADMIN;
 import static tn.sage.rh.user.UserRole.SUPERVISOR;
 
@@ -47,22 +47,22 @@ public class RequestService {
 
         validateAuthorization(user, saveRequestInput.getEmployee());
 
+        // Block if a SOUMIS request already exists for same type + employee
         requestRepository
                 .findFirstByRequestTypeAndStatusAndEmployee_Matricule(
                         saveRequestInput.getRequestType(),
-                        EN_PROGRESSION,
+                        SOUMIS,
                         saveRequestInput.getEmployee()
                 )
-                .ifPresent((request) -> {
-                    throw new IllegalStateException("Request is already in progress");
+                .ifPresent(r -> {
+                    throw new IllegalStateException("An active request of this type already exists for this employee.");
                 });
-
 
         Request request = Request
                 .builder()
                 .requestType(saveRequestInput.getRequestType())
                 .comment(saveRequestInput.getComment())
-                .status(EN_PROGRESSION)
+                .status(SOUMIS)
                 .employee(employee)
                 .build();
 
@@ -97,30 +97,48 @@ public class RequestService {
         return request;
     }
 
+    @Transactional
+    public void close(Principal connectedUser, Long id) {
+        Request request = requestRepository
+                .findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No request found for this id"));
+
+        User user = getManagedUser(connectedUser);
+
+        validateAuthorization(user, request.getEmployee().getMatricule());
+
+        if (request.getStatus() != RequestStatus.TRAITÉ) {
+            throw new IllegalStateException("Only treated requests can be closed.");
+        }
+
+        request.setStatus(RequestStatus.CLÔTURÉ);
+        requestRepository.save(request);
+    }
+
     private void updateRequestStatus(User user, Request request, RequestStatus newStatus) {
         if (newStatus == null || request.getStatus() == newStatus) {
             return;
         }
 
         if (user.getRole() == ADMIN) {
+            // Admin can only accept (TRAITÉ) or reject (REJETÉ) a SOUMIS request
+            boolean canTraite = newStatus == RequestStatus.TRAITÉ && request.getStatus() == SOUMIS;
+            boolean canReject = newStatus == RequestStatus.REJETÉ && request.getStatus() == SOUMIS;
+            if (!canTraite && !canReject) {
+                throw new IllegalStateException("Admin can only treat or reject a submitted request.");
+            }
             request.setStatus(newStatus);
             return;
         }
 
         if (user.getRole() == SUPERVISOR) {
-
-            if (newStatus != ANNULÉ) {
-                throw new IllegalStateException("Unauthorized");
+            // Supervisor can only cancel a SOUMIS request
+            boolean canCancel = newStatus == ANNULÉ && request.getStatus() == SOUMIS;
+            if (!canCancel) {
+                throw new IllegalStateException("Supervisor can only cancel a submitted request.");
             }
-
-            if (request.getStatus() != EN_PROGRESSION) {
-                throw new IllegalStateException("Request has already been processed.");
-            }
-
-            request.setStatus(ANNULÉ);
+            request.setStatus(newStatus);
         }
-
-
     }
 
     private void updateRequestComment(User user, Request request, String comment) {
@@ -134,10 +152,9 @@ public class RequestService {
         }
 
         if (user.getRole() == SUPERVISOR) {
-            if (request.getStatus() != EN_PROGRESSION) {
+            if (request.getStatus() != SOUMIS) {
                 throw new IllegalStateException("Request has already been processed.");
             }
-
             request.setComment(comment);
         }
     }
@@ -164,7 +181,6 @@ public class RequestService {
         }
 
         throw new IllegalStateException("Unauthorized");
-
     }
 
     private User getManagedUser(Principal connectedUser) {
@@ -174,5 +190,4 @@ public class RequestService {
                 .findById(principalUser.getId())
                 .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found"));
     }
-
 }

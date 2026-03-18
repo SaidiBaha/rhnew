@@ -11,7 +11,13 @@ export const RequestTypes = [
 
 export type RequestType = (typeof RequestTypes)[number];
 
-export const RequestStatuses = ["EN_PROGRESSION", "TRAITÉ", "ANNULÉ"] as const;
+export const RequestStatuses = [
+  "SOUMIS",
+  "TRAITÉ",
+  "REJETÉ",
+  "ANNULÉ",
+  "CLÔTURÉ",
+] as const;
 
 export type RequestStatus = (typeof RequestStatuses)[number];
 
