@@ -17,6 +17,7 @@ import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
 
 // import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
+import CreateEmployeePage from "@/pages/CreateEmployeePage";
 
 function App() {
   return (
@@ -76,6 +77,20 @@ function App() {
             }
           />
         </Route> */}
+
+        {/* Routes accessibles uniquement par ADMIN */}
+        <Route
+          element={<ProtectedRoute allowedRoles={["ADMIN"]} />}
+        >
+          <Route
+            path="/create-employee"
+            element={
+              <Layout>
+                <CreateEmployeePage />
+              </Layout>
+            }
+          />
+        </Route>
 
         {/* Routes accessibles par ADMIN et SUPERVISOR */}
         <Route

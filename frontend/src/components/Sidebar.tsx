@@ -7,6 +7,7 @@ import useLogout from "@/hooks/useLogout";
 import useAuth from "@/hooks/useAuth";
 import type { UserRole } from "@/modules/auth/types";
 import { PermutationNotificationBell } from "@/components/PermutationNotificationBell";
+import { RequestNotificationBell } from "@/components/RequestNotificationBell";
 
 /* ===================== SIDEBAR ITEM ===================== */
 interface SidebarItemProps {
@@ -101,7 +102,7 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
 const PRINCIPAL_ITEMS: NavigationItem[] = [
   { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
   { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN","SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN"] },
+  { label: "Création d'Employés",  icon: "user-plus",          path: "/create-employee",     allowedRoles: ["ADMIN"] },
   { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
   { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR"] },
   { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR"] },
@@ -129,6 +130,7 @@ export const Sidebar = () => {
   };
 
   const isSupervisor = user?.role === "SUPERVISOR";
+  const isAdmin = user?.role === "ADMIN";
 
   const initials = user?.fullName
     ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -259,6 +261,7 @@ export const Sidebar = () => {
                   </span>
                 </div>
                 {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+                {isAdmin && <RequestNotificationBell expanded={expanded} />}
               </div>
             ) : (
               <>
@@ -270,6 +273,7 @@ export const Sidebar = () => {
                   {initials}
                 </div>
                 {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+                {isAdmin && <RequestNotificationBell expanded={expanded} />}
               </>
             )}
           </div>
