@@ -21,6 +21,7 @@ export type RequestColumn = {
   employee: EmployeeColumn;
   supervisor: string;
   createdAt: string;
+  createdAtLocalStr: string;
   updatedAt?: string;
   createdBy: string;
   updatedBy?: string;

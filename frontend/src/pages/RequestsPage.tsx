@@ -7,10 +7,6 @@ import { formatRequest } from "@/modules/request/utils";
 function RequestsPage() {
   const { data, error, isLoading, isFetching } = useFetchRequests();
 
-  const formattedRequests = (data?.data || []).map((request) =>
-    formatRequest(request)
-  );
-
   if (isLoading || isFetching) {
     return <Loader />;
   }
@@ -20,6 +16,10 @@ function RequestsPage() {
       <ErrorAlert error={error?.message || "Une erreur s'est produite."} />
     );
   }
+
+  const formattedRequests = (data?.data || []).map((request) =>
+    formatRequest(request)
+  );
 
   return <RequestsClient data={formattedRequests} />;
 }
