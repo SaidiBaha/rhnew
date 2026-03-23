@@ -276,44 +276,37 @@ async function handleExportExcel() {
 
       <Separator />
 
-      {/* ── Barre de recherche serveur ── */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted)" }} />
-          <input
-            type="text"
-            placeholder="Rechercher (nom, matricule)…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-9 pr-8 h-9 w-full rounded-lg border text-sm outline-none transition-[border-color,box-shadow]"
-            style={{
-              background: "var(--surface2)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-            }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(47,107,255,0.10)"; }}
-            onBlur={(e)  => { e.currentTarget.style.borderColor = "var(--border)";  e.currentTarget.style.boxShadow = "none"; }}
-          />
-          {searchInput && (
-            <button
-              type="button"
-              onClick={() => setSearchInput("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 transition-colors"
-              style={{ color: "var(--muted)" }}
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
+      {/* ── Barre de recherche + filtres ── */}
+      <div className="flex flex-wrap items-end gap-3">
+
+        {/* Recherche */}
+        <div className="flex flex-col gap-1" style={{ flex: "1 1 180px", maxWidth: 280 }}>
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Rechercher</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted)" }} />
+            <input
+              type="text"
+              placeholder="Nom, matricule…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9 pr-8 h-9 w-full rounded-lg border text-sm outline-none transition-[border-color,box-shadow]"
+              style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)" }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(47,107,255,0.10)"; }}
+              onBlur={(e)  => { e.currentTarget.style.borderColor = "var(--border)";  e.currentTarget.style.boxShadow = "none"; }}
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 transition-colors"
+                style={{ color: "var(--muted)" }}
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Indicateur chargement */}
-        {isFetching && !isLoading && (
-          <span className="text-xs shrink-0" style={{ color: "var(--muted)" }}>Chargement…</span>
-        )}
-      </div>
-
-      {/* ── Filtres avancés ── */}
-      <div className="flex flex-wrap items-end gap-3">
         {/* Ligne de Production */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Ligne de Production</label>
@@ -356,42 +349,74 @@ async function handleExportExcel() {
           </select>
         </div>
 
-        {/* Date d'Embauche — début */}
+        {/* Date d'Embauche (plage) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Embauche — début</label>
-          <input
-            type="date"
-            value={filterHireDateFrom}
-            onChange={(e) => { setFilterHireDateFrom(e.target.value); setPage(0); }}
-            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
-            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }}
-          />
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Date d'Embauche</label>
+          <div className="flex items-center gap-1.5">
+            {/* De */}
+            <div className="relative">
+              <input
+                type="date"
+                value={filterHireDateFrom}
+                max={filterHireDateTo || undefined}
+                onChange={(e) => { setFilterHireDateFrom(e.target.value); setPage(0); }}
+                className="h-9 rounded-lg border text-sm outline-none px-2 pr-7 transition-[border-color,box-shadow]"
+                style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", width: 148 }}
+              />
+              {filterHireDateFrom && (
+                <button
+                  type="button"
+                  onClick={() => { setFilterHireDateFrom(""); setPage(0); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 transition-colors"
+                  style={{ color: "var(--muted)" }}
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+            <span className="text-xs select-none" style={{ color: "var(--muted)" }}>—</span>
+            {/* Au */}
+            <div className="relative">
+              <input
+                type="date"
+                value={filterHireDateTo}
+                min={filterHireDateFrom || undefined}
+                onChange={(e) => { setFilterHireDateTo(e.target.value); setPage(0); }}
+                className="h-9 rounded-lg border text-sm outline-none px-2 pr-7 transition-[border-color,box-shadow]"
+                style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", width: 148 }}
+              />
+              {filterHireDateTo && (
+                <button
+                  type="button"
+                  onClick={() => { setFilterHireDateTo(""); setPage(0); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 transition-colors"
+                  style={{ color: "var(--muted)" }}
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Date d'Embauche — fin */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Embauche — fin</label>
-          <input
-            type="date"
-            value={filterHireDateTo}
-            onChange={(e) => { setFilterHireDateTo(e.target.value); setPage(0); }}
-            className="h-9 rounded-lg border text-sm outline-none px-2 transition-[border-color,box-shadow]"
-            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }}
-          />
+        {/* Chargement + Réinitialiser */}
+        <div className="flex items-center gap-2 self-end mb-px">
+          {isFetching && !isLoading && (
+            <span className="text-xs" style={{ color: "var(--muted)" }}>Chargement…</span>
+          )}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm transition-colors"
+              style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--accent4)" }}
+            >
+              <X className="size-3.5" />
+              Réinitialiser
+            </button>
+          )}
         </div>
 
-        {/* Bouton Réinitialiser */}
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm transition-colors"
-            style={{ background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--accent4)" }}
-          >
-            <X className="size-3.5" />
-            Réinitialiser
-          </button>
-        )}
       </div>
 
       <DataTable

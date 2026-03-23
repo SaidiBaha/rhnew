@@ -2,12 +2,18 @@ import { Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import useRefreshToken from "../hooks/useRefreshToken";
 import useAuth from "@/hooks/useAuth";
+import { initAuth } from "@/lib/axiosInterceptor";
 
 const PersistLogin = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const { auth } = useAuth();
+  const { auth, setAuth } = useAuth();
 
   const refreshToken = useRefreshToken();
+
+  // Keep the interceptor's auth reference in sync with React state.
+  useEffect(() => {
+    initAuth(auth.accessToken ?? null, setAuth);
+  }, [auth.accessToken]);
 
   useEffect(() => {
     let isMounted = true;
