@@ -711,12 +711,13 @@ export default function HomePage() {
   const { auth } = useAuth();
   const isOpManager  = hasRole(auth, "OPERATIONAL_MANAGER");
   const isSupervisor = hasRole(auth, "SUPERVISOR");
+  const isAdmin      = !isOpManager && !isSupervisor;
 
   const today      = new Date().toISOString().slice(0, 10);
   const monthStart = useMemo(() => today.slice(0, 7) + "-01", [today]);
 
-  // ── Supervisor: permutation data (hook must be unconditional) ───────────────
-  const { data: rawPermutations, isLoading: permLoading } = useFetchPermutations();
+  // ── Supervisor / OpManager only: permutation data ────────────────────────────
+  const { data: rawPermutations, isLoading: permLoading } = useFetchPermutations(isSupervisor || isOpManager);
 
   const [permDateFrom,    setPermDateFrom]    = useState(monthStart);
   const [permDateTo,      setPermDateTo]      = useState(today);
@@ -743,7 +744,7 @@ export default function HomePage() {
   const [du, setDu] = useState(monthStart);
   const [au, setAu] = useState(today);
 
-  const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au);
+  const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isAdmin || isOpManager);
 
   const rowsByProject: RowProjet[] = useMemo(
     () => aggregateRows((data ?? []) as RowApi[]),
@@ -817,7 +818,7 @@ export default function HomePage() {
     isLoading: chartLoading,
     isFetching: chartFetching,
     error: chartError,
-  } = useFetchProjectHours(chartDu, chartAu);
+  } = useFetchProjectHours(chartDu, chartAu, isAdmin || isOpManager);
 
   const rowsByProjectChart: RowProjet[] = useMemo(
     () => aggregateRows((chartRaw ?? []) as RowApi[]),

@@ -96,6 +96,7 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
             select e from Employee e
             left join e.productionLine pl
             left join e.shift sh
+            left join e.employmentType et
             where e.deleted = false
               and (:supervisorMatricule is null
                    or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
@@ -107,7 +108,7 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
               and (:shift is null or :shift = ''
                    or (sh is not null and upper(sh.name) = upper(:shift)))
               and (:employmentType is null or :employmentType = ''
-                   or upper(e.employmentType.type) = upper(:employmentType))
+                   or (et is not null and upper(et.type) = upper(:employmentType)))
               and (:hireDateFrom is null or e.hireDate >= :hireDateFrom)
               and (:hireDateTo is null or e.hireDate <= :hireDateTo)
             order by cast(e.matricule as integer) asc
@@ -116,6 +117,7 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
             select count(e) from Employee e
             left join e.productionLine pl
             left join e.shift sh
+            left join e.employmentType et
             where e.deleted = false
               and (:supervisorMatricule is null
                    or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
@@ -127,7 +129,7 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
               and (:shift is null or :shift = ''
                    or (sh is not null and upper(sh.name) = upper(:shift)))
               and (:employmentType is null or :employmentType = ''
-                   or upper(e.employmentType.type) = upper(:employmentType))
+                   or (et is not null and upper(et.type) = upper(:employmentType)))
               and (:hireDateFrom is null or e.hireDate >= :hireDateFrom)
               and (:hireDateTo is null or e.hireDate <= :hireDateTo)
             """
