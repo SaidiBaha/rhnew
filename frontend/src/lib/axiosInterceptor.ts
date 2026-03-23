@@ -109,7 +109,76 @@ axios.interceptors.response.use(
     }
 
     if (status === 403) {
-      toast.error("Accès refusé");
+      // No session in memory at all (pre-auth timing) — redirect silently.
+      if (!_accessToken) {
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        window.location.replace("/login");
+        return Promise.reject(error);
+      }
+
+      // Already retried after a refresh — this is a real permission denial.
+      if (originalRequest?._retry403) {
+        toast.error("Accès refusé");
+        return Promise.reject(error);
+      }
+
+      // A refresh is already running (triggered by a concurrent 401 or 403) — queue.
+      if (isRefreshing) {
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers["Authorization"] = `Bearer ${token}`;
+          originalRequest._retry403 = true;
+          return axios(originalRequest);
+        });
+      }
+
+      const storedRefreshToken = localStorage.getItem("refreshToken");
+      if (!storedRefreshToken) {
+        localStorage.removeItem("user");
+        window.location.replace("/login");
+        return Promise.reject(error);
+      }
+
+      // Attempt a silent refresh — the access token may have been revoked server-side.
+      originalRequest._retry403 = true;
+      isRefreshing = true;
+
+      try {
+        const { data } = await axios.post("/auth/refresh-token", null, {
+          baseURL: API_BASE_URL,
+          headers: { Authorization: `Bearer ${storedRefreshToken}` },
+        });
+
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken, user } = data;
+        localStorage.setItem("refreshToken", newRefreshToken);
+        _accessToken = newAccessToken;
+
+        if (_setAuth) {
+          _setAuth((prev) => ({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+            user: {
+              ...prev?.user,
+              ...user,
+              fullName: user?.fullName || prev?.user?.fullName,
+            },
+          }));
+        }
+
+        processQueue(null, newAccessToken);
+        originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+        return axios(originalRequest);
+      } catch {
+        processQueue(new Error("Refresh failed on 403"), null);
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        window.location.replace("/login");
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
+      }
     } else if (!error.response) {
       toast.error("Erreur réseau, vérifiez votre connexion");
     }
