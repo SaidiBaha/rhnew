@@ -199,6 +199,7 @@ public class EmployeeService {
                 allErrors.add("Ligne " + (i + 1) + " : " + String.join(", ", errors));
             }
         }
+        allErrors.addAll(EmployeeValidator.validateEmailUniqueness(employeeRequests));
         if (!allErrors.isEmpty()) {
             throw new InvalidEntityException(
                     "Batch employé invalide",

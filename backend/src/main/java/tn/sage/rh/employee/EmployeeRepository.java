@@ -232,6 +232,8 @@ List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
     """)
     int markFreeTrueByMatricules(@Param("matricules") List<String> matricules);
 
+    boolean existsByEmailIgnoreCaseAndDeletedFalse(String email);
+
     @Modifying
     @Query("""
         update Employee e

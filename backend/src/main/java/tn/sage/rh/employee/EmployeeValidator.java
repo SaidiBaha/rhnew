@@ -8,7 +8,9 @@ import tn.sage.rh.employee.dto.EmployeeRequestDto;
 import java.time.LocalDate;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 public class EmployeeValidator {
 
     public static List<String> validate(EmployeeDto dto) {
@@ -153,6 +155,44 @@ public class EmployeeValidator {
             // Vérifier que le superviseur n'est pas le même que l'employé
             if (dto.getSupervisor().equals(dto.getMatricule())) {
                 errors.add("Un employé ne peut pas être son propre superviseur.");
+            }
+        }
+
+        // Validation de l'email (si fourni)
+        if (StringUtils.hasLength(dto.getEmail()) && !dto.getEmail().isBlank()) {
+            if (!dto.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                errors.add("L'adresse email est invalide.");
+            }
+        }
+
+        return errors;
+    }
+
+    // Validation des doublons d'email dans le fichier importé
+    public static List<String> validateEmailUniqueness(List<EmployeeRequestDto> requests) {
+
+        List<String> errors = new ArrayList<>();
+
+        // 1) Détecter les doublons d'email dans le fichier importé
+        Set<String> seen = new HashSet<>();
+        Set<String> duplicatesInBatch = new HashSet<>();
+        for (EmployeeRequestDto req : requests) {
+            String email = req.getEmail();
+            if (StringUtils.hasLength(email) && !email.isBlank()) {
+                if (!seen.add(email.trim().toLowerCase())) {
+                    duplicatesInBatch.add(email.trim().toLowerCase());
+                }
+            }
+        }
+
+        // 2) Erreur par ligne : doublon dans le fichier
+        for (int i = 0; i < requests.size(); i++) {
+            String email = requests.get(i).getEmail();
+            if (StringUtils.hasLength(email) && !email.isBlank()) {
+                String normalized = email.trim().toLowerCase();
+                if (duplicatesInBatch.contains(normalized)) {
+                    errors.add("Ligne " + (i + 1) + " : L'email '" + email.trim() + "' est en doublon dans le fichier importé.");
+                }
             }
         }
 
