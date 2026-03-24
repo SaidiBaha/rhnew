@@ -4,6 +4,7 @@ package tn.sage.rh.dashboard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import tn.sage.rh.dashboard.dto.PermutationsDailyDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursRowDTO;
 
 import java.time.LocalDate;
@@ -26,5 +27,12 @@ public class DashboardController {
         LocalDate f = (from != null) ? from : du;
         LocalDate t = (to != null) ? to : au;
         return dashboardService.computeProjectHours(f, t);
+    }
+    @GetMapping("/permutations-daily")
+    public List<PermutationsDailyDTO> permutationsDaily(
+            @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam("to")   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return dashboardService.getPermutationsDaily(from, to);
     }
 }
