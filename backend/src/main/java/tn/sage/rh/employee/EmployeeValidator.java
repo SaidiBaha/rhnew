@@ -155,7 +155,10 @@ public class EmployeeValidator {
                 errors.add("Un employé ne peut pas être son propre superviseur.");
             }
         }
-
+        if (dto.getDepartureDate() != null && dto.getHireDate() != null
+                && dto.getDepartureDate().isBefore(dto.getHireDate())) {
+            errors.add("La date de départ ne peut pas être antérieure à la date d'embauche.");
+        }
         return errors;
     }
 

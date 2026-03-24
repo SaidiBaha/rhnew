@@ -23,7 +23,7 @@ import tn.sage.rh.user.User;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
+import tn.sage.rh.employee.dto.EmployeeStatsDto;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -132,7 +132,6 @@ public class EmployeeService {
     // =========================
     // LISTING
     // =========================
-
     @Transactional(readOnly = true)
     public Page<Employee> findAllByPagination(
             Principal connectedUser,
@@ -142,7 +141,9 @@ public class EmployeeService {
             String employmentType,
             LocalDate hireDateFrom,
             LocalDate hireDateTo,
+            String leftCompanyFilter,
             Pageable pageable) {
+
         User user = getUserFromPrincipal(connectedUser);
 
         String supervisorMatricule = (user.getRole() == SUPERVISOR) ? user.getUsername() : null;
@@ -150,11 +151,22 @@ public class EmployeeService {
         String plTerm = (productionLine != null && !productionLine.isBlank()) ? productionLine.trim() : null;
         String shiftTerm = (shift != null && !shift.isBlank()) ? shift.trim() : null;
         String etTerm = (employmentType != null && !employmentType.isBlank()) ? employmentType.trim() : null;
+        String leftFilter = (leftCompanyFilter != null && !leftCompanyFilter.isBlank())
+                ? leftCompanyFilter.trim().toUpperCase()
+                : "ALL";
 
         return employeeRepository.findPagedWithFilters(
-                supervisorMatricule, searchTerm, plTerm, shiftTerm, etTerm, hireDateFrom, hireDateTo, pageable);
+                supervisorMatricule,
+                searchTerm,
+                plTerm,
+                shiftTerm,
+                etTerm,
+                hireDateFrom,
+                hireDateTo,
+                leftFilter,
+                pageable
+        );
     }
-
     @Transactional(readOnly = true)
     public List<Employee> findAll(Principal connectedUser) {
         User user = getUserFromPrincipal(connectedUser);
@@ -348,7 +360,6 @@ public class EmployeeService {
                         ));
             }
         }
-
         employee.setMatricule(employeeRequest.getMatricule());
         employee.setCivility(employeeRequest.getCivility());
         employee.setFullName(employeeRequest.getFullName());
@@ -361,6 +372,8 @@ public class EmployeeService {
         employee.setShift(shift);
         employee.setEmploymentType(employmentType);
         employee.setSupervisor(supervisor);
+        employee.setHasLeftCompany(employeeRequest.getHasLeftCompany());
+        employee.setDepartureDate(employeeRequest.getDepartureDate());
     }
 
     private Context buildContext(List<EmployeeRequestDto> requests) {
@@ -528,5 +541,23 @@ public class EmployeeService {
             throw new InvalidOperationException("End date must be after start date", ErrorCodes.INVALID_INPUT);
         }
         return employeeRepository.findAvailableOperators(startDate, endDate);
+    }
+    @Transactional(readOnly = true)
+    public EmployeeStatsDto getEmployeeStats(Principal connectedUser) {
+        User user = getUserFromPrincipal(connectedUser);
+
+        String supervisorMatricule = (user.getRole() == SUPERVISOR)
+                ? user.getUsername()
+                : null;
+
+        long totalEmployees = employeeRepository.countTotalEmployees(supervisorMatricule);
+        long currentEmployees = employeeRepository.countCurrentEmployees(supervisorMatricule);
+        long formerEmployees = employeeRepository.countFormerEmployees(supervisorMatricule);
+
+        return EmployeeStatsDto.builder()
+                .totalEmployees(totalEmployees)
+                .currentEmployees(currentEmployees)
+                .formerEmployees(formerEmployees)
+                .build();
     }
 }

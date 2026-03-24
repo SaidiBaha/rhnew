@@ -14,6 +14,7 @@ import java.time.LocalDate;
 @Setter
 @Builder
 public class EmployeeRequestDto {
+
     @NotBlank(message = "Matricule obligatoire")
     @Pattern(regexp = "^\\d+$", message = "Matricule invalide")
     private String matricule;
@@ -46,6 +47,8 @@ public class EmployeeRequestDto {
     private String supervisor;
 
     private String email;
+// private boolean isFree =false;  // free operator
 
-   // private boolean isFree =false;  // free operator
+    private Boolean hasLeftCompany;
+    private LocalDate departureDate;
 }
