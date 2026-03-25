@@ -158,6 +158,13 @@ public class EmployeeValidator {
             }
         }
 
+        if (dto.getDepartureDate() != null && dto.getHireDate() != null
+                && dto.getDepartureDate().isBefore(dto.getHireDate())) {
+            errors.add("La date de départ ne peut pas être antérieure à la date d'embauche.");
+        }
+
+
+
         // Validation de l'email (si fourni)
         if (StringUtils.hasLength(dto.getEmail()) && !dto.getEmail().isBlank()) {
             if (!dto.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
@@ -195,6 +202,8 @@ public class EmployeeValidator {
                 }
             }
         }
+
+
 
         return errors;
     }

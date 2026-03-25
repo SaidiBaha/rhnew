@@ -4,7 +4,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import tn.sage.rh.attendance.dto.AttendanceDto;
-import tn.sage.rh.attendance.dto.EmployeeAttendanceDto;
 import tn.sage.rh.employee.Civility;
 import tn.sage.rh.organization.dto.*;
 
@@ -28,5 +27,7 @@ public class EmployeeMinimalDto {
     private boolean hasBankDomiciliation;
     private EmployeeMinimalDto supervisor;
     private AttendanceDto attendance;
-   // private boolean free =false;  // free operator
+    // private boolean free =false;  // free operator
+    private Boolean hasLeftCompany;
+    private LocalDate departureDate;
 }
