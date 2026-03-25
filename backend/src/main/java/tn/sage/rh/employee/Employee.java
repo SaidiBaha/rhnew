@@ -115,8 +115,11 @@ public class Employee {
 
     @PrePersist
     @PreUpdate
-    public void toUppercase() {
-        this.fullName = this.fullName.toUpperCase();
+    public void normalizeState() {
+        if (this.fullName != null) {
+            this.fullName = this.fullName.toUpperCase();
+        }
+        this.hasLeftCompany = this.departureDate != null;
     }
 
     @ManyToMany(mappedBy = "senders", fetch = FetchType.LAZY)

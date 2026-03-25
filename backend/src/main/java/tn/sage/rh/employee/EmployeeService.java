@@ -373,8 +373,8 @@ public class EmployeeService {
         employee.setShift(shift);
         employee.setEmploymentType(employmentType);
         employee.setSupervisor(supervisor);
-        employee.setHasLeftCompany(employeeRequest.getHasLeftCompany());
         employee.setDepartureDate(employeeRequest.getDepartureDate());
+        employee.setHasLeftCompany(employeeRequest.getDepartureDate() != null);
     }
 
     private Context buildContext(List<EmployeeRequestDto> requests) {
@@ -437,6 +437,18 @@ public class EmployeeService {
             throw new EntityNotFoundException("Un ou plusieurs employés introuvables", ErrorCodes.EMPLOYEE_NOT_FOUND);
         }
 
+        List<Long> formerEmployeeIds = employees.stream()
+                .filter(this::hasLeftCompany)
+                .map(Employee::getId)
+                .toList();
+
+        if (!formerEmployeeIds.isEmpty()) {
+            throw new InvalidOperationException(
+                    "Impossible de marquer FREE des employÃ©s ayant quittÃ© la sociÃ©tÃ© : " + formerEmployeeIds,
+                    ErrorCodes.INVALID_INPUT
+            );
+        }
+
         employees.forEach(employee -> employee.setFree(true));
         employeeRepository.saveAll(employees);
     }
@@ -453,13 +465,25 @@ public class EmployeeService {
             throw new EntityNotFoundException("Un ou plusieurs employés introuvables", ErrorCodes.EMPLOYEE_NOT_FOUND);
         }
 
+        List<Long> formerEmployeeIds = employees.stream()
+                .filter(this::hasLeftCompany)
+                .map(Employee::getId)
+                .toList();
+
+        if (!formerEmployeeIds.isEmpty()) {
+            throw new InvalidOperationException(
+                    "Impossible de modifier le statut d'employÃ©s ayant quittÃ© la sociÃ©tÃ© : " + formerEmployeeIds,
+                    ErrorCodes.INVALID_INPUT
+            );
+        }
+
         employees.forEach(employee -> employee.setFree(false));
         employeeRepository.saveAll(employees);
     }
 
     @Transactional(readOnly = true)
     public List<Employee> findFreeEmployees() {
-        return employeeRepository.findByFreeTrueAndDeletedFalse();
+        return employeeRepository.findFreeOperators();
     }
 
     @Transactional(readOnly = true)
@@ -467,7 +491,7 @@ public class EmployeeService {
         User user = getUserFromPrincipal(connectedUser);
 
         if (user.getRole() != SUPERVISOR) {
-            return employeeRepository.findByFreeTrueAndDeletedFalse();
+            return employeeRepository.findFreeOperators();
         }
 
         String supervisorMatricule = user.getUsername();
@@ -560,5 +584,10 @@ public class EmployeeService {
                 .currentEmployees(currentEmployees)
                 .formerEmployees(formerEmployees)
                 .build();
+    }
+
+    private boolean hasLeftCompany(Employee employee) {
+        return employee != null
+                && (Boolean.TRUE.equals(employee.getHasLeftCompany()) || employee.getDepartureDate() != null);
     }
 }

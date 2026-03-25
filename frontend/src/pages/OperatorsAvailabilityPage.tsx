@@ -77,6 +77,21 @@ export default function OperatorsAvailabilityPage() {
     return matchSearch && matchAvailability;
   });
 
+  const visibleOperatorIds = operators.map((op: OperatorAvailability) => op.id);
+  const allVisibleSelected =
+    visibleOperatorIds.length > 0 &&
+    visibleOperatorIds.every((id) => selectedIds.includes(id));
+
+  const selectAllVisible = () => {
+    if (isOpManager || visibleOperatorIds.length === 0) return;
+    setSelectedIds(visibleOperatorIds);
+  };
+
+  const clearSelection = () => {
+    if (isOpManager) return;
+    setSelectedIds([]);
+  };
+
   const submit = async (mode: "free" | "busy") => {
     if (isOpManager) return;
 
@@ -256,6 +271,40 @@ export default function OperatorsAvailabilityPage() {
           </span>
         )}
       </div>
+
+      {!isOpManager && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={selectAllVisible}
+            disabled={visibleOperatorIds.length === 0 || allVisibleSelected}
+            className="rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: "var(--accent-soft)",
+              color: "var(--accent)",
+              border: "1px solid rgba(232,93,38,0.25)",
+            }}
+          >
+            Selectionner tout
+          </button>
+
+          <button
+            type="button"
+            onClick={clearSelection}
+            disabled={selectedIds.length === 0}
+            className="rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: "var(--surface)",
+              color: "var(--text-2)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            Deselectionner tout
+          </button>
+
+          
+        </div>
+      )}
 
       {/* ── Grille opérateurs ── */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[500px] overflow-y-auto pr-1">

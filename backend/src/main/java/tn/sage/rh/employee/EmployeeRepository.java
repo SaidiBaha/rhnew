@@ -18,7 +18,13 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByMatricule(String matricule);
 
-    @Query("select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc")
+    @Query("""
+        select e from Employee e
+        where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
+        order by cast(e.matricule as integer) asc
+    """)
     @Override
     List<Employee> findAll();
 
@@ -26,11 +32,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             value = """
             select e from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
             order by cast(e.matricule as integer) asc
         """,
             countQuery = """
             select count(e) from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         """
     )
     Page<Employee> findAllPaged(Pageable pageable);
@@ -39,6 +49,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e
         from Employee e
         where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and e.supervisor is not null
           and e.supervisor.matricule = :matricule
           and e.matricule <> :matricule
@@ -50,6 +62,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             value = """
             select e from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
               and e.supervisor is not null
               and e.supervisor.matricule = :matricule
               and e.matricule <> :matricule
@@ -58,6 +72,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             countQuery = """
             select count(e) from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
               and e.supervisor is not null
               and e.supervisor.matricule = :matricule
               and e.matricule <> :matricule
@@ -144,10 +160,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         join e.department d
         join e.jobTitle jt
         where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and exists (
               select 1
               from Employee op
               where op.supervisor = e
+                and (op.deleted = false or op.deleted is null)
+                and op.departureDate is null
+                and (op.hasLeftCompany = false or op.hasLeftCompany is null)
           )
           and d.name not in ('RESSOURCES HUMAINES','IT','MAINTENANCE')
     """)
@@ -159,6 +180,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e
         from Employee e
         where (e.deleted = false or e.deleted is null)
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and (
                :supervisorMatricule is null
                or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule)
@@ -179,6 +202,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select distinct e
         from Employee e
         where e.deleted = false
+        and e.departureDate is null
+        and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         and not exists (
             select p
             from Permutation p
@@ -206,6 +231,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
       select e from Employee e
       where e.free = true
         and e.deleted = false
+        and e.departureDate is null
+        and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         and (e.supervisor is null or e.supervisor.matricule <> :supervisorMatricule)
     """)
     List<Employee> findFreeEmployeesExcludingSupervisorOperators(String supervisorMatricule);
@@ -232,6 +259,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e from Employee e
         where e.free = true
           and e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         order by e.fullName asc
     """)
     List<Employee> findFreeOperators();
@@ -242,6 +271,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
       left join fetch e.supervisor s
       where e.deleted = false
         and e.free = true
+        and e.departureDate is null
+        and (e.hasLeftCompany = false or e.hasLeftCompany is null)
     """)
     List<Employee> findFreeOperatorsWithSupervisor();
 
@@ -253,6 +284,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e
         from Employee e
         where (e.deleted = false or e.deleted is null)
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and e.supervisor is not null
           and e.supervisor.matricule = :supervisorMatricule
           and e.matricule <> :supervisorMatricule
@@ -285,7 +318,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         join op.productionLine pl
         join op.supervisor sup
         where (op.deleted = false or op.deleted is null)
+          and op.departureDate is null
+          and (op.hasLeftCompany = false or op.hasLeftCompany is null)
           and (sup.deleted = false or sup.deleted is null)
+          and sup.departureDate is null
+          and (sup.hasLeftCompany = false or sup.hasLeftCompany is null)
         group by pl.id, sup.id, sup.fullName, sup.matricule
         order by pl.id asc, count(op.id) desc
     """)

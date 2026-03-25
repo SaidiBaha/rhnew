@@ -114,6 +114,15 @@ public class PermutationServiceImpl implements PermutationService {
             }
         }
 
+        List<Long> formerOperatorIds = operatorMap.values().stream()
+                .filter(this::hasLeftCompany)
+                .map(Employee::getId)
+                .toList();
+
+        if (!formerOperatorIds.isEmpty()) {
+            throw new IllegalArgumentException("Former employees cannot be used in permutations: " + formerOperatorIds);
+        }
+
         Set<Employee> operators = new HashSet<>(operatorMap.values());
 
         ProductionLine productionLine = null;
@@ -185,6 +194,10 @@ public class PermutationServiceImpl implements PermutationService {
 
         Employee receiver = employeeRepository.findById(dto.getReceiverId())
                 .orElseThrow(() -> new NoSuchElementException("Receiver not found: " + dto.getReceiverId()));
+
+        if (hasLeftCompany(receiver)) {
+            throw new IllegalArgumentException("Receiver has already left the company");
+        }
 
         for (Employee op : operators) {
             boolean overlap = permutationRepository.existsOverlap(
@@ -322,6 +335,11 @@ public class PermutationServiceImpl implements PermutationService {
 
     private boolean isOperationalManger(User user) {
         return user.getRole() != null && "OPERATIONAL_MANAGER".equals(user.getRole().name());
+    }
+
+    private boolean hasLeftCompany(Employee employee) {
+        return employee != null
+                && (Boolean.TRUE.equals(employee.getHasLeftCompany()) || employee.getDepartureDate() != null);
     }
 
 }
