@@ -82,7 +82,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(GET, "/api/v1/dashboard/**")
                                 .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name())
                                 .requestMatchers(GET, "/api/v1/dashboard/**")
-                                .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name())
+                                .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name(),SUPERVISOR.name())
                                 .requestMatchers("/api/v1/salary-advance-deadlines/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
                                 .requestMatchers(GET, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_READ.name())
                                 .requestMatchers(POST, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_CREATE.name())
