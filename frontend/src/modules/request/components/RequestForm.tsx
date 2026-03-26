@@ -43,7 +43,6 @@ export function RequestForm({
       return currentStatus ? [currentStatus] : ["SOUMIS"];
     }
     // Supervisor can only cancel a SOUMIS request
-    if (currentStatus === "SOUMIS") return ["SOUMIS", "ANNULÉ"];
     return currentStatus ? [currentStatus] : ["SOUMIS"];
   };
 

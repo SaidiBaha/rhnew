@@ -4,6 +4,5 @@ public enum RequestStatus {
     SOUMIS,
     TRAITÉ,
     REJETÉ,
-    ANNULÉ,
     CLÔTURÉ
 }

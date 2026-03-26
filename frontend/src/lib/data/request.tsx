@@ -134,3 +134,27 @@ export const useCloseRequest = () => {
     },
   });
 };
+export const useDeleteRequest = () => {
+  const { auth } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => {
+      return axios.delete(`/requests/${id}`, {
+        baseURL: API_BASE_URL,
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["requests"] });
+      toast.success("Demande supprimée !");
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Erreur lors de la suppression de la demande");
+    },
+  });
+};

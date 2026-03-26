@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
-import { Calendar, User, Briefcase, UserCheck, GripVertical, Download, Edit } from "lucide-react";
+import { Calendar, User, Briefcase, UserCheck, GripVertical, Download, Edit, ZoomIn } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { SaveRequestModal } from "@/modules/request/components/SaveRequestModal";
+import { RequestDetailModal } from "@/modules/request/components/RequestDetailModal";
 import { useUpdateRequest, useCloseRequest } from "@/lib/data/request";
+import { generateRequestPdf } from "@/modules/request/utils/generateRequestPdf";
 import useAuth from "@/hooks/useAuth";
 import { type RequestColumn, statusColor } from "@/modules/request/components/columns";
 import type { RequestStatus } from "@/modules/request/types";
@@ -16,24 +18,20 @@ const ALL_COLUMNS: KanbanCol[] = [
   { id: "TRAITÉ",  label: "Traité"  },
   { id: "CLÔTURÉ", label: "Clôturé" },
   { id: "REJETÉ",  label: "Rejeté"  },
-  { id: "ANNULÉ",  label: "Annulé"  },
 ];
 
-const SUPERVISOR_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
-  SOUMIS: ["ANNULÉ"],
-};
+const SUPERVISOR_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {};
 
 const ADMIN_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
   SOUMIS: ["TRAITÉ", "REJETÉ"],
 };
 
-// ─── Colours ──────────────────────────────────────────────────────────────────
+// ─── Colours ─────────────────────────────────────────────────────────────────
 
 const colBg: Record<RequestStatus, string> = {
   SOUMIS:  "bg-blue-50    border-blue-200",
   TRAITÉ:  "bg-emerald-50 border-emerald-200",
   REJETÉ:  "bg-red-50     border-red-200",
-  ANNULÉ:  "bg-orange-50  border-orange-200",
   CLÔTURÉ: "bg-slate-100  border-slate-300",
 };
 
@@ -41,7 +39,6 @@ const colHeaderColor: Record<RequestStatus, string> = {
   SOUMIS:  "text-blue-700",
   TRAITÉ:  "text-emerald-700",
   REJETÉ:  "text-red-700",
-  ANNULÉ:  "text-orange-700",
   CLÔTURÉ: "text-slate-600",
 };
 
@@ -52,13 +49,14 @@ interface CardProps {
   isDragging: boolean;
   isAdmin: boolean;
   onEdit: () => void;
+  onDetail: () => void;
   onDownload: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
 
 function RequestCard({
-  card, isDragging, isAdmin, onEdit, onDownload, onDragStart, onDragEnd,
+  card, isDragging, isAdmin, onEdit, onDetail, onDownload, onDragStart, onDragEnd,
 }: CardProps) {
   const showDownload = card.status === "TRAITÉ";
 
@@ -81,6 +79,14 @@ function RequestCard({
           {card.status}
         </Badge>
         <div className="flex items-center gap-0.5 shrink-0">
+          {/* Zoom / detail button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDetail(); }}
+            className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+            title="Voir les détails"
+          >
+            <ZoomIn className="size-3.5" />
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
@@ -154,6 +160,7 @@ interface ColProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onEdit: (card: RequestColumn) => void;
+  onDetail: (card: RequestColumn) => void;
   onDownload: (card: RequestColumn) => void;
   draggingId: string | null;
   isAdmin: boolean;
@@ -163,7 +170,7 @@ interface ColProps {
 
 function KanbanColumn({
   col, cards, dragOverState, onDragOver, onDragLeave, onDrop,
-  onEdit, onDownload, draggingId, isAdmin, onCardDragStart, onCardDragEnd,
+  onEdit, onDetail, onDownload, draggingId, isAdmin, onCardDragStart, onCardDragEnd,
 }: ColProps) {
   return (
     <div
@@ -201,6 +208,7 @@ function KanbanColumn({
             isDragging={draggingId === card.id}
             isAdmin={isAdmin}
             onEdit={() => onEdit(card)}
+            onDetail={() => onDetail(card)}
             onDownload={() => onDownload(card)}
             onDragStart={(e) => onCardDragStart(card, e)}
             onDragEnd={onCardDragEnd}
@@ -222,13 +230,12 @@ export function RequestKanban({ data }: RequestKanbanProps) {
   const isAdmin = auth.user?.role === "ADMIN";
   const transitions = isAdmin ? ADMIN_TRANSITIONS : SUPERVISOR_TRANSITIONS;
 
-  // ⭐ Key fix: use a ref to track the dragging card
-  // so the drop handler always has access to it regardless of dataTransfer
   const draggingCardRef = useRef<RequestColumn | null>(null);
 
   const [draggingCard, setDraggingCard] = useState<RequestColumn | null>(null);
   const [dropTarget, setDropTarget]     = useState<RequestStatus | null>(null);
   const [editingCard, setEditingCard]   = useState<RequestColumn | null>(null);
+  const [detailCard, setDetailCard]     = useState<RequestColumn | null>(null);
 
   const updateRequest = useUpdateRequest();
   const closeRequest  = useCloseRequest();
@@ -238,7 +245,6 @@ export function RequestKanban({ data }: RequestKanbanProps) {
   }
 
   function handleCardDragStart(card: RequestColumn, e: React.DragEvent) {
-    // Store in ref — guaranteed to be available in drop handler
     draggingCardRef.current = card;
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("cardId", card.id);
@@ -253,18 +259,13 @@ export function RequestKanban({ data }: RequestKanbanProps) {
 
   function handleDrop(e: React.DragEvent, toStatus: RequestStatus) {
     e.preventDefault();
-
-    // Use ref — always reliable, unlike dataTransfer in some browsers
     const card = draggingCardRef.current;
-
     draggingCardRef.current = null;
     setDraggingCard(null);
     setDropTarget(null);
-
     if (!card) return;
     if (!isValidDrop(card.status, toStatus)) return;
     if (card.status === toStatus) return;
-
     updateRequest.mutate({
       id: card.id,
       data: {
@@ -277,7 +278,7 @@ export function RequestKanban({ data }: RequestKanbanProps) {
   }
 
   function handleDownload(card: RequestColumn) {
-    // TODO: trigger your PDF generation here before closing
+    generateRequestPdf(card);
     closeRequest.mutate(card.id);
   }
 
@@ -304,6 +305,13 @@ export function RequestKanban({ data }: RequestKanbanProps) {
         />
       )}
 
+      {detailCard && (
+        <RequestDetailModal
+          card={detailCard}
+          onClose={() => setDetailCard(null)}
+        />
+      )}
+
       <div
         className="grid gap-3 overflow-x-auto pb-4 pt-1"
         style={{ gridTemplateColumns: `repeat(${ALL_COLUMNS.length}, minmax(210px, 1fr))` }}
@@ -318,6 +326,7 @@ export function RequestKanban({ data }: RequestKanbanProps) {
             onDragLeave={() => setDropTarget(null)}
             onDrop={(e) => handleDrop(e, col.id)}
             onEdit={setEditingCard}
+            onDetail={setDetailCard}
             onDownload={handleDownload}
             draggingId={draggingCard?.id ?? null}
             isAdmin={isAdmin}

@@ -14,7 +14,6 @@ import tn.sage.rh.user.UserRepository;
 import java.security.Principal;
 import java.util.List;
 
-import static tn.sage.rh.request.RequestStatus.ANNULÉ;
 import static tn.sage.rh.request.RequestStatus.SOUMIS;
 import static tn.sage.rh.user.UserRole.ADMIN;
 import static tn.sage.rh.user.UserRole.SUPERVISOR;
@@ -97,6 +96,26 @@ public class RequestService {
         return request;
     }
 
+
+    @Transactional
+    public void delete(Principal connectedUser, Long id) {
+        Request request = requestRepository
+                .findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No request found for this id"));
+
+        User user = getManagedUser(connectedUser);
+
+        validateAuthorization(user, request.getEmployee().getMatricule());
+
+        if (user.getRole() == SUPERVISOR) {
+            if (request.getStatus() != SOUMIS) {
+                throw new IllegalStateException("Supervisor can only delete SOUMIS requests.");
+            }
+        }
+
+        requestRepository.delete(request);
+    }
+
     @Transactional
     public void close(Principal connectedUser, Long id) {
         Request request = requestRepository
@@ -132,12 +151,7 @@ public class RequestService {
         }
 
         if (user.getRole() == SUPERVISOR) {
-            // Supervisor can only cancel a SOUMIS request
-            boolean canCancel = newStatus == ANNULÉ && request.getStatus() == SOUMIS;
-            if (!canCancel) {
-                throw new IllegalStateException("Supervisor can only cancel a submitted request.");
-            }
-            request.setStatus(newStatus);
+            throw new IllegalStateException("Supervisor cannot change request status.");
         }
     }
 

@@ -32,7 +32,6 @@ export const statusColor = (status: RequestStatus) => {
     case "SOUMIS":  return "bg-blue-500";
     case "TRAITÉ":  return "bg-green-600";
     case "REJETÉ":  return "bg-red-500";
-    case "ANNULÉ":  return "bg-orange-500";
     case "CLÔTURÉ": return "bg-gray-500";
     default:        return "bg-gray-400";
   }

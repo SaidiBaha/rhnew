@@ -19,7 +19,6 @@ const STATUS_COLORS: Record<RequestStatus, string> = {
   SOUMIS:  "bg-blue-100 text-blue-700 border-blue-200",
   TRAITÉ:  "bg-emerald-100 text-emerald-700 border-emerald-200",
   REJETÉ:  "bg-red-100 text-red-700 border-red-200",
-  ANNULÉ:  "bg-orange-100 text-orange-700 border-orange-200",
   CLÔTURÉ: "bg-gray-100 text-gray-600 border-gray-200",
 };
 
@@ -27,7 +26,6 @@ const STATUS_ACTIVE: Record<RequestStatus, string> = {
   SOUMIS:  "bg-blue-500 text-white border-blue-500",
   TRAITÉ:  "bg-emerald-600 text-white border-emerald-600",
   REJETÉ:  "bg-red-500 text-white border-red-500",
-  ANNULÉ:  "bg-orange-500 text-white border-orange-500",
   CLÔTURÉ: "bg-gray-500 text-white border-gray-500",
 };
 

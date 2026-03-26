@@ -49,6 +49,13 @@ public class RequestController {
         return ResponseEntity.accepted().build();
     }
 
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(Principal connectedUser, @PathVariable Long id) {
+        requestService.delete(connectedUser, id);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * Called when the supervisor downloads the document — automatically closes the request.
      */

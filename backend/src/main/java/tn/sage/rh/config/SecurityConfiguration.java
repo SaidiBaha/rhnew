@@ -93,6 +93,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(POST, "/api/v1/requests/**").hasAnyAuthority(REQUEST_CREATE.name())
                                 .requestMatchers(PUT, "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
                                 .requestMatchers(PATCH, "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
+                                .requestMatchers(DELETE, "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
 
                                 .requestMatchers("/api/v1/users/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
                                 .requestMatchers(PUT, "/api/v1/users/**").authenticated()

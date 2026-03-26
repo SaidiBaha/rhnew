@@ -15,7 +15,6 @@ export const RequestStatuses = [
   "SOUMIS",
   "TRAITÉ",
   "REJETÉ",
-  "ANNULÉ",
   "CLÔTURÉ",
 ] as const;
 
