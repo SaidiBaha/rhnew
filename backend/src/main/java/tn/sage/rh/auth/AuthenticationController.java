@@ -14,6 +14,7 @@ import tn.sage.rh.auth.dto.*;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthenticationController {
+
     private final AuthenticationService authenticationService;
     private final PasswordResetService passwordResetService;
 
@@ -44,8 +45,6 @@ public class AuthenticationController {
     ) {
         return ResponseEntity.ok(authenticationService.validateToken(request));
     }
-
-    // ─── Mot de passe oublié ─────────────────────────────────────
 
     @PostMapping("/forgot-password")
     public ResponseEntity<MessageResponse> forgotPassword(

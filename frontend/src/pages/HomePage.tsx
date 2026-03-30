@@ -255,7 +255,7 @@ function GaugeCard({
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number | undefined, name: string | undefined) => {
+             formatter={(value: any, name: any) => {
                 if (name === "rest" || Number(value) === 0) return null;
                 const label = name === "left" ? legendLeft : legendRight;
                 return [`${Number(value).toFixed(1)}%`, label];

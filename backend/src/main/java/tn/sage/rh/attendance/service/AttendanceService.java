@@ -194,5 +194,23 @@ public class AttendanceService {
     private String generateAttendanceKey(String matricule, LocalDate date) {
         return matricule + ":" + date.toString();
     }
+    @Transactional
+    public void updateAttendance(Long id, String status, String absenceReason, LocalDate date) {
+        Attendance attendance = attendanceRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Pointage introuvable (id=" + id + ")"
+                ));
 
+        if (status != null) attendance.setStatus(status);
+        if (date != null) attendance.setDate(date);
+
+        if (absenceReason != null && !absenceReason.isBlank()) {
+            AbsenceReason reason = absenceReasonService.findOrSave(absenceReason.toUpperCase());
+            attendance.setAbsenceReason(reason);
+        } else if (absenceReason != null && absenceReason.isBlank()) {
+            attendance.setAbsenceReason(null);
+        }
+
+        attendanceRepository.save(attendance);
+    }
 }

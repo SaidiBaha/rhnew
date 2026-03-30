@@ -20,7 +20,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     }
   }, [auth, validateToken]);
 
-  return auth.user?.role && allowedRoles.includes(auth.user?.role) ? (
+  return auth.user?.role && (allowedRoles as string[]).includes(auth.user?.role) ? (
     <Outlet />
   ) : auth.accessToken ? (
     <Navigate to="/unauthorized" replace />

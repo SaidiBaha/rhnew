@@ -1,5 +1,5 @@
+import AbsencesManagementPage from "@/pages/AbsencesManagementPage";
 import { Routes, Route } from "react-router-dom";
-
 import HomePage from "@/pages/HomePage";
 import EmployeesPage from "@/pages/EmployeesPage";
 import SalaryAdvancesPage from "@/pages/SalaryAdvancesPage";
@@ -16,146 +16,57 @@ import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
 import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
+import HistoriqueAbsencesPage from "@/pages/HistoriqueAbsencesPage";
 
 function App() {
   return (
-    
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/verify-otp" element={<VerifyOtpPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      {/* <Route
-  element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
->
-  <Route
-    path="/todo"
-    element={
-      <Layout>
-        <TodoRH />
-      </Layout>
-    }
-  />
-</Route> */}
 
       <Route element={<PersistLogin />}>
-        {/* Routes accessibles par ADMIN, SUPERVISOR et OPERATIONAL_MANAGER */}
-        <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
-        >
-          
-          <Route
-            path="/"
-            element={
-              <Layout>
-                <HomePage />
-              </Layout>
-            }
-          />
-          <Route
-            path="/employees"
-            element={
-              <Layout>
-                <EmployeesPage />
-              </Layout>
-            }
-          />
+
+        {/* ADMIN, SUPERVISOR, OPERATIONAL_MANAGER */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}>
+          <Route path="/" element={<Layout><HomePage /></Layout>} />
+          <Route path="/employees" element={<Layout><EmployeesPage /></Layout>} />
         </Route>
 
-        {/* Routes accessibles uniquement par ADMIN */}
-         <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN"]} />}
-        >
-          <Route
-            path="/addEployeem"
-            element={
-              <Layout>
-                <CreateEmployeeForm />
-              </Layout>
-            }
-          />
-        </Route> 
-
-        {/* Routes accessibles par ADMIN et SUPERVISOR */}
-        <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}
-        >
-          <Route
-            path="/salary-advances"
-            element={
-              <Layout>
-                <SalaryAdvancesPage />
-              </Layout>
-            }
-          />
+        {/* ADMIN uniquement */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+          <Route path="/addEployeem" element={<Layout><CreateEmployeeForm /></Layout>} />
         </Route>
 
-        <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}
-        >
-          <Route
-            path="/attendances"
-            element={
-              <Layout>
-                <AttendancesPage />
-              </Layout>
-            }
-          />
+        {/* ADMIN + SUPERVISOR */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}>
+          <Route path="/salary-advances" element={<Layout><SalaryAdvancesPage /></Layout>} />
+          <Route path="/attendances" element={<Layout><AttendancesPage /></Layout>} />
+          <Route path="/requests" element={<Layout><RequestsPage /></Layout>} />
+          <Route path="/historique-absences" element={<Layout><HistoriqueAbsencesPage /></Layout>} />
         </Route>
 
-        <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}
-        >
-          <Route
-            path="/requests"
-            element={
-              <Layout>
-                <RequestsPage />
-              </Layout>
-            }
-          />
+        {/* SUPERVISOR + OPERATIONAL_MANAGER */}
+        <Route element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}>
+          <Route path="/permutations" element={<Layout><PermutationsPage /></Layout>} />
         </Route>
 
-        {/* Routes accessibles par SUPERVISOR et OPERATIONAL_MANAGER */}
-        <Route
-          element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
-        >
-          <Route
-            path="/permutations"
-            element={
-              <Layout>
-                <PermutationsPage />
-              </Layout>
-            }
-          />
+        {/* ADMIN + SUPERVISOR + OPERATIONAL_MANAGER */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}>
+          <Route path="/free-operators" element={<Layout><OperatorsAvailabilityPage /></Layout>} />
         </Route>
 
-        <Route
-          element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
-        >
-          <Route
-            path="/free-operators"
-            element={
-              <Layout>
-                <OperatorsAvailabilityPage />
-              </Layout>
-            }
-          />
+        {/* Tous les rôles connectés */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "INFIRMIERE"]} />}>
+          <Route path="/change-password" element={<Layout><ChangePasswordCard /></Layout>} />
         </Route>
 
-        {/* Routes accessibles par tous les rôles connectés */}
-        <Route
-          element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}
-        >
-          <Route
-            path="/change-password"
-            element={
-              <Layout>
-                <ChangePasswordCard />
-              </Layout>
-            }
-          />
+        {/* ABSENCES — ADMIN + SUPERVISOR + INFIRMIERE */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "INFIRMIERE"]} />}>
+          <Route path="/absences-management" element={<Layout><AbsencesManagementPage /></Layout>} />
         </Route>
+
       </Route>
     </Routes>
   );

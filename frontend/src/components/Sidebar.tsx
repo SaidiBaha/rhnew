@@ -112,6 +112,8 @@ const GESTION_ITEMS: NavigationItem[] = [
   { label: "Gestion de Carrière",   icon: "briefcase-business",  path: "",                allowedRoles: ["ADMIN", "SUPERVISOR"] },
   { label: "Permutations",          icon: "shuffle",             path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
   { label: "Opérateurs Disponibles",icon: "user-check",          path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
+{ label: "Absences", icon: "user-x", path: "/absences-management", allowedRoles: ["ADMIN", "SUPERVISOR", "INFIRMIERE"] },
+{ label: "Historique Absences", icon: "history", path: "/historique-absences", allowedRoles: ["ADMIN", "SUPERVISOR"] },
 ];
 
 export const Sidebar = () => {
@@ -138,6 +140,7 @@ export const Sidebar = () => {
     ADMIN: "Admin",
     SUPERVISOR: "Superviseur",
     OPERATIONAL_MANAGER: "Chef d'opérations",
+    INFIRMIERE: "Infirmière",
   };
   const roleLabel = user?.role ? (roleLabelMap[user.role] ?? user.role) : "";
 

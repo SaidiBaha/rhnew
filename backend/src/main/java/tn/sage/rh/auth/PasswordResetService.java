@@ -26,14 +26,11 @@ public class PasswordResetService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
-    // ─── 1. Envoi OTP ─────────────────────────────────────────────
     @Transactional
     public MessageResponse forgotPassword(String email) {
         userRepository.findByEmployee_Email(email).ifPresent(user -> {
-            // Supprimer les anciens OTP de cet utilisateur
             otpRepository.deleteByUser(user);
 
-            // Générer un code OTP à 6 chiffres (SecureRandom pour la sécurité)
             String otpCode = String.format("%06d", new SecureRandom().nextInt(1_000_000));
 
             PasswordResetOtp otp = PasswordResetOtp.builder()
@@ -47,15 +44,12 @@ public class PasswordResetService {
                 emailService.sendOtpEmail(email, otpCode);
             } catch (Exception e) {
                 log.error("Échec envoi OTP à {} : {}", email, e.getMessage());
-                // Ne pas remonter l'erreur pour ne pas révéler l'existence de l'email
             }
         });
 
-        // Toujours renvoyer le même message (sécurité : ne pas révéler si l'email existe)
         return new MessageResponse("Si cet email est enregistré, un code de vérification a été envoyé.");
     }
 
-    // ─── 2. Vérification OTP ──────────────────────────────────────
     @Transactional
     public VerifyOtpResponse verifyOtp(String email, String otp) {
         PasswordResetOtp otpEntity = otpRepository
@@ -67,7 +61,6 @@ public class PasswordResetService {
             throw new InvalidOperationException("Code OTP expiré.", ErrorCodes.INVALID_INPUT);
         }
 
-        // Générer un resetToken temporaire valide 10 minutes
         String resetToken = UUID.randomUUID().toString();
         otpEntity.setResetToken(resetToken);
         otpEntity.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(10));
@@ -76,7 +69,6 @@ public class PasswordResetService {
         return VerifyOtpResponse.builder().resetToken(resetToken).build();
     }
 
-    // ─── 3. Réinitialisation mot de passe ─────────────────────────
     @Transactional
     public MessageResponse resetPassword(String resetToken, String newPassword, String confirmPassword) {
         if (!newPassword.equals(confirmPassword)) {
@@ -98,7 +90,6 @@ public class PasswordResetService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        // Invalider l'OTP après utilisation
         otpEntity.setUsed(true);
         otpRepository.save(otpEntity);
 

@@ -23,6 +23,7 @@ import java.time.LocalTime;
         @UniqueConstraint(name = "uk_attendance", columnNames = {"employee_id", "date"})
 })
 public class Attendance {
+
     @Id
     @GeneratedValue
     private long id;
@@ -45,11 +46,18 @@ public class Attendance {
     @JoinColumn(name = "absence_reason_id")
     private AbsenceReason absenceReason;
 
+    // ── NEW FIELDS ──────────────────────────────────────────
+    private String shiftName;
+
+    private LocalTime shiftStart;
+
+    private LocalTime shiftEnd;
+
+    private String status;   // "PRESENT" or "ABSENT"
+    // ────────────────────────────────────────────────────────
+
     @CreatedDate
-    @Column(
-            nullable = false,
-            updatable = false
-    )
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate

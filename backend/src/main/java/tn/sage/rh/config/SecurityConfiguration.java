@@ -15,6 +15,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import static org.springframework.http.HttpMethod.*;
+
+
+
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 import static tn.sage.rh.user.UserPermission.*;
 import static tn.sage.rh.user.UserRole.*;
@@ -98,11 +101,19 @@ public class SecurityConfiguration {
                                 .requestMatchers(PUT, "/api/v1/users/**").authenticated()
 
                                 .requestMatchers("/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/permutations/**").hasAnyAuthority(PERMUTATION_READ.name())
-                                .requestMatchers(POST, "/api/v1/permutations/**").hasAnyAuthority(PERMUTATION_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/permutations/**").hasAnyAuthority(PERMUTATION_UPDATE.name())
+                                .requestMatchers(GET, "/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
+                                .requestMatchers(POST, "/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
+                                .requestMatchers(PUT, "/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
                                 .requestMatchers(GET, "/api/v1/production-lines/**").authenticated()
-
+// ABSENCES
+                                .requestMatchers(GET, "/api/v1/absences/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
+                                .requestMatchers(POST, "/api/v1/absences/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
+                                .requestMatchers(PUT, "/api/v1/absences/**")
+                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
+                                .requestMatchers(DELETE, "/api/v1/absences/**")
+                                .hasAnyRole(ADMIN.name(), INFIRMIERE.name())
                                 .anyRequest()
                                 .authenticated()
                 )

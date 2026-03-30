@@ -33,7 +33,13 @@ public enum UserRole {
 
                     REQUEST_READ,
                     REQUEST_UPDATE,
-                    REQUEST_CREATE
+                    REQUEST_CREATE,
+
+                    ABSENCE_READ,
+                    ABSENCE_CREATE,
+                    ABSENCE_DELETE,
+                    ABSENCE_UPDATE_MOTIF,
+                    ABSENCE_UPDATE_STATUT
             )
     ),
 
@@ -52,18 +58,31 @@ public enum UserRole {
 
                     PERMUTATION_CREATE,
                     PERMUTATION_UPDATE,
+                    PERMUTATION_READ,
+
+                    ABSENCE_READ,
+                    ABSENCE_CREATE,
+                    ABSENCE_UPDATE_STATUT
+            )
+    ),
+
+    OPERATIONAL_MANAGER(
+            Set.of(
                     PERMUTATION_READ
             )
     ),
-    OPERATIONAL_MANAGER(
+
+    INFIRMIERE(
             Set.of(
-                 PERMUTATION_READ
+                    ABSENCE_READ,
+                    ABSENCE_CREATE,
+                    ABSENCE_DELETE,
+                    ABSENCE_UPDATE_MOTIF
             )
     );
 
     @Getter
     private final Set<UserPermission> permissions;
-
 
     public List<SimpleGrantedAuthority> getAuthorities() {
         var authorities = getPermissions()

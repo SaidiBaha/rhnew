@@ -45,12 +45,17 @@ export const LoginCard = () => {
       });
 
       const { accessToken, refreshToken, user }: Auth = response.data;
-
+console.log("role reçu:", user?.role);
       localStorage.setItem("user", JSON.stringify(user));
       setAuth({ accessToken, refreshToken, user });
       localStorage.setItem("refreshToken", refreshToken || "");
 
-      navigate("/", { replace: true });
+     const role = user?.role;
+if (role === "INFIRMIERE") {
+  navigate("/absences-management", { replace: true });
+} else {
+  navigate("/", { replace: true });
+}
     } catch {
       setError("Matricule ou mot de passe incorrect");
     } finally {
