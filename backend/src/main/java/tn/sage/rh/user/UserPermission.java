@@ -25,7 +25,10 @@ public enum UserPermission {
 
     PERMUTATION_READ("permutation:read"),
     PERMUTATION_CREATE("permutation:create"),
-    PERMUTATION_UPDATE("permutation:update");
+    PERMUTATION_UPDATE("permutation:update"),
+
+    EDI_CONVERT("edi:convert"),
+    EDI_HISTORY("edi:history");
 
     @Getter
     private final String permission;

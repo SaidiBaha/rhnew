@@ -99,19 +99,20 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
 
 /* ===================== SIDEBAR ===================== */
 const PRINCIPAL_ITEMS: NavigationItem[] = [
-  { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN"] },
-  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN"] },
-  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
 ];
 
 const GESTION_ITEMS: NavigationItem[] = [
-  { label: "Demandes Documents",    icon: "newspaper",           path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Gestion de Carrière",   icon: "briefcase-business",  path: "",                allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Permutations",          icon: "shuffle",             path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Opérateurs Disponibles",icon: "user-check",          path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
+  { label: "Demandes Documents",    icon: "newspaper",           path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Gestion de Carrière",   icon: "briefcase-business",  path: "",                allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Permutations",          icon: "shuffle",             path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "Opérateurs Disponibles",icon: "user-check",          path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "EDI DELFOR → CSV",      icon: "file-code",           path: "/edi",            allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
 ];
 
 export const Sidebar = () => {
@@ -138,6 +139,8 @@ export const Sidebar = () => {
     ADMIN: "Admin",
     SUPERVISOR: "Superviseur",
     OPERATIONAL_MANAGER: "Chef d'opérations",
+    PLANIFICATEUR: "Planificateur",
+    SUPER_ADMIN: "Super Admin",
   };
   const roleLabel = user?.role ? (roleLabelMap[user.role] ?? user.role) : "";
 
