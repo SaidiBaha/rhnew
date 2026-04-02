@@ -14,10 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
+
 import static org.springframework.http.HttpMethod.*;
-
-
-
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 import static tn.sage.rh.user.UserPermission.*;
 import static tn.sage.rh.user.UserRole.*;
@@ -27,6 +25,7 @@ import static tn.sage.rh.user.UserRole.*;
 @RequiredArgsConstructor
 @EnableMethodSecurity
 public class SecurityConfiguration {
+
     private static final String[] WHITE_LIST_URL = {
             "/api/v1/auth/**",
             "/v2/api-docs",
@@ -40,96 +39,112 @@ public class SecurityConfiguration {
             "/webjars/**",
             "/swagger-ui.html",
     };
+
     private final JwtAuthenticationFilter jwtAuthFilter;
-    private final AuthenticationProvider authenticationProvider;
-    private final LogoutHandler logoutHandler;
+    private final AuthenticationProvider  authenticationProvider;
+    private final LogoutHandler           logoutHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(req ->
-                        req.requestMatchers(WHITE_LIST_URL)
-                                .permitAll()
+                .authorizeHttpRequests(req -> req
 
-                                .requestMatchers("/api/v1/salary-advances/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(GET, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_READ.name())
-                                .requestMatchers(POST, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_UPDATE.name())
-                                .requestMatchers(DELETE, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_DELETE.name())
-// ✅ READ (GET) : ADMIN + SUPERVISOR + OPERATIONAL_MANAGER + permission READ
-                                .requestMatchers(GET, "/api/v1/employees/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/employees/**")
-                                .hasAnyAuthority(EMPLOYEE_READ.name())
+                        // ── Public ────────────────────────────────────────────────────
+                        .requestMatchers(WHITE_LIST_URL).permitAll()
 
-// ✅ WRITE : seulement ADMIN + SUPERVISOR + permissions
-                                .requestMatchers(POST, "/api/v1/employees/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(POST, "/api/v1/employees/**")
-                                .hasAnyAuthority(EMPLOYEE_CREATE.name())
+                        // ── Module EDI : PLANIFICATEUR + SUPER_ADMIN uniquement ───────
+                        .requestMatchers("/api/v1/edi/**")
+                        .hasAnyRole(PLANIFICATEUR.name(), SUPER_ADMIN.name())
 
-                                .requestMatchers(PUT, "/api/v1/employees/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(PUT, "/api/v1/employees/**")
-                                .hasAnyAuthority(EMPLOYEE_UPDATE.name())
+                        // ── Salary advances ───────────────────────────────────────────
+                        .requestMatchers("/api/v1/salary-advances/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
+                        .requestMatchers(GET,    "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_READ.name())
+                        .requestMatchers(POST,   "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_CREATE.name())
+                        .requestMatchers(PUT,    "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_UPDATE.name())
+                        .requestMatchers(DELETE, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_DELETE.name())
 
-                                .requestMatchers(DELETE, "/api/v1/employees/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(DELETE, "/api/v1/employees/**")
-                                .hasAnyAuthority(EMPLOYEE_DELETE.name())
-                                .requestMatchers(GET, "/api/v1/employees/operators/free")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-//DASHBOARD
-                                .requestMatchers(GET, "/api/v1/dashboard/**")
-                                .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/dashboard/**")
-                                .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers("/api/v1/salary-advance-deadlines/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(GET, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_READ.name())
-                                .requestMatchers(POST, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_UPDATE.name())
-                                .requestMatchers(DELETE, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_DELETE.name())
+                        // ── Employees ─────────────────────────────────────────────────
+                        .requestMatchers(GET, "/api/v1/employees/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())
+                        .requestMatchers(GET, "/api/v1/employees/**")
+                        .hasAnyAuthority(EMPLOYEE_READ.name())
+                        .requestMatchers(POST, "/api/v1/employees/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
+                        .requestMatchers(POST, "/api/v1/employees/**")
+                        .hasAnyAuthority(EMPLOYEE_CREATE.name())
+                        .requestMatchers(PUT, "/api/v1/employees/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
+                        .requestMatchers(PUT, "/api/v1/employees/**")
+                        .hasAnyAuthority(EMPLOYEE_UPDATE.name())
+                        .requestMatchers(DELETE, "/api/v1/employees/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
+                        .requestMatchers(DELETE, "/api/v1/employees/**")
+                        .hasAnyAuthority(EMPLOYEE_DELETE.name())
+                        .requestMatchers(GET, "/api/v1/employees/operators/free")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())
 
-                                .requestMatchers("/api/v1/requests/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(GET, "/api/v1/requests/**").hasAnyAuthority(REQUEST_READ.name())
-                                .requestMatchers(POST, "/api/v1/requests/**").hasAnyAuthority(REQUEST_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
+                        // ── Dashboard ─────────────────────────────────────────────────
+                        .requestMatchers(GET, "/api/v1/dashboard/**")
+                        .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
 
-                                .requestMatchers("/api/v1/users/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(PUT, "/api/v1/users/**").authenticated()
+                        // ── Salary advance deadlines ──────────────────────────────────
+                        .requestMatchers("/api/v1/salary-advance-deadlines/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
+                        .requestMatchers(GET,    "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_READ.name())
+                        .requestMatchers(POST,   "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_CREATE.name())
+                        .requestMatchers(PUT,    "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_UPDATE.name())
+                        .requestMatchers(DELETE, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_DELETE.name())
 
-                                .requestMatchers("/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(POST, "/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(PUT, "/api/v1/permutations/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/production-lines/**").authenticated()
-// ABSENCES
-                                .requestMatchers(GET, "/api/v1/absences/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
-                                .requestMatchers(POST, "/api/v1/absences/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
-                                .requestMatchers(PUT, "/api/v1/absences/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
-                                .requestMatchers(DELETE, "/api/v1/absences/**")
-                                .hasAnyRole(ADMIN.name(), INFIRMIERE.name())
-                                .anyRequest()
-                                .authenticated()
+                        // ── Requests ──────────────────────────────────────────────────
+                        .requestMatchers("/api/v1/requests/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
+                        .requestMatchers(GET,  "/api/v1/requests/**").hasAnyAuthority(REQUEST_READ.name())
+                        .requestMatchers(POST, "/api/v1/requests/**").hasAnyAuthority(REQUEST_CREATE.name())
+                        .requestMatchers(PUT,  "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
+
+                        // ── Users ─────────────────────────────────────────────────────
+                        .requestMatchers("/api/v1/users/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())
+                        .requestMatchers(PUT, "/api/v1/users/**").authenticated()
+
+                        // ── Permutations ──────────────────────────────────────────────
+                        .requestMatchers("/api/v1/permutations/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())
+                        .requestMatchers(GET,  "/api/v1/permutations/**").hasAnyAuthority(PERMUTATION_READ.name())
+                        .requestMatchers(POST, "/api/v1/permutations/**").hasAnyAuthority(PERMUTATION_CREATE.name())
+                        .requestMatchers(PUT,  "/api/v1/permutations/**").hasAnyAuthority(PERMUTATION_UPDATE.name())
+
+                        // ── Absences ──────────────────────────────────────────────────
+                        .requestMatchers(GET,    "/api/v1/absences/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
+                        .requestMatchers(POST,   "/api/v1/absences/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
+                        .requestMatchers(PUT,    "/api/v1/absences/**")
+                        .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), INFIRMIERE.name())
+                        .requestMatchers(DELETE, "/api/v1/absences/**")
+                        .hasAnyRole(ADMIN.name(), INFIRMIERE.name())
+
+                        // ── Organisation ──────────────────────────────────────────────
+                        .requestMatchers(GET, "/api/v1/production-lines/**").authenticated()
+
+                        // ── Catch-all ─────────────────────────────────────────────────
+                        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .logout(logout ->
-                        logout.logoutUrl("/api/v1/auth/logout")
-                                .permitAll()
-                                .addLogoutHandler(logoutHandler)
-                                .logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
-                )
-        ;
+                .logout(logout -> logout
+                        .logoutUrl("/api/v1/auth/logout")
+                        .permitAll()
+                        .addLogoutHandler(logoutHandler)
+                        .logoutSuccessHandler((request, response, authentication) ->
+                                SecurityContextHolder.clearContext())
+                );
 
         return http.build();
-
     }
 
     @Bean
@@ -140,5 +155,4 @@ public class SecurityConfiguration {
                 "/swagger-ui.html"
         );
     }
-
 }

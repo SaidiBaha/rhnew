@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import tn.sage.rh.employee.dto.*;
-
+import tn.sage.rh.employee.dto.EmployeeStatsDto;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
@@ -47,22 +47,30 @@ public class EmployeeController {
         employeeService.delete(id);
         return ResponseEntity.noContent().build();
     }
-
     @GetMapping("/pagination")
     public ResponseEntity<PageResponse<EmployeeDto>> findAll(
             Principal connectedUser,
-            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
-            @RequestParam(required = false)    String search,
-            @RequestParam(required = false)    String productionLine,
-            @RequestParam(required = false)    String shift,
-            @RequestParam(required = false)    String employmentType,
-            @RequestParam(required = false)    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDateFrom,
-            @RequestParam(required = false)    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDateTo
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String productionLine,
+            @RequestParam(required = false) String shift,
+            @RequestParam(required = false) String employmentType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDateTo,
+            @RequestParam(required = false, defaultValue = "ALL") String leftCompanyFilter
     ) {
         Page<Employee> employeePage = employeeService.findAllByPagination(
-                connectedUser, search, productionLine, shift, employmentType, hireDateFrom, hireDateTo,
-                PageRequest.of(page, size));
+                connectedUser,
+                search,
+                productionLine,
+                shift,
+                employmentType,
+                hireDateFrom,
+                hireDateTo,
+                leftCompanyFilter,
+                PageRequest.of(page, size)
+        );
 
         return ResponseEntity.ok(
                 PageResponse.<EmployeeDto>builder()
@@ -78,7 +86,6 @@ public class EmployeeController {
                         .build()
         );
     }
-
     @GetMapping
     public ResponseEntity<List<EmployeeDto>> findAll(Principal connectedUser) {
         return ResponseEntity.ok(
@@ -152,5 +159,8 @@ public class EmployeeController {
     public ResponseEntity<List<OperatorAvailabilityDTO>> freeOperators() {
         return ResponseEntity.ok(employeeService.getFreeOperatorsForOperationalManager());
     }
-
+    @GetMapping("/stats")
+    public ResponseEntity<EmployeeStatsDto> getStats(Principal connectedUser) {
+        return ResponseEntity.ok(employeeService.getEmployeeStats(connectedUser));
+    }
 }

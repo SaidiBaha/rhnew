@@ -27,6 +27,7 @@ import java.util.Set;
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 public class Employee {
+
     @Id
     @GeneratedValue
     private long id;
@@ -42,7 +43,7 @@ public class Employee {
     private String fullName;
 
     @Column(nullable = false)
-    private boolean free =false; // free operator
+    private boolean free = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
@@ -94,10 +95,7 @@ public class Employee {
     private Set<Permutation> permutationsAsOperator;
 
     @CreatedDate
-    @Column(
-            nullable = false,
-            updatable = false
-    )
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
@@ -107,6 +105,13 @@ public class Employee {
     private String email;
 
     private boolean deleted = Boolean.FALSE;
+
+    // ✅ nouveaux champs
+    @Column(nullable = true)
+    private Boolean hasLeftCompany;
+
+    @Column(nullable = true)
+    private LocalDate departureDate;
 
     @PrePersist
     @PreUpdate
@@ -119,5 +124,4 @@ public class Employee {
 
     @OneToMany(mappedBy = "receiver", fetch = FetchType.LAZY)
     private Set<Permutation> receivedPermutations = new HashSet<>();
-
 }

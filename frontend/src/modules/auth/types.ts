@@ -1,13 +1,13 @@
 import type { Employee } from "@/modules/employee/types";
 
-export type UserRole = "ADMIN" | "SUPERVISOR" | "OPERATIONAL_MANAGER" | "INFIRMIERE";
+export type UserRole = "ADMIN" | "SUPERVISOR" | "OPERATIONAL_MANAGER" | "INFIRMIERE" | "PLANIFICATEUR" | "SUPER_ADMIN";
 
 export type User = {
   id: string;
- 
   role: UserRole;
   employee: Employee;
 };
+
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;

@@ -99,21 +99,22 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
 
 /* ===================== SIDEBAR ===================== */
 const PRINCIPAL_ITEMS: NavigationItem[] = [
-  { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN"] },
-  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN"] },
-  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Accueil",             icon: "home",            path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "Employés",            icon: "users",           path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Création d'Employés", icon: "user-plus",       path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Avances",             icon: "hand-coins",      path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Pointage",            icon: "clipboard-clock", path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Correction Pointage", icon: "search-check",    path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
 ];
 
 const GESTION_ITEMS: NavigationItem[] = [
-  { label: "Demandes Documents",    icon: "newspaper",           path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Gestion de Carrière",   icon: "briefcase-business",  path: "",                allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Permutations",          icon: "shuffle",             path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Opérateurs Disponibles",icon: "user-check",          path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER"] },
-{ label: "Absences", icon: "user-x", path: "/absences-management", allowedRoles: ["ADMIN", "SUPERVISOR", "INFIRMIERE"] },
-{ label: "Historique Absences", icon: "history", path: "/historique-absences", allowedRoles: ["ADMIN", "SUPERVISOR"] },
+  { label: "Demandes Documents",     icon: "newspaper",          path: "/requests",            allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Gestion de Carrière",    icon: "briefcase-business", path: "",                     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Permutations",           icon: "shuffle",            path: "/permutations",        allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "Opérateurs Disponibles", icon: "user-check",         path: "/free-operators",      allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "EDI DELFOR → CSV",       icon: "file-code",          path: "/edi",                 allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
+  { label: "Absences",               icon: "user-x",             path: "/absences-management", allowedRoles: ["ADMIN", "SUPERVISOR", "INFIRMIERE"] },
+  { label: "Historique Absences",    icon: "history",            path: "/historique-absences", allowedRoles: ["ADMIN", "SUPERVISOR"] },
 ];
 
 export const Sidebar = () => {
@@ -137,10 +138,12 @@ export const Sidebar = () => {
     : "?";
 
   const roleLabelMap: Record<string, string> = {
-    ADMIN: "Admin",
-    SUPERVISOR: "Superviseur",
-    OPERATIONAL_MANAGER: "Chef d'opérations",
-    INFIRMIERE: "Infirmière",
+    ADMIN:              "Admin",
+    SUPERVISOR:         "Superviseur",
+    OPERATIONAL_MANAGER:"Chef d'opérations",
+    INFIRMIERE:         "Infirmière",
+    PLANIFICATEUR:      "Planificateur",
+    SUPER_ADMIN:        "Super Admin",
   };
   const roleLabel = user?.role ? (roleLabelMap[user.role] ?? user.role) : "";
 
@@ -169,7 +172,6 @@ export const Sidebar = () => {
           style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         >
           <div className="flex items-center gap-3 overflow-hidden">
-            {/* Brand mark */}
             <div
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white text-base font-black shadow-sm"
               style={{ background: "var(--accent)" }}
@@ -304,7 +306,7 @@ export const Sidebar = () => {
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           {/* Change password */}
-          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] as UserRole[]).includes(user.role) && (
+          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "INFIRMIERE", "SUPER_ADMIN"] as UserRole[]).includes(user.role) && (
             <button
               onClick={() => navigate("/change-password")}
               title={!expanded ? "Changer mot de passe" : undefined}

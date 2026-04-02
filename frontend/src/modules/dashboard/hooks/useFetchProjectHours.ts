@@ -18,14 +18,14 @@ export type ProjectHoursRow = {
     heuresTransferees: number;
 };
 
-export function useFetchProjectHours(du: string, au: string) {
+export function useFetchProjectHours(du: string, au: string, enabled = true) {
     const { auth } = useAuth();
     const token =
         (auth as any)?.accessToken || (auth as any)?.token || (auth as any)?.jwt || null;
 
     return useQuery({
         queryKey: ["dashboard-project-hours", du, au],
-        enabled: !!token && !!du && !!au,
+        enabled: !!token && !!du && !!au && enabled,
         queryFn: async () => {
             const res = await axios.get<ProjectHoursRow[]>(`${V1}/dashboard/project-hours`, {
                 params: { du, au }, // ✅ compatible avec ton controller
@@ -34,5 +34,6 @@ export function useFetchProjectHours(du: string, au: string) {
             return res.data;
         },
         staleTime: 20_000,
+        retry: false,
     });
 }

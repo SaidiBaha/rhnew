@@ -26,12 +26,19 @@ public enum UserPermission {
     PERMUTATION_READ("permutation:read"),
     PERMUTATION_CREATE("permutation:create"),
     PERMUTATION_UPDATE("permutation:update"),
+
     // Absence
     ABSENCE_READ("absence:read"),
     ABSENCE_CREATE("absence:create"),
     ABSENCE_DELETE("absence:delete"),
     ABSENCE_UPDATE_MOTIF("absence:update:motif"),
-    ABSENCE_UPDATE_STATUT("absence:update:statut");
+    ABSENCE_UPDATE_STATUT("absence:update:statut"),
+
+
+    EDI_CONVERT("edi:convert"),
+    EDI_HISTORY("edi:history");
+
+
     @Getter
     private final String permission;
 }

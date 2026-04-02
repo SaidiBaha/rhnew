@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import toast from "react-hot-toast";
 import { LoginSchema } from "@/modules/auth/schema";
 import {
   Form,
@@ -26,6 +27,13 @@ export const LoginCard = () => {
 
   const { setAuth } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("session_expired")) {
+      sessionStorage.removeItem("session_expired");
+      toast.error("Session expirée, veuillez vous reconnecter");
+    }
+  }, []);
 
   const form = useForm<z.infer<typeof LoginSchema>>({
     resolver: zodResolver(LoginSchema),

@@ -14,6 +14,7 @@ import static tn.sage.rh.user.UserPermission.*;
 @RequiredArgsConstructor
 public enum UserRole {
     USER(Collections.emptySet()),
+
     ADMIN(
             Set.of(
                     EMPLOYEE_READ,
@@ -72,12 +73,53 @@ public enum UserRole {
             )
     ),
 
+
     INFIRMIERE(
             Set.of(
                     ABSENCE_READ,
                     ABSENCE_CREATE,
                     ABSENCE_DELETE,
-                    ABSENCE_UPDATE_MOTIF
+                    ABSENCE_UPDATE_MOTIF)
+    ),
+
+    PLANIFICATEUR(
+            Set.of(
+                    EDI_CONVERT,
+                    EDI_HISTORY
+            )
+    ),
+
+    SUPER_ADMIN(
+            Set.of(
+                    // Toutes les permissions ADMIN
+                    EMPLOYEE_READ,
+                    EMPLOYEE_UPDATE,
+                    EMPLOYEE_CREATE,
+                    EMPLOYEE_DELETE,
+
+                    SALARY_ADVANCE_READ,
+                    SALARY_ADVANCE_UPDATE,
+                    SALARY_ADVANCE_CREATE,
+                    SALARY_ADVANCE_DELETE,
+
+                    SALARY_ADVANCE_DEADLINE_READ,
+                    SALARY_ADVANCE_DEADLINE_UPDATE,
+                    SALARY_ADVANCE_DEADLINE_CREATE,
+                    SALARY_ADVANCE_DEADLINE_DELETE,
+
+                    REQUEST_READ,
+                    REQUEST_UPDATE,
+                    REQUEST_CREATE,
+
+                    // Permissions SUPERVISOR
+                    PERMUTATION_CREATE,
+                    PERMUTATION_UPDATE,
+                    PERMUTATION_READ,
+
+                    // Permissions EDI
+                    EDI_CONVERT,
+                    EDI_HISTORY
+
             )
     );
 

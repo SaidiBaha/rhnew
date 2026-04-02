@@ -17,54 +17,74 @@ import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
 import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
 import HistoriqueAbsencesPage from "@/pages/HistoriqueAbsencesPage";
+import EdiPage from "@/pages/EdiPage";
+import UnauthorizedPage from "@/pages/UnauthorizedPage";
 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login"           element={<LoginPage />} />
+      <Route path="/unauthorized"    element={<UnauthorizedPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/verify-otp" element={<VerifyOtpPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-otp"      element={<VerifyOtpPage />} />
+      <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
       <Route element={<PersistLogin />}>
 
-        {/* ADMIN, SUPERVISOR, OPERATIONAL_MANAGER */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}>
-          <Route path="/" element={<Layout><HomePage /></Layout>} />
+        {/* Accueil + Employés : ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"]} />}>
+          <Route path="/"          element={<Layout><HomePage /></Layout>} />
           <Route path="/employees" element={<Layout><EmployeesPage /></Layout>} />
         </Route>
 
-        {/* ADMIN uniquement */}
+        {/* Ajout employé : ADMIN uniquement */}
         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-          <Route path="/addEployeem" element={<Layout><CreateEmployeeForm /></Layout>} />
+          <Route path="/addEmployee" element={<Layout><CreateEmployeeForm /></Layout>} />
         </Route>
 
-        {/* ADMIN + SUPERVISOR */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR"]} />}>
+        {/* Avances : ADMIN, SUPERVISOR, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
           <Route path="/salary-advances" element={<Layout><SalaryAdvancesPage /></Layout>} />
+        </Route>
+
+        {/* Pointage : ADMIN, SUPERVISOR, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
           <Route path="/attendances" element={<Layout><AttendancesPage /></Layout>} />
+        </Route>
+
+        {/* Demandes : ADMIN, SUPERVISOR, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
           <Route path="/requests" element={<Layout><RequestsPage /></Layout>} />
+        </Route>
+
+        {/* Historique absences : ADMIN, SUPERVISOR, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
           <Route path="/historique-absences" element={<Layout><HistoriqueAbsencesPage /></Layout>} />
         </Route>
 
-        {/* SUPERVISOR + OPERATIONAL_MANAGER */}
-        <Route element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER"]} />}>
+        {/* Permutations : SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"]} />}>
           <Route path="/permutations" element={<Layout><PermutationsPage /></Layout>} />
         </Route>
 
-        {/* ADMIN + SUPERVISOR + OPERATIONAL_MANAGER */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"]} />}>
+        {/* Opérateurs disponibles : ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"]} />}>
           <Route path="/free-operators" element={<Layout><OperatorsAvailabilityPage /></Layout>} />
         </Route>
 
-        {/* Tous les rôles connectés */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "INFIRMIERE"]} />}>
-          <Route path="/change-password" element={<Layout><ChangePasswordCard /></Layout>} />
+        {/* Module EDI : PLANIFICATEUR + SUPER_ADMIN uniquement */}
+        <Route element={<ProtectedRoute allowedRoles={["PLANIFICATEUR", "SUPER_ADMIN"]} />}>
+          <Route path="/edi" element={<Layout><EdiPage /></Layout>} />
         </Route>
 
-        {/* ABSENCES — ADMIN + SUPERVISOR + INFIRMIERE */}
+        {/* Absences : ADMIN, SUPERVISOR, INFIRMIERE */}
         <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "INFIRMIERE"]} />}>
           <Route path="/absences-management" element={<Layout><AbsencesManagementPage /></Layout>} />
+        </Route>
+
+        {/* Changer mot de passe : tous les rôles connectés */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "INFIRMIERE", "SUPER_ADMIN"]} />}>
+          <Route path="/change-password" element={<Layout><ChangePasswordCard /></Layout>} />
         </Route>
 
       </Route>

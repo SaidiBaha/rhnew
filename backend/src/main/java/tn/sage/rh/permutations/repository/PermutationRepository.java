@@ -86,4 +86,12 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
     default List<Permutation> findAcceptedOverlapping(LocalDate from, LocalDate to) {
         return findAcceptedOverlapping(from, to, PermutationStatus.ACCEPTEE);
     }
+    @Query("""
+        select count(p)
+        from Permutation p
+        where p.status = tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+          and p.startDate <= :day
+          and p.endDate >= :day
+    """)
+    long countAcceptedOverlappingDay(@Param("day") LocalDate day);
 }

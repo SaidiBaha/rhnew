@@ -5,7 +5,7 @@ import type { Permutation } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:9000";
 
-export function useFetchPermutations() {
+export function useFetchPermutations(enabled = true) {
     const { auth } = useAuth();
 
     const token =
@@ -16,7 +16,7 @@ export function useFetchPermutations() {
 
     return useQuery({
         queryKey: ["permutations"],
-        enabled: !!token,
+        enabled: !!token && enabled,
         queryFn: async () => {
             const res = await axios.get<Permutation[]>(
                 `${API_BASE_URL}/permutations`,

@@ -7,36 +7,36 @@ export type Civility = (typeof Civilities)[number];
 export type Department = {
   id: string;
   name: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type JobTitle = {
   id: string;
   title: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type ProductionLine = {
   id: string;
   name: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type Shift = {
   id: string;
   name: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type EmploymentType = {
   id: string;
   type: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type Employee = {
@@ -49,15 +49,18 @@ export type Employee = {
   productionLine?: ProductionLine;
   shift?: Shift;
   employmentType: EmploymentType;
-  hireDate: Date;
+  hireDate: Date | string;
   supervisor?: Employee;
   operators?: Employee[];
   attendance: Attendance;
   hasBankDomiciliation: boolean;
   email?: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
   free: boolean;
+
+  hasLeftCompany?: boolean | null;
+  departureDate?: Date | string | null;
 };
 
 export type EmployeeRequest = {
@@ -69,11 +72,14 @@ export type EmployeeRequest = {
   productionLine?: string;
   shift?: string;
   employmentType: string;
-  hireDate: string;
+  hireDate: Date | string;
   supervisor?: string;
   hasBankDomiciliation: boolean;
   email?: string;
   free: boolean;
+
+  hasLeftCompany?: boolean | null;
+  departureDate?: string | null;
 };
 
 export type PageResponse<T> = {
@@ -92,3 +98,5 @@ export type ErrorDto = {
   message?: string;
   errors?: string[];
 };
+
+export type LeftCompanyFilter = "ALL" | "CURRENT" | "FORMER";
