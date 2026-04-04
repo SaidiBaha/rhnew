@@ -5,7 +5,9 @@
       "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/backend/src/main/java/tn/sage/rh/employee/**)",
       "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/backend/**)",
       "Read(//c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/**)",
-      "Bash(find /c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/frontend -type f -path */pages/* -o -path */hooks/*)"
+      "Bash(find /c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/frontend -type f -path */pages/* -o -path */hooks/*)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
     ],
     "additionalDirectories": [
       "c:\\Users\\w.boujlida\\Desktop\\Baha-dev\\rh-main\\rh\\backend\\src\\main\\java\\tn\\sage\\rh\\employee",

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Search, Upload, X,
-  CheckCircle, XCircle, Pencil, Trash2, PlusCircle, Clock, Download,
+  CheckCircle, XCircle, Pencil, Trash2, PlusCircle, Clock, Download, Users,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
@@ -18,13 +18,18 @@ import { useUpdateAbsence } from "@/modules/absence/hooks/useUpdateAbsence";
 import { useDeleteAbsence } from "@/modules/absence/hooks/useDeleteAbsence";
 import { useBatchSaveAbsences } from "@/modules/absence/hooks/useBatchSaveAbsences";
 import { useSaveAbsence } from "@/modules/absence/hooks/useSaveAbsence";
+import { useBulkUpdateAbsences } from "@/modules/absence/hooks/useBulkUpdateAbsences";
 import { parseAbsenceRow } from "@/modules/absence/utils";
 
-import type { Absence, AbsenceFilters, AbsenceStatut, SaveAbsenceInput, UpdateAbsenceInput } from "@/modules/absence/types";
+import type { Absence, AbsenceFilters, AbsenceStatut, BulkUpdateInput, SaveAbsenceInput, UpdateAbsenceInput } from "@/modules/absence/types";
 import type { UserRole } from "@/modules/auth/types";
 
 const PAGE_SIZE = 25;
-const TODAY = new Date().toISOString().split("T")[0];
+// Utiliser les parties locales pour éviter le décalage UTC+N autour de minuit
+const _now = new Date();
+const TODAY = _now.getFullYear() + "-" +
+  String(_now.getMonth() + 1).padStart(2, "0") + "-" +
+  String(_now.getDate()).padStart(2, "0");
 
 type BackendErrorDto = { code?: string | number; message?: string; errors?: string[] };
 function extractAxiosError(err: unknown) {
@@ -37,26 +42,40 @@ function extractAxiosError(err: unknown) {
   return { message: "Erreur inattendue", errors: [] };
 }
 
-function computeStatut(a: Absence): "PRESENT" | "ABSENT" | "PENDING" {
-  if (a.heureEntree) return "PRESENT";
-  if (a.date === TODAY && a.heureDebut) {
-    const now = new Date();
-    const [shiftH, shiftM] = a.heureDebut.split(":").map(Number);
-    const shiftMinutes = shiftH * 60 + shiftM;
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    if (nowMinutes < shiftMinutes) return "PENDING";
+/** Returns true if the current wall-clock time falls within [heureDebut, heureFin].
+ *  Handles midnight-crossing shifts (e.g., 22:00–06:00). */
+function isInCurrentShift(a: Absence): boolean {
+  if (!a.heureDebut) return false;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const [dH, dM] = a.heureDebut.split(":").map(Number);
+  const startMin = dH * 60 + dM;
+
+  if (!a.heureFin) return nowMin >= startMin;
+
+  const [fH, fM] = a.heureFin.split(":").map(Number);
+  const endMin = fH * 60 + fM;
+
+  if (startMin <= endMin) {
+    return nowMin >= startMin && nowMin <= endMin;
+  } else {
+    // midnight-crossing
+    return nowMin >= startMin || nowMin <= endMin;
   }
-  if (a.statut === "PRESENT") return "PRESENT";
-  if (a.statut === "ABSENT") return "ABSENT";
-  return "PENDING";
 }
 
-function StatutBadge({ statut }: { statut: "PRESENT" | "ABSENT" | "PENDING" }) {
+function computeStatut(a: Absence): AbsenceStatut {
+  // Trust the backend-stored statut; override to PRESENT if heureEntree is set
+  if (a.heureEntree) return "PRESENT";
+  return a.statut ?? "ABSENT";
+}
+
+function StatutBadge({ statut }: { statut: AbsenceStatut }) {
   if (statut === "PENDING") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
-            style={{ background: "rgba(156,163,175,0.15)", color: "var(--muted)" }}>
-        <Clock className="size-3" /> Pas encore
+            style={{ background: "rgba(47,107,255,0.1)", color: "var(--accent)" }}>
+        <Clock className="size-3" /> Shift pas encore commencé
       </span>
     );
   }
@@ -75,6 +94,8 @@ function StatutBadge({ statut }: { statut: "PRESENT" | "ABSENT" | "PENDING" }) {
     </span>
   );
 }
+
+// ─── Manual absence modal ────────────────────────────────────────────────────
 
 interface ManualModalProps {
   onClose: () => void;
@@ -139,17 +160,21 @@ function ManualAbsenceModal({ onClose, onSubmit, isLoading }: ManualModalProps) 
   );
 }
 
+// ─── Edit absence modal ───────────────────────────────────────────────────────
+
 interface EditModalProps {
   absence: Absence;
   canEditMotif: boolean;
   canEditStatut: boolean;
+  canEditHeureDebut: boolean;
   onClose: () => void;
   onSubmit: (dto: UpdateAbsenceInput) => void;
   isLoading: boolean;
 }
-function EditAbsenceModal({ absence, canEditMotif, canEditStatut, onClose, onSubmit, isLoading }: EditModalProps) {
+function EditAbsenceModal({ absence, canEditMotif, canEditStatut, canEditHeureDebut, onClose, onSubmit, isLoading }: EditModalProps) {
   const [motif, setMotif] = useState(absence.motif ?? "");
   const [statut, setStatut] = useState<AbsenceStatut>(absence.statut ?? "ABSENT");
+  const [heureDebut, setHeureDebut] = useState(absence.heureDebut?.slice(0, 5) ?? "06:00");
   const [heureEntree, setHeureEntree] = useState(
     absence.heureEntree?.slice(0, 5) ??
     (absence.horaire === "ADM" ? "08:00" : absence.horaire === "Shift Nuit" ? "14:00" : "06:00")
@@ -163,8 +188,9 @@ function EditAbsenceModal({ absence, canEditMotif, canEditStatut, onClose, onSub
   function handleSubmit() {
     if (!confirm) { setConfirm(true); return; }
     onSubmit({
-      motif: canEditMotif ? (motif || undefined) : undefined,
-      statut: canEditStatut ? statut : undefined,
+      motif:       canEditMotif      ? (motif || undefined)  : undefined,
+      statut:      canEditStatut     ? statut                : undefined,
+      heureDebut:  canEditHeureDebut ? (heureDebut || undefined) : undefined,
       heureEntree: heureEntree || undefined,
       heureSortie: heureSortie || undefined,
     });
@@ -184,7 +210,16 @@ function EditAbsenceModal({ absence, canEditMotif, canEditStatut, onClose, onSub
           <button onClick={onClose}><X className="size-5" style={{ color: "var(--muted)" }} /></button>
         </div>
         <div style={{ borderTop: "1px solid var(--border)" }} />
-       <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          {canEditHeureDebut && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold" style={{ color: "var(--text2)" }}>🕐 Heure début</label>
+              <input type="text" value={heureDebut} onChange={e => setHeureDebut(e.target.value)}
+                     placeholder="06:00" maxLength={5}
+                     className="h-9 rounded-lg border px-3 text-sm outline-none text-center font-mono"
+                     style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }} />
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold" style={{ color: "var(--text2)" }}>🕐 Heure d'entrée</label>
             <input type="text" value={heureEntree} onChange={e => setHeureEntree(e.target.value)}
@@ -217,7 +252,7 @@ function EditAbsenceModal({ absence, canEditMotif, canEditStatut, onClose, onSub
                     style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }}>
               <option value="ABSENT">❌ Absent</option>
               <option value="PRESENT">✅ Présent</option>
-              <option value="PENDING">⏳ Pas encore</option>
+              <option value="PENDING">🔵 Shift pas encore commencé</option>
             </select>
           </div>
         )}
@@ -244,6 +279,138 @@ function EditAbsenceModal({ absence, canEditMotif, canEditStatut, onClose, onSub
   );
 }
 
+// ─── Bulk assign modal ────────────────────────────────────────────────────────
+
+interface BulkModalProps {
+  absences: (Absence & { _displayStatut: AbsenceStatut })[];
+  onClose: () => void;
+  onSubmit: (input: BulkUpdateInput) => void;
+  isLoading: boolean;
+}
+function BulkAssignModal({ absences, onClose, onSubmit, isLoading }: BulkModalProps) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [action, setAction] = useState<"PRESENT" | "ABSENT">("PRESENT");
+  const [heureEntree, setHeureEntree] = useState("06:00");
+
+  function toggleAll(checked: boolean) {
+    setSelectedIds(checked ? new Set(absences.map(a => a.id)) : new Set());
+  }
+
+  function toggle(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function handleSubmit() {
+    if (selectedIds.size === 0) { toast.error("Sélectionnez au moins un employé"); return; }
+    if (action === "PRESENT" && !heureEntree) { toast.error("Heure d'entrée requise"); return; }
+    onSubmit({
+      ids: Array.from(selectedIds),
+      statut: action,
+      heureEntree: action === "PRESENT" ? heureEntree : undefined,
+    });
+  }
+
+  const allSelected = absences.length > 0 && selectedIds.size === absences.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-xl rounded-xl shadow-xl p-6 flex flex-col gap-4"
+           style={{ background: "var(--white)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold" style={{ color: "var(--text)" }}>Assignation groupée</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+              Sélectionnez les employés et l'action à appliquer
+            </p>
+          </div>
+          <button onClick={onClose}><X className="size-5" style={{ color: "var(--muted)" }} /></button>
+        </div>
+        <div style={{ borderTop: "1px solid var(--border)" }} />
+
+        {/* Action + time picker */}
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold" style={{ color: "var(--text2)" }}>Action</label>
+            <select value={action} onChange={e => setAction(e.target.value as "PRESENT" | "ABSENT")}
+                    className="h-9 rounded-lg border px-2 text-sm outline-none"
+                    style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 160 }}>
+              <option value="PRESENT">✅ Marquer Présent</option>
+              <option value="ABSENT">❌ Marquer Absent</option>
+            </select>
+          </div>
+          {action === "PRESENT" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold" style={{ color: "var(--text2)" }}>Heure d'entrée *</label>
+              <input type="time" value={heureEntree} onChange={e => setHeureEntree(e.target.value)}
+                     className="h-9 rounded-lg border px-2 text-sm outline-none font-mono"
+                     style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }} />
+            </div>
+          )}
+          <span className="text-sm pb-1" style={{ color: "var(--muted)" }}>
+            {selectedIds.size} sélectionné{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Employee list */}
+        <div className="overflow-y-auto rounded-lg border" style={{ maxHeight: 300, border: "1px solid var(--border)" }}>
+          <table className="w-full text-sm">
+            <thead style={{ position: "sticky", top: 0, background: "var(--bg)", zIndex: 1 }}>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                <th className="px-3 py-2 text-left w-8">
+                  <input type="checkbox" checked={allSelected} onChange={e => toggleAll(e.target.checked)} />
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase" style={{ color: "var(--text2)" }}>Matricule</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase" style={{ color: "var(--text2)" }}>Nom</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase" style={{ color: "var(--text2)" }}>Horaire</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase" style={{ color: "var(--text2)" }}>Début</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase" style={{ color: "var(--text2)" }}>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {absences.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-sm" style={{ color: "var(--muted)" }}>Aucun employé</td></tr>
+              ) : absences.map(a => (
+                <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}
+                    className="cursor-pointer"
+                    onClick={() => toggle(a.id)}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <td className="px-3 py-2">
+                    <input type="checkbox" checked={selectedIds.has(a.id)} onChange={() => toggle(a.id)}
+                           onClick={e => e.stopPropagation()} />
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text2)" }}>{a.matricule}</td>
+                  <td className="px-3 py-2 font-medium" style={{ color: "var(--text)" }}>{a.fullName}</td>
+                  <td className="px-3 py-2 text-xs" style={{ color: "var(--text2)" }}>{a.horaire ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text2)" }}>{a.heureDebut ?? "—"}</td>
+                  <td className="px-3 py-2"><StatutBadge statut={a._displayStatut} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onClose} className="h-9 px-4 rounded-lg text-sm border"
+                  style={{ border: "1px solid var(--border)", color: "var(--text2)" }}>Annuler</button>
+          <button disabled={isLoading || selectedIds.size === 0}
+                  onClick={handleSubmit}
+                  className="h-9 px-4 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+                  style={{ background: "var(--accent)" }}>
+            {isLoading ? "Enregistrement…" : `Appliquer (${selectedIds.size})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function AbsencesClient() {
   const { auth } = useAuth();
   const role = auth.user?.role as UserRole | undefined;
@@ -252,26 +419,30 @@ export function AbsencesClient() {
   const isSupervisor = role === "SUPERVISOR";
   const isInfirmiere = (role as string) === "INFIRMIERE";
 
-  const canImport    = isAdmin || isSupervisor || isInfirmiere;
-  const canAddManual = isAdmin || isSupervisor;
-  const canEditMotif = isAdmin || isInfirmiere;
-  const canEditStatut= isAdmin || isSupervisor;
-  const canDelete    = isAdmin || isInfirmiere;
+  const canImport      = isAdmin || isSupervisor || isInfirmiere;
+  const canAddManual   = isAdmin || isSupervisor;
+  const canEditMotif   = isAdmin || isInfirmiere;
+  const canEditStatut  = isAdmin || isSupervisor;
+  const canEditHeureDebut = isSupervisor || isAdmin;
+  const canDelete      = isAdmin || isInfirmiere;
+  const canBulkAssign  = isAdmin || isSupervisor;
 
   const [page, setPage] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [filterDateFrom,   setFilterDateFrom]   = useState(TODAY);
-  const [filterDateTo,     setFilterDateTo]     = useState(TODAY);
-  const [filterStatut,     setFilterStatut]     = useState<"PRESENT" | "ABSENT" | "PENDING" | "">("");
-  const [filterSupervisor, setFilterSupervisor] = useState("");
-  const [filterHoraire,    setFilterHoraire]    = useState("");
+  const [filterStatut,       setFilterStatut]       = useState<"PRESENT" | "ABSENT" | "PENDING" | "">("");
+  const [filterSupervisor,   setFilterSupervisor]   = useState("");
+  const [filterHoraire,      setFilterHoraire]      = useState("");
+  const [filterDepartement,  setFilterDepartement]  = useState("");
+  const [filterDateFrom,     setFilterDateFrom]     = useState(TODAY);
+  const [filterDateTo,       setFilterDateTo]       = useState(TODAY);
 
   const [isUploadOpen,    setIsUploadOpen]    = useState(false);
   const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [isManualOpen,    setIsManualOpen]    = useState(false);
+  const [isBulkOpen,      setIsBulkOpen]      = useState(false);
   const [editAbsence,     setEditAbsence]     = useState<Absence | null>(null);
 
   useEffect(() => {
@@ -281,59 +452,64 @@ export function AbsencesClient() {
   }, [searchInput]);
 
   const filters: AbsenceFilters = {
-    dateFrom:            filterDateFrom  || undefined,
-    dateTo:              filterDateTo    || undefined,
-    statut:              undefined,
-    search:              search          || undefined,
-    supervisorMatricule: filterSupervisor || undefined,
-    horaire:             filterHoraire   || undefined,
+    dateFrom:            filterDateFrom    || TODAY,
+    dateTo:              filterDateTo      || TODAY,
+    statut:              filterStatut      || undefined,
+    search:              search            || undefined,
+    supervisorMatricule: filterSupervisor  || undefined,
+    horaire:             filterHoraire     || undefined,
+    departement:         filterDepartement || undefined,
   };
 
   const { data: pageData, isLoading, isFetching } = useFetchAbsencesPaged(page, PAGE_SIZE, filters);
-  const updateAbsence = useUpdateAbsence();
-  const deleteAbsence = useDeleteAbsence();
-  const batchSave     = useBatchSaveAbsences();
-  const saveAbsence   = useSaveAbsence();
+  const updateAbsence  = useUpdateAbsence();
+  const deleteAbsence  = useDeleteAbsence();
+  const batchSave      = useBatchSaveAbsences();
+  const saveAbsence    = useSaveAbsence();
+  const bulkUpdate     = useBulkUpdateAbsences();
 
   const rawAbsences   = pageData?.content ?? [];
   const totalElements = pageData?.totalElements ?? 0;
   const totalPages    = pageData?.totalPages ?? 1;
   const isFirst       = pageData?.first ?? true;
   const isLast        = pageData?.last ?? true;
-  const hasFilters    = !!(
-    (filterDateFrom && filterDateFrom !== TODAY) ||
-    (filterDateTo   && filterDateTo   !== TODAY) ||
-    filterStatut || filterSupervisor || filterHoraire
-  );
+  const hasFilters    = !!(filterStatut || filterSupervisor || filterHoraire || filterDepartement ||
+                           filterDateFrom !== TODAY || filterDateTo !== TODAY);
 
   const withComputedStatut = rawAbsences.map(a => ({
     ...a,
     _displayStatut: computeStatut(a),
   }));
 
-  const filtered = filterStatut
-    ? withComputedStatut.filter(a => a._displayStatut === filterStatut)
-    : withComputedStatut;
+  // Sort: current-shift employees first (ABSENT before PRESENT), then others by shift start time
+  const absences = [...withComputedStatut].sort((a, b) => {
+    const aCurrent = isInCurrentShift(a);
+    const bCurrent = isInCurrentShift(b);
 
-  const absences = [...filtered].sort((a, b) => {
-    const aToday = a.date === TODAY;
-    const bToday = b.date === TODAY;
-    if (aToday && !bToday) return -1;
-    if (!aToday && bToday) return 1;
-    const pendingOrder = (s: string) => s === "PENDING" ? 1 : 0;
-    const pendingDiff = pendingOrder(a._displayStatut) - pendingOrder(b._displayStatut);
-    if (pendingDiff !== 0) return pendingDiff;
-    const aHour = a.heureDebut ? parseInt(a.heureDebut.split(":")[0]) : 99;
-    const bHour = b.heureDebut ? parseInt(b.heureDebut.split(":")[0]) : 99;
-    return aHour - bHour;
+    if (aCurrent && !bCurrent) return -1;
+    if (!aCurrent && bCurrent) return 1;
+
+    if (aCurrent && bCurrent) {
+      const order: Record<string, number> = { ABSENT: 0, PRESENT: 1, PENDING: 2 };
+      const diff = (order[a._displayStatut] ?? 2) - (order[b._displayStatut] ?? 2);
+      if (diff !== 0) return diff;
+    }
+
+    const toMin = (t?: string) => {
+      if (!t) return 9999;
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+    return toMin(a.heureDebut) - toMin(b.heureDebut);
   });
 
   function resetFilters() {
-    setFilterDateFrom(TODAY);
-    setFilterDateTo(TODAY);
     setFilterStatut("");
     setFilterSupervisor("");
     setFilterHoraire("");
+    setFilterDepartement("");
+    setFilterDateFrom(TODAY);
+    setFilterDateTo(TODAY);
     setPage(0);
   }
 
@@ -350,8 +526,29 @@ export function AbsencesClient() {
         toast.error("Aucune ligne valide trouvée — vérifiez les colonnes !");
         return;
       }
-      await batchSave.mutateAsync(inputs);
-      toast.success(`${inputs.length} absences importées ✅`, { duration: 4000 });
+      const result = await batchSave.mutateAsync(inputs);
+
+      // Aligner le filtre date sur la date du fichier importé
+      const importedDate = inputs[0]?.date;
+      if (importedDate && importedDate !== filterDateFrom) {
+        setFilterDateFrom(importedDate);
+        setFilterDateTo(importedDate);
+      }
+
+      if (result.saved === 0) {
+        toast.error(
+          `0 absence sauvegardée sur ${result.received} lignes reçues. ` +
+          `Vérifiez les logs backend : les matricules du fichier ne correspondent peut-être pas à la base.`,
+          { duration: 8000 }
+        );
+      } else if (result.saved < result.received) {
+        toast.success(
+          `${result.saved} absence(s) sauvegardée(s) ✅  (${result.received - result.saved} ligne(s) ignorée(s) — matricule introuvable)`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success(`${result.saved} absences importées ✅`, { duration: 4000 });
+      }
       setIsUploadOpen(false);
       setPage(0);
     } catch (err) {
@@ -382,6 +579,16 @@ export function AbsencesClient() {
     }
   }
 
+  async function onBulkSubmit(input: BulkUpdateInput) {
+    try {
+      await bulkUpdate.mutateAsync(input);
+      toast.success(`${input.ids.length} absence${input.ids.length !== 1 ? "s" : ""} mise${input.ids.length !== 1 ? "s" : ""} à jour ✅`);
+      setIsBulkOpen(false);
+    } catch (err) {
+      toast.error(extractAxiosError(err).message);
+    }
+  }
+
   async function onDelete(id: number) {
     if (!confirm("Supprimer cette absence ?")) return;
     try {
@@ -394,17 +601,17 @@ export function AbsencesClient() {
 
   function onExportExcel() {
     const rows = absences.map(a => ({
-      "Matricule":  a.matricule,
-      "Nom":        a.fullName,
-      "Date":       a.date,
-      "Horaire":    a.horaire ?? "",
-      "Début":      a.heureDebut ?? "",
-      "Fin":        a.heureFin ?? "",
-      "Entrée":     a.heureEntree ?? "",
-      "Sortie":     a.heureSortie ?? "",
-      "Statut":     a._displayStatut === "PRESENT" ? "Présent" : a._displayStatut === "ABSENT" ? "Absent" : "Pas encore",
-      "Motif":      a.motif ?? "",
+      "Matricule":   a.matricule,
+      "Nom":         a.fullName,
       "Département": a.departement ?? "",
+      "Date":        a.date,
+      "Horaire":     a.horaire ?? "",
+      "Début":       a.heureDebut ?? "",
+      "Fin":         a.heureFin ?? "",
+      "Entrée":      a.heureEntree ?? "",
+      "Sortie":      a.heureSortie ?? "",
+      "Statut":      a._displayStatut === "PRESENT" ? "Présent" : a._displayStatut === "ABSENT" ? "Absent" : "Shift pas encore commencé",
+      "Motif":       a.motif ?? "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -426,21 +633,39 @@ export function AbsencesClient() {
         <ManualAbsenceModal onClose={() => setIsManualOpen(false)}
           onSubmit={onManualSubmit} isLoading={saveAbsence.isPending} />
       )}
+      {isBulkOpen && (
+        <BulkAssignModal
+          absences={absences}
+          onClose={() => setIsBulkOpen(false)}
+          onSubmit={onBulkSubmit}
+          isLoading={bulkUpdate.isPending} />
+      )}
       {editAbsence && (
         <EditAbsenceModal absence={editAbsence}
-          canEditMotif={canEditMotif} canEditStatut={canEditStatut}
+          canEditMotif={canEditMotif}
+          canEditStatut={canEditStatut}
+          canEditHeureDebut={canEditHeureDebut}
           onClose={() => setEditAbsence(null)}
           onSubmit={onEditSubmit} isLoading={updateAbsence.isPending} />
       )}
 
       <div className="flex items-center justify-between">
-        <Heading title={`Absences (${totalElements})`} description="Gestion des absences du personnel." />
+        <Heading
+          title={`Absences — ${new Date(filterDateFrom + "T12:00:00").toLocaleDateString("fr-FR")}${filterDateTo !== filterDateFrom ? ` → ${new Date(filterDateTo + "T12:00:00").toLocaleDateString("fr-FR")}` : ""} (${totalElements})`}
+          description="Absences du jour." />
         <div className="flex items-center gap-x-3">
           {canAddManual && (
             <button onClick={() => setIsManualOpen(true)}
                     className="flex items-center gap-2 h-9 px-4 rounded-lg text-sm font-semibold border transition-colors"
                     style={{ border: "1px solid var(--border)", color: "var(--text2)", background: "var(--bg)" }}>
               <PlusCircle className="size-4" /> Ajouter
+            </button>
+          )}
+          {canBulkAssign && (
+            <button onClick={() => setIsBulkOpen(true)}
+                    className="flex items-center gap-2 h-9 px-4 rounded-lg text-sm font-semibold border transition-colors"
+                    style={{ border: "1px solid var(--border)", color: "var(--text2)", background: "var(--bg)" }}>
+              <Users className="size-4" /> Assignation groupée
             </button>
           )}
           {canImport && (
@@ -488,25 +713,32 @@ export function AbsencesClient() {
           <input type="date" value={filterDateFrom}
                  onChange={e => { setFilterDateFrom(e.target.value); setPage(0); }}
                  className="h-9 rounded-lg border px-2 text-sm outline-none"
-                 style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }} />
+                 style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }} />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Au</label>
           <input type="date" value={filterDateTo}
                  onChange={e => { setFilterDateTo(e.target.value); setPage(0); }}
                  className="h-9 rounded-lg border px-2 text-sm outline-none"
-                 style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 150 }} />
+                 style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)" }} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Département</label>
+          <input type="text" placeholder="Filtrer par département…" value={filterDepartement}
+                 onChange={e => { setFilterDepartement(e.target.value); setPage(0); }}
+                 className="h-9 rounded-lg border px-2 text-sm outline-none"
+                 style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 180 }} />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium" style={{ color: "var(--text2)" }}>Statut</label>
           <select value={filterStatut}
                   onChange={e => { setFilterStatut(e.target.value as "PRESENT" | "ABSENT" | "PENDING" | ""); setPage(0); }}
                   className="h-9 rounded-lg border px-2 text-sm outline-none"
-                  style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 130 }}>
+                  style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", minWidth: 160 }}>
             <option value="">Tous</option>
             <option value="PRESENT">Présent</option>
             <option value="ABSENT">Absent</option>
-            <option value="PENDING">Pas encore</option>
+            <option value="PENDING">Shift pas encore commencé</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -544,7 +776,7 @@ export function AbsencesClient() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-              {["Matricule","Nom","Date","Horaire","Début","Fin","Entrée","Sortie","Statut","Motif","Actions"].map(h => (
+              {["Matricule","Nom","Département","Horaire","Début","Fin","Entrée","Sortie","Statut","Motif","Actions"].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                     style={{ color: "var(--text2)" }}>{h}</th>
               ))}
@@ -563,7 +795,7 @@ export function AbsencesClient() {
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text2)" }}>{a.matricule}</td>
                 <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>{a.fullName}</td>
-                <td className="px-4 py-3" style={{ color: "var(--text2)" }}>{a.date}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>{a.departement ?? "—"}</td>
                 <td className="px-4 py-3" style={{ color: "var(--text2)" }}>{a.horaire ?? "—"}</td>
                 <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text2)" }}>{a.heureDebut ?? "06:00"}</td>
                 <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text2)" }}>{a.heureFin ?? "—"}</td>
@@ -630,7 +862,6 @@ export function AbsencesClient() {
                   className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-40"
                   style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text2)" }}>
             <ChevronRight className="size-4" />
-            
           </button>
         </div>
       </div>

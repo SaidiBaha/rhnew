@@ -32,6 +32,7 @@ export type UpdateAbsenceInput = {
   statut?: AbsenceStatut;
   heureEntree?: string;
   heureSortie?: string;
+  heureDebut?: string;
 };
 
 export type AbsenceFilters = {
@@ -41,4 +42,19 @@ export type AbsenceFilters = {
   search?: string;
   supervisorMatricule?: string;
   horaire?: string;
+  departement?: string;
+};
+
+export type BulkUpdateInput = {
+  ids: number[];
+  statut: "PRESENT" | "ABSENT";
+  heureEntree?: string;
+};
+
+export type EmployeeAbsenceSummary = {
+  matricule: string;
+  fullName: string;
+  departement?: string;
+  joursPresent: number;
+  joursAbsent: number;
 };

@@ -23,6 +23,7 @@ export function useFetchAbsencesPaged(
       if (filters.search?.trim())      params.search              = filters.search.trim();
       if (filters.supervisorMatricule) params.supervisorMatricule = filters.supervisorMatricule;
       if (filters.horaire)             params.horaire             = filters.horaire;
+      if (filters.departement)         params.departement         = filters.departement;
 
       const { data } = await axios.get<PageResponse<Absence>>("/absences", {
         baseURL: API_BASE_URL,
