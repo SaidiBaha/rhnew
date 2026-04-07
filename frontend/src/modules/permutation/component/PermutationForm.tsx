@@ -727,7 +727,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                     type="date"
                                     className={inputCls}
                                     value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    onChange={(e) => {
+                                        setStartDate(e.target.value);
+                                        if (typePermutation === "ENVOYER") setEndDate(e.target.value);
+                                    }}
                                     required
                                 />
                             </div>
@@ -736,9 +739,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 <p className="mb-1 text-[10px] font-medium text-slate-400">Date de fin</p>
                                 <input
                                     type="date"
-                                    className={inputCls}
+                                    className={`${inputCls} ${typePermutation === "ENVOYER" ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
+                                    readOnly={typePermutation === "ENVOYER"}
                                     required
                                 />
                             </div>
