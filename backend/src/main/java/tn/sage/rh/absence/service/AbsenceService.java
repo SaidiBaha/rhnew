@@ -27,11 +27,15 @@ import tn.sage.rh.user.UserRole;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+import tn.sage.rh.exeption.InvalidEntityException;
 
 @Slf4j
 @Service
@@ -61,11 +65,35 @@ public class AbsenceService {
 
     // ─── Import / Save ────────────────────────────────────────────────────────
 
+    private static final DateTimeFormatter DATE_FR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     @Transactional
     public int batchSave(List<SaveAbsenceInputDto> inputs) {
         if (inputs == null || inputs.isEmpty()) return 0;
 
         log.info("[batchSave] Reçu {} ligne(s) à importer", inputs.size());
+
+        // ── Validation : une seule date, égale à aujourd'hui ─────────────────
+        LocalDate today = LocalDate.now();
+        Set<LocalDate> datesInFile = inputs.stream()
+                .map(SaveAbsenceInputDto::getDate)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+
+        if (datesInFile.size() > 1) {
+            throw new InvalidEntityException(
+                "Le fichier contient plusieurs dates différentes. Veuillez importer un fichier pour une seule journée.",
+                ErrorCodes.INVALID_INPUT);
+        }
+ /*      if (datesInFile.size() == 1) {
+            LocalDate fileDate = datesInFile.iterator().next();
+            if (!fileDate.equals(today)) {
+                throw new InvalidEntityException(
+                    "La date du fichier (" + fileDate.format(DATE_FR) + ") ne correspond pas à la date d'aujourd'hui (" + today.format(DATE_FR) + "). Import annulé.",
+                    ErrorCodes.INVALID_INPUT);
+            }
+        }*/
+        // ── fin validation ────────────────────────────────────────────────────
 
         Map<String, SaveAbsenceInputDto> dedupMap = new LinkedHashMap<>();
         for (SaveAbsenceInputDto input : inputs) {
