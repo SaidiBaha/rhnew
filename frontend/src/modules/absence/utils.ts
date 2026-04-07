@@ -58,7 +58,8 @@ function timeStr(v: unknown): string | undefined {
 
 function formatDate(v: unknown): string {
   if (v instanceof Date) {
-    // Utiliser les parties locales pour correspondre au filtre "aujourd'hui" côté frontend
+    // SheetJS avec cellDates:true retourne les dates Excel comme local midnight (ex: 2026-04-06T00:00:00+01:00).
+    // getUTCDate() en UTC+1 retournerait J-1 → utiliser les méthodes locales.
     const year  = v.getFullYear();
     const month = String(v.getMonth() + 1).padStart(2, "0");
     const day   = String(v.getDate()).padStart(2, "0");
