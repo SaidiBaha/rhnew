@@ -261,7 +261,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
               from Permutation p
               join p.operators o
               where o = e
-                and p.status <> tn.sage.rh.permutations.entity.PermutationStatus.REFUSEE
+                and p.status in (tn.sage.rh.permutations.entity.PermutationStatus.EN_ATTENTE, tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE)
                 and p.startDate <= :day and p.endDate >= :day
                 and (p.startTime < :endTime and p.endTime > :startTime)
           )

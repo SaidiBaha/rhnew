@@ -10,6 +10,8 @@ export function formatPermutation(p: Permutation) {
                 ? "En attente"
                 : p.status === "ACCEPTEE"
                     ? "Acceptée"
-                    : "Refusée",
+                    : p.status === "TERMINEE"
+                        ? "Terminée"
+                        : "Refusée",
     };
 }
