@@ -124,9 +124,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [endTime, setEndTime] = useState(initialShift.endTime);
 
     const {
-        data: employees,
-        isLoading: empLoading,
-        isFetching: empFetching,
         error: empError,
         refetch: refetchEmployees,
     } = useFetchEmployees({ includeAll: mode === "choose" });
@@ -168,7 +165,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const { mutateAsync, isPending } = useCreatePermutation();
 
     // Déterminer quelle liste d'opérateurs utiliser selon le type
-    const allOperators = (employees ?? []) as EmployeeLocal[];
     const freeOperatorsList = (freeEmployees ?? []) as EmployeeLocal[];
     // ENVOYER : opérateurs éligibles (sans chevauchement de permutation ACCEPTEE)
     const eligibleList = (eligibleOperators ?? []) as EmployeeLocal[];
