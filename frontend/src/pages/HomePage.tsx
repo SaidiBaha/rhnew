@@ -145,6 +145,45 @@ function aggregateRows(rows: RowApi[]): RowProjet[] {
   return out;
 }
 
+/** Normalize without aggregating — 1 row per (project, supervisor) for the table */
+function normalizeRows(rows: RowApi[]): RowProjet[] {
+  const out: RowProjet[] = [];
+  for (const r of rows) {
+    const idProjet = Number(r.idProjet);
+    if (!Number.isFinite(idProjet)) continue;
+    const nomProjet =
+      (r.nomProjet ?? `Projet #${idProjet}`).toString().trim() || `Projet #${idProjet}`;
+    const supId =
+      r.idSuperviseur === undefined || r.idSuperviseur === null
+        ? null
+        : Number(r.idSuperviseur);
+    const supNom = (r.nomSuperviseur ?? "").toString().trim() || (supId ? `#${supId}` : "");
+    const supMat =
+      r.matriculeSuperviseur === undefined || r.matriculeSuperviseur === null
+        ? null
+        : String(r.matriculeSuperviseur);
+    const added = Number.isFinite(Number(r.heuresAjoutees)) ? Number(r.heuresAjoutees) : 0;
+    const transferred = Number.isFinite(Number(r.heuresTransferees))
+      ? Number(r.heuresTransferees)
+      : 0;
+    out.push({
+      idProjet,
+      nomProjet,
+      idSuperviseur: supId,
+      nomSuperviseur: supNom,
+      matriculeSuperviseur: supMat,
+      heuresAjoutees: round2(added),
+      heuresTransferees: round2(transferred),
+    });
+  }
+  out.sort((a, b) => {
+    const cmp = a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" });
+    if (cmp !== 0) return cmp;
+    return a.nomSuperviseur.localeCompare(b.nomSuperviseur, undefined, { sensitivity: "base" });
+  });
+  return out;
+}
+
 // ─── UI Sub-components ────────────────────────────────────────────────────────
 
 function StatCard({
@@ -746,7 +785,14 @@ export default function HomePage() {
 
   const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isAdmin || isOpManager);
 
+  // 1 row per (project, supervisor) — for the "Détails par projet" table
   const rowsByProject: RowProjet[] = useMemo(
+    () => normalizeRows((data ?? []) as RowApi[]),
+    [data]
+  );
+
+  // 1 row per project (aggregated) — for charts and topProjects
+  const rowsByProjectAgg: RowProjet[] = useMemo(
     () => aggregateRows((data ?? []) as RowApi[]),
     [data]
   );
@@ -774,7 +820,7 @@ export default function HomePage() {
 
   const topProjects = useMemo(
     () =>
-      [...rowsByProject]
+      [...rowsByProjectAgg]
         .map((r) => ({
           name: truncate(r.nomProjet, 18),
           ajoutees: r.heuresAjoutees,
@@ -783,7 +829,7 @@ export default function HomePage() {
         }))
         .sort((a, b) => b.total - a.total)
         .slice(0, 8),
-    [rowsByProject]
+    [rowsByProjectAgg]
   );
 
   const bySupervisor = useMemo(() => {
@@ -857,10 +903,13 @@ export default function HomePage() {
     () =>
       [...rowsByProject].sort((a, b) => {
         let cmp = 0;
-        if (sortField === "nom")
+        if (sortField === "ajoutees") cmp = a.heuresAjoutees - b.heuresAjoutees;
+        else if (sortField === "transferees") cmp = a.heuresTransferees - b.heuresTransferees;
+        else {
           cmp = a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" });
-        else if (sortField === "ajoutees") cmp = a.heuresAjoutees - b.heuresAjoutees;
-        else cmp = a.heuresTransferees - b.heuresTransferees;
+          if (cmp === 0)
+            cmp = a.nomSuperviseur.localeCompare(b.nomSuperviseur, undefined, { sensitivity: "base" });
+        }
         return sortDir === "asc" ? cmp : -cmp;
       }),
     [rowsByProject, sortField, sortDir]
@@ -1233,7 +1282,7 @@ export default function HomePage() {
                   const total = round2(r.heuresAjoutees + r.heuresTransferees);
                   return (
                     <tr
-                      key={r.idProjet}
+                      key={`${r.idProjet}-${r.idSuperviseur ?? "null"}`}
                       style={{
                         borderBottom: "1px solid var(--border)",
                         animationDelay: `${idx * 0.03}s`,
