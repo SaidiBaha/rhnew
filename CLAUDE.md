@@ -45,7 +45,7 @@ Chaque module suit le pattern : `types.ts` | `schema.ts` (Zod) | `hooks/` (React
 | Module | Roles autorises |
 |---|---|
 | `attendance` | ADMIN, SUPERVISOR |
-| `auth` | tous |
+| `auth` | tous (login, change-password pour NURSE aussi) |
 | `dashboard` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER |
 | `employee` | ADMIN (CRUD), ADMIN+SUPERVISOR (lecture) |
 | `permutation` | SUPERVISOR, OPERATIONAL_MANAGER |
@@ -107,7 +107,7 @@ VITE_API_BASE_URL=http://<IP>:9000/api/v1
 - **Auth** : `accessToken` en memoire (state React), `refreshToken` + `user` dans localStorage.
 - **Backend** : Pattern Controller -> Service interface -> ServiceImpl. DTOs separes des entites JPA. MapStruct pour les conversions.
 - **Erreurs backend** : Lancer `InvalidEntityException` ou `EntityNotFoundException` du package `exeption/` (pas `exception`).
-- **Roles** : `ADMIN` | `SUPERVISOR` | `OPERATIONAL_MANAGER`
+- **Roles** : `ADMIN` | `SUPERVISOR` | `OPERATIONAL_MANAGER` | `PLANIFICATEUR` | `SUPER_ADMIN` | `NURSE`
 
 ---
 
@@ -117,6 +117,7 @@ VITE_API_BASE_URL=http://<IP>:9000/api/v1
 - Les permutations ont deux types : `ENVOYER` (avec receiverId obligatoire, dates libres) et `RECEVOIR` (receiverId=null, startDate=endDate=aujourd'hui).
 - `lib/data/` contient des hooks plus anciens. Les nouveaux hooks vont dans `modules/<module>/hooks/`.
 - `ddl-auto=update` : ne jamais renommer une colonne JPA sans migration manuelle, Hibernate crée une nouvelle colonne.
+- **Role NURSE** : si `JobTitle.title == "AIDE SOIGNANTE"` (insensible casse), le compte utilisateur est cree avec `NURSE` (acces uniquement changement mot de passe). Logique dans `EmployeeCreationListener` et `UserService.toUser()`. Backfill au demarrage via `DataInitializer`.
 
 ---
 
@@ -256,6 +257,27 @@ L'endpoint `GET /api/v1/employees/pagination` accepte désormais des paramètres
 - Routes et navigation
 - Types TypeScript
 - Fichiers de config (vite, tailwind, .env)
+
+---
+
+## Role NURSE — session 2026-04-09
+
+### Regle d'attribution
+
+Lors de la creation d'un employe (unitaire ou batch), si `employee.getJobTitle().getTitle()` vaut `"AIDE SOIGNANTE"` (insensible a la casse), le compte utilisateur est cree avec le role `NURSE`. Sinon le role par defaut reste `SUPERVISOR`.
+
+### Fichiers modifies
+
+| Fichier | Changement |
+|---|---|
+| `user/UserRole.java` | Valeur `NURSE` ajoutee (permissions vides) |
+| `employee/event/EmployeeCreationListener.java` | Appelle `determineRole(employee)` a la place de SUPERVISOR fixe |
+| `user/UserService.java` | `toUser()` utilise `determineRole(employee)` |
+| `config/DataInitializer.java` | Backfill : met a jour SUPERVISOR → NURSE pour les employes "AIDE SOIGNANTE" existants |
+| `config/SecurityConfiguration.java` | NURSE ajouté dans `hasAnyRole` de `/api/v1/users/**` |
+| `modules/auth/types.ts` | `"NURSE"` ajoute a l'union `UserRole` |
+| `App.tsx` | Route `/change-password` inclut `"NURSE"` dans `allowedRoles` |
+| `components/Sidebar.tsx` | `roleLabelMap` + bouton "Changer mot de passe" incluent `NURSE` |
 
 ---
 

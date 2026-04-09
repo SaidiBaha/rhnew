@@ -103,8 +103,10 @@ const PRINCIPAL_ITEMS: NavigationItem[] = [
   { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",         allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Présences / Absences", icon: "user-round-check",   path: "/presence-absences",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Historique Présences", icon: "calendar-search",    path: "/historique-presence",   allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Correction Pointage",  icon: "search-check",       path: "",                       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
 ];
 
 const GESTION_ITEMS: NavigationItem[] = [
@@ -141,6 +143,7 @@ export const Sidebar = () => {
     OPERATIONAL_MANAGER: "Chef d'opérations",
     PLANIFICATEUR: "Planificateur",
     SUPER_ADMIN: "Super Admin",
+    NURSE: "Infirmier(e)",
   };
   const roleLabel = user?.role ? (roleLabelMap[user.role] ?? user.role) : "";
 
@@ -304,7 +307,7 @@ export const Sidebar = () => {
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           {/* Change password */}
-          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] as UserRole[]).includes(user.role) && (
+          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "NURSE"] as UserRole[]).includes(user.role) && (
             <button
               onClick={() => navigate("/change-password")}
               title={!expanded ? "Changer mot de passe" : undefined}

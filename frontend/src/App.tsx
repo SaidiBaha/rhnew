@@ -16,6 +16,8 @@ import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
 import EdiPage from "@/pages/EdiPage";
+import PresencePage from "@/pages/PresencePage";
+import HistoriquePresencePage from "@/pages/HistoriquePresencePage";
 import UnauthorizedPage from "@/pages/UnauthorizedPage";
 
 function App() {
@@ -45,6 +47,16 @@ function App() {
           <Route path="/attendances" element={<Layout><AttendancesPage /></Layout>} />
         </Route>
 
+        {/* Présences / Absences du jour : ADMIN, SUPERVISOR, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
+          <Route path="/presence-absences" element={<Layout><PresencePage /></Layout>} />
+        </Route>
+
+        {/* Historique Présences / Absences : ADMIN, SUPERVISOR, SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
+          <Route path="/historique-presence" element={<Layout><HistoriquePresencePage /></Layout>} />
+        </Route>
+
         {/* Demandes : ADMIN, SUPERVISOR, SUPER_ADMIN */}
         <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
           <Route path="/requests" element={<Layout><RequestsPage /></Layout>} />
@@ -66,7 +78,7 @@ function App() {
         </Route>
 
         {/* Changer mot de passe : tous les rôles connectés */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "SUPER_ADMIN"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "SUPER_ADMIN", "NURSE"]} />}>
           <Route path="/change-password" element={<Layout><ChangePasswordCard /></Layout>} />
         </Route>
 

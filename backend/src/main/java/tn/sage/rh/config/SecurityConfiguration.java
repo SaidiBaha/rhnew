@@ -112,7 +112,7 @@ public class SecurityConfiguration {
 
                 // ── Users ─────────────────────────────────────────────────────
                 .requestMatchers("/api/v1/users/**")
-                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())
+                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name(), NURSE.name())
                 .requestMatchers(PUT, "/api/v1/users/**").authenticated()
 
                 // ── Permutations ──────────────────────────────────────────────

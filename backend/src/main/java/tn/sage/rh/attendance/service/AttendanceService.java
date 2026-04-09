@@ -7,8 +7,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.attendance.dto.AttendanceDto;
+import tn.sage.rh.attendance.dto.DailyAttendanceDto;
 import tn.sage.rh.attendance.dto.EmployeeAttendanceDto;
+import tn.sage.rh.attendance.dto.HistoryEmployeeSummaryDto;
+import tn.sage.rh.attendance.dto.HistoryResponseDto;
 import tn.sage.rh.attendance.dto.SaveAttendanceInputDto;
+import tn.sage.rh.attendance.dto.UpdateAttendanceInputDto;
 import tn.sage.rh.attendance.entity.AbsenceReason;
 import tn.sage.rh.attendance.entity.Attendance;
 import tn.sage.rh.attendance.mapper.AttendanceMapper;
@@ -21,8 +25,10 @@ import tn.sage.rh.user.User;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -92,6 +98,9 @@ public class AttendanceService {
             attendance.setClockOut(attendanceInput.getClockOut());
             attendance.setTotalAttendance(parseDuration(attendanceInput.getTotalAttendance()));
             attendance.setOvertime(parseDuration(attendanceInput.getOvertime()));
+            attendance.setHoraire(attendanceInput.getHoraire());
+            attendance.setDebut(parseLocalTime(attendanceInput.getDebut()));
+            attendance.setFin(parseLocalTime(attendanceInput.getFin()));
 
             if (attendanceInput.getAbsenceReason() != null) {
                 AbsenceReason absenceReason = absenceReasonMap.computeIfAbsent(
@@ -183,12 +192,170 @@ public class AttendanceService {
         return result;
     }
 
+    // =========================
+    // MODULE PRÉSENCE / ABSENCES
+    // =========================
+
+    /**
+     * Retourne les enregistrements du jour courant (Africa/Tunis).
+     * SUPERVISOR : uniquement ses opérateurs.
+     * Autres rôles : tous les enregistrements.
+     */
+    @Transactional(readOnly = true)
+    public List<DailyAttendanceDto> findAllByToday(Principal connectedUser) {
+        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+        LocalDate today = LocalDate.now(ZoneId.of("Africa/Tunis"));
+
+        List<Attendance> attendances;
+        if (user.getRole() == SUPERVISOR) {
+            attendances = attendanceRepository.findAllByDateAndSupervisor(today, user.getUsername());
+        } else {
+            attendances = attendanceRepository.findAllByDate(today);
+        }
+
+        return attendances.stream().map(this::toDailyDto).toList();
+    }
+
+    /**
+     * Met à jour clockIn, clockOut et absenceReason d'un enregistrement.
+     * null = effacer la valeur.
+     */
+    @Transactional
+    public void updateAttendance(Long id, UpdateAttendanceInputDto input) {
+        Attendance attendance = attendanceRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Attendance not found (id=" + id + ")"));
+
+        attendance.setClockIn(parseLocalTime(input.getClockIn()));
+        attendance.setClockOut(parseLocalTime(input.getClockOut()));
+
+        if (input.getAbsenceReason() != null && !input.getAbsenceReason().isBlank()) {
+            attendance.setAbsenceReason(
+                    absenceReasonService.findOrSave(input.getAbsenceReason().trim().toUpperCase()));
+        } else {
+            attendance.setAbsenceReason(null);
+        }
+
+        attendanceRepository.save(attendance);
+    }
+
+    // =========================
+    // MODULE HISTORIQUE
+    // =========================
+
+    /**
+     * Résumé par employé sur une plage de dates (présents / absents) + KPI globaux.
+     * SUPERVISOR : uniquement ses opérateurs.
+     */
+    @Transactional(readOnly = true)
+    public HistoryResponseDto findHistory(Principal connectedUser, LocalDate dateFrom, LocalDate dateTo) {
+        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+
+        List<Attendance> attendances;
+        if (user.getRole() == SUPERVISOR) {
+            attendances = attendanceRepository.findAllForHistoryBySupervisor(user.getUsername(), dateFrom, dateTo);
+        } else {
+            attendances = attendanceRepository.findAllForHistory(dateFrom, dateTo);
+        }
+
+        Map<Employee, List<Attendance>> grouped = attendances.stream()
+                .collect(Collectors.groupingBy(Attendance::getEmployee));
+
+        List<HistoryEmployeeSummaryDto> summaries = grouped.entrySet().stream()
+                .map(entry -> {
+                    Employee emp = entry.getKey();
+                    List<Attendance> records = entry.getValue();
+                    int present = (int) records.stream().filter(this::isPresent).count();
+                    int absent = records.size() - present;
+                    return HistoryEmployeeSummaryDto.builder()
+                            .matricule(emp.getMatricule())
+                            .fullName(emp.getFullName())
+                            .department(emp.getDepartment() != null ? emp.getDepartment().getName() : null)
+                            .presentDays(present)
+                            .absentDays(absent)
+                            .build();
+                })
+                .sorted(Comparator.comparing(HistoryEmployeeSummaryDto::getFullName))
+                .toList();
+
+        int totalPresent = summaries.stream().mapToInt(HistoryEmployeeSummaryDto::getPresentDays).sum();
+        int totalAbsent  = summaries.stream().mapToInt(HistoryEmployeeSummaryDto::getAbsentDays).sum();
+        int total = totalPresent + totalAbsent;
+        double rate = total == 0 ? 0.0 : Math.round(totalPresent * 1000.0 / total) / 10.0;
+
+        return HistoryResponseDto.builder()
+                .totalPresent(totalPresent)
+                .totalAbsent(totalAbsent)
+                .presenceRate(rate)
+                .employees(summaries)
+                .build();
+    }
+
+    /**
+     * Liste journalière d'un employé sur une plage de dates.
+     * SUPERVISOR : restreint aux employés de son équipe.
+     */
+    @Transactional(readOnly = true)
+    public List<DailyAttendanceDto> findEmployeeHistory(Principal connectedUser, String matricule, LocalDate dateFrom, LocalDate dateTo) {
+        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+
+        List<Attendance> attendances;
+        if (user.getRole() == SUPERVISOR) {
+            attendances = attendanceRepository.findByMatriculeAndDateRangeForSupervisor(
+                    matricule, user.getUsername(), dateFrom, dateTo);
+        } else {
+            attendances = attendanceRepository.findByMatriculeAndDateRange(matricule, dateFrom, dateTo);
+        }
+
+        return attendances.stream().map(this::toDailyDto).toList();
+    }
+
+    private boolean isPresent(Attendance a) {
+        LocalTime clockIn = a.getClockIn();
+        if (clockIn == null || clockIn.equals(LocalTime.of(0, 0))) return false;
+        String reason = a.getAbsenceReason() != null ? a.getAbsenceReason().getReason() : null;
+        return reason == null || !reason.toUpperCase().contains("ABSENCE");
+    }
+
+    // =========================
+    // HELPERS
+    // =========================
+
     private Duration parseDuration(String duration) {
         if (duration == null || !duration.contains(":")) return Duration.ZERO;
 
         long hours = Long.parseLong(duration.split(":")[0]);
         long minutes = Long.parseLong(duration.split(":")[1]);
         return Duration.ofHours(hours).plusMinutes(minutes);
+    }
+
+    private LocalTime parseLocalTime(String time) {
+        if (time == null || !time.contains(":")) return null;
+        String[] parts = time.split(":");
+        return LocalTime.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+    }
+
+    private String formatTime(LocalTime t) {
+        if (t == null) return null;
+        return t.format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    private DailyAttendanceDto toDailyDto(Attendance a) {
+        return DailyAttendanceDto.builder()
+                .id(a.getId())
+                .date(a.getDate())
+                .matricule(a.getEmployee().getMatricule())
+                .fullName(a.getEmployee().getFullName())
+                .department(a.getEmployee().getDepartment() != null
+                        ? a.getEmployee().getDepartment().getName() : null)
+                .horaire(a.getHoraire())
+                .debut(formatTime(a.getDebut()))
+                .fin(formatTime(a.getFin()))
+                .clockIn(formatTime(a.getClockIn()))
+                .clockOut(formatTime(a.getClockOut()))
+                .absenceReason(a.getAbsenceReason() != null
+                        ? a.getAbsenceReason().getReason() : null)
+                .build();
     }
 
     private String generateAttendanceKey(String matricule, LocalDate date) {

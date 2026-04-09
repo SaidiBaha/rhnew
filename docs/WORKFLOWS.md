@@ -107,6 +107,26 @@ Desactivable via `app.schedulers.free-operators-reset.enabled=false` dans `appli
 
 ---
 
+## Attribution automatique du role NURSE
+
+Lors de la creation d'un employe (unitaire ou batch), si `JobTitle.title == "AIDE SOIGNANTE"` (comparaison insensible a la casse), le compte utilisateur est cree avec le role `NURSE` au lieu de `SUPERVISOR`.
+
+### Backfill des employes existants
+Au demarrage du backend, `DataInitializer` cherche tous les utilisateurs ayant le role `SUPERVISOR` dont le poste est `"AIDE SOIGNANTE"` et les met a jour vers le role `NURSE`. Cette operation est idempotente (sans effet si aucun utilisateur a corriger).
+
+---
+
+## Ajouter un nouveau role
+
+1. Ajouter la valeur a `UserRole.java` avec son `Set<UserPermission>`
+2. Ajouter `hasAnyRole(NOUVEAU_ROLE.name())` dans `SecurityConfiguration` pour les endpoints concernes
+3. Ajouter la valeur au type `UserRole` dans `frontend/src/modules/auth/types.ts`
+4. Ajouter le label dans `roleLabelMap` dans `Sidebar.tsx`
+5. Ajouter le role aux `allowedRoles` des routes `App.tsx` et items `Sidebar.tsx` concernés
+6. Si le role doit etre attribue automatiquement a la creation d'employe : mettre a jour `EmployeeCreationListener` et `UserService.toUser()`
+
+---
+
 ## Debug courant
 
 ### Token JWT expire (401 en prod)
