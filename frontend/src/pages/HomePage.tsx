@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
 import type { Permutation } from "@/modules/permutation/types";
+import { AdminSalaryAdvanceDashboardCard } from "@/modules/salary-advance/components/AdminSalaryAdvanceDashboardCard";
 
 function hasRole(auth: any, role: string) {
   const r =
@@ -744,7 +745,7 @@ export default function HomePage() {
   const [du, setDu] = useState(monthStart);
   const [au, setAu] = useState(today);
 
-  const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isAdmin || isOpManager);
+  const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isOpManager);
 
   const rowsByProject: RowProjet[] = useMemo(
     () => aggregateRows((data ?? []) as RowApi[]),
@@ -818,7 +819,7 @@ export default function HomePage() {
     isLoading: chartLoading,
     isFetching: chartFetching,
     error: chartError,
-  } = useFetchProjectHours(chartDu, chartAu, isAdmin || isOpManager);
+  } = useFetchProjectHours(chartDu, chartAu, isOpManager);
 
   const rowsByProjectChart: RowProjet[] = useMemo(
     () => aggregateRows((chartRaw ?? []) as RowApi[]),
@@ -867,11 +868,10 @@ export default function HomePage() {
   );
 
   // ── Guards ─────────────────────────────────────────────────────────────────
-  if (!isOpManager) {
-    if (isSupervisor) {
-      if (permLoading) return <Loader />;
-      return (
-        <div className="space-y-5">
+  if (isSupervisor) {
+    if (permLoading) return <Loader />;
+    return (
+      <div className="space-y-5">
           {/* ── Header + Filtres ── */}
           <div
             className="ds-card px-6 py-4"
@@ -1008,15 +1008,12 @@ export default function HomePage() {
             <PermTimelineCard  permutations={filteredPermutations} />
             <PermOperatorsCard permutations={filteredPermutations} total={permTotalOps} />
           </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="p-6">
-        <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--navy)" }}>Accueil</h1>
       </div>
     );
+  }
+
+  if (isAdmin) {
+    return <AdminSalaryAdvanceDashboardCard />;
   }
 
   if (isLoading || isFetching) return <Loader />;
@@ -1157,6 +1154,8 @@ export default function HomePage() {
       )}
 
       {/* ── Détails table ── */}
+      {isAdmin && <AdminSalaryAdvanceDashboardCard />}
+
       <div className="ds-card overflow-hidden">
         {/* Table header bar */}
         <div

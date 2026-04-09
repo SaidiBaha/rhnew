@@ -55,6 +55,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(POST, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_CREATE.name())
                                 .requestMatchers(PUT, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_UPDATE.name())
                                 .requestMatchers(DELETE, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_DELETE.name())
+                                .requestMatchers("/api/v1/salary-advance-requests/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
 // ✅ READ (GET) : ADMIN + SUPERVISOR + OPERATIONAL_MANAGER + permission READ
                                 .requestMatchers(GET, "/api/v1/employees/**")
                                 .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())

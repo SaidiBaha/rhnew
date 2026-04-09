@@ -15,6 +15,7 @@ import AttendancesPage from "@/pages/AttendancesPage";
 import PermutationsPage from "@/pages/PermutationsPage";
 import ChangePasswordCard from "@/modules/auth/components/ChangePasswordCard.tsx";
 import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
+import SalaryAdvancesHistoryPage from "@/pages/SalaryAdvancesHistoryPage";
 
 // import { CreateEmployeeForm } from "@/pages/CreateEmployeeForm";
 
@@ -86,6 +87,19 @@ function App() {
             element={
               <Layout>
                 <SalaryAdvancesPage />
+              </Layout>
+            }
+          />
+        </Route>
+
+        <Route
+          element={<ProtectedRoute allowedRoles={["ADMIN"]} />}
+        >
+          <Route
+            path="/salary-advances/history"
+            element={
+              <Layout>
+                <SalaryAdvancesHistoryPage />
               </Layout>
             }
           />

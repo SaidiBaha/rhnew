@@ -8,7 +8,9 @@ export type SalaryAdvance = {
   employee: Employee;
   amount: number;
   comment?: string;
+  createdAt?: Date | string;
   updatedAt: Date;
+  createdBy?: User;
   updatedBy: User;
 };
 

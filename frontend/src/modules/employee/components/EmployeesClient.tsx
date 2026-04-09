@@ -348,7 +348,7 @@ export function EmployeesClient() {
 
         <div className="flex items-center justify-between">
           <Heading
-              title={`Employés (${totalElements})`}
+              title="Employés"
               description="Gérer les employés."
           />
 

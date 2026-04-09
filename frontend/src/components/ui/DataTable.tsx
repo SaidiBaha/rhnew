@@ -61,6 +61,7 @@ interface DataTableProps<TData, TValue> {
   showExport?: boolean;
   initialPageSize?: number;
   hidePagination?: boolean;
+  getRowStyle?: (row: Row<TData>, rowIndex: number) => React.CSSProperties | undefined;
 }
 
 export function DataTable<TData, TValue>({
@@ -75,6 +76,7 @@ export function DataTable<TData, TValue>({
   showExport = false,
   initialPageSize,
   hidePagination = false,
+  getRowStyle,
 }: DataTableProps<TData, TValue>) {
   const [expanded, setExpanded] = React.useState({});
 
@@ -263,18 +265,30 @@ export function DataTable<TData, TValue>({
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row, rowIndex) => (
                 <React.Fragment key={row.id}>
+                  {(() => {
+                    const customRowStyle = getRowStyle?.(row, rowIndex);
+                    const baseBackground =
+                      customRowStyle?.background ??
+                      (rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)");
+
+                    return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                     style={{
-                      background: rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)",
+                      background: baseBackground,
                       transition: "background 0.12s",
+                      ...customRowStyle,
                     }}
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--steel-light)"}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = rowIndex % 2 === 1 ? "#f8f9fc" : "var(--surface)"}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = String(baseBackground)}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="px-4 py-3">
+                      <TableCell
+                        key={cell.id}
+                        className="px-4 py-3"
+                        style={customRowStyle?.color ? { color: String(customRowStyle.color) } : undefined}
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -297,6 +311,8 @@ export function DataTable<TData, TValue>({
                       </TableCell>
                     )}
                   </TableRow>
+                    );
+                  })()}
                   {row.getIsExpanded() && renderSubComponent && (
                     <TableRow>
                       <TableCell colSpan={columns.length + 1} className="p-0">

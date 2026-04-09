@@ -28,6 +28,24 @@ export const useFetchSalaryAdvances = () => {
   });
 };
 
+export const useFetchSalaryAdvancesHistory = (enabled = true) => {
+  const { auth } = useAuth();
+
+  return useQuery({
+    queryKey: ["salary-advances-history", auth.user?.id],
+    queryFn: () => {
+      return axios.get<SalaryAdvance[]>("/salary-advances/history", {
+        baseURL: API_BASE_URL,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+      });
+    },
+    enabled: enabled && !!auth.user?.id,
+  });
+};
+
 export const useBatchUpdateSalaryAdvances = () => {
   const { auth } = useAuth();
   const queryClient = useQueryClient();

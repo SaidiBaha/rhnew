@@ -19,6 +19,8 @@ public class SalaryAdvanceDto {
     private EmployeeDto employee;
     private BigDecimal amount;
     private String comment;
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private UserDto createdBy;
     private UserDto updatedBy;
 }

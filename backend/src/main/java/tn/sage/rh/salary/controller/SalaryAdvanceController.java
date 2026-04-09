@@ -21,6 +21,11 @@ public class SalaryAdvanceController {
         return ResponseEntity.ok(salaryAdvanceService.findAll(connectedUser));
     }
 
+    @GetMapping("/history")
+    public ResponseEntity<List<SalaryAdvanceDto>> findAllSalaryAdvancesHistory(Principal connectedUser) {
+        return ResponseEntity.ok(salaryAdvanceService.findAllHistory(connectedUser));
+    }
+
     @PutMapping("/batch-update")
     public ResponseEntity<?> batchUpdate(Principal connectedUser, @RequestBody List<SalaryAdvanceRequestDto> salaryAdvances) {
         salaryAdvanceService.batchUpdate(connectedUser, salaryAdvances);

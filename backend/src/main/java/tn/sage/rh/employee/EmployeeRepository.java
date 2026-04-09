@@ -16,6 +16,22 @@ import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
+    // Keep numeric matricules naturally ordered while safely supporting alphanumeric codes.
+    String SAFE_MATRICULE_ORDER = """
+        order by
+          case
+            when e.matricule is not null
+             and function('translate', e.matricule, '0123456789', '') = ''
+            then 0 else 1
+          end asc,
+          case
+            when e.matricule is not null
+             and function('translate', e.matricule, '0123456789', '') = ''
+            then length(e.matricule) else 0
+          end asc,
+          upper(coalesce(e.matricule, '')) asc
+    """;
+
     Optional<Employee> findByMatricule(String matricule);
 
     @Query("""
@@ -23,8 +39,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         where e.deleted = false
           and e.departureDate is null
           and (e.hasLeftCompany = false or e.hasLeftCompany is null)
-        order by cast(e.matricule as integer) asc
-    """)
+    """ + SAFE_MATRICULE_ORDER)
     @Override
     List<Employee> findAll();
 
@@ -34,8 +49,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             where e.deleted = false
               and e.departureDate is null
               and (e.hasLeftCompany = false or e.hasLeftCompany is null)
-            order by cast(e.matricule as integer) asc
-        """,
+        """ + SAFE_MATRICULE_ORDER,
             countQuery = """
             select count(e) from Employee e
             where e.deleted = false
@@ -54,8 +68,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           and e.supervisor is not null
           and e.supervisor.matricule = :matricule
           and e.matricule <> :matricule
-        order by cast(e.matricule as integer) asc
-    """)
+    """ + SAFE_MATRICULE_ORDER)
     List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
 
     @Query(
@@ -67,8 +80,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
               and e.supervisor is not null
               and e.supervisor.matricule = :matricule
               and e.matricule <> :matricule
-            order by cast(e.matricule as integer) asc
-        """,
+        """ + SAFE_MATRICULE_ORDER,
             countQuery = """
             select count(e) from Employee e
             where e.deleted = false
@@ -107,8 +119,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
                     or (:leftCompanyFilter = 'FORMER' and e.hasLeftCompany = true)
                     or (:leftCompanyFilter = 'ALL')
                   )
-            order by cast(e.matricule as integer) asc
-        """,
+        """ + SAFE_MATRICULE_ORDER,
             countQuery = """
             select count(e) from Employee e
             left join e.productionLine pl
@@ -289,17 +300,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           and e.supervisor is not null
           and e.supervisor.matricule = :supervisorMatricule
           and e.matricule <> :supervisorMatricule
-          and not exists (
-              select 1
-              from Permutation p
-              join p.operators o
-              where o = e
-                and p.status <> tn.sage.rh.permutations.entity.PermutationStatus.REFUSEE
-                and p.startDate <= :day and p.endDate >= :day
-                and (p.startTime < :endTime and p.endTime > :startTime)
-          )
-        order by cast(e.matricule as integer) asc
-    """)
+              and not exists (
+                  select 1
+                  from Permutation p
+                  join p.operators o
+                  where o = e
+                    and p.status <> tn.sage.rh.permutations.entity.PermutationStatus.REFUSEE
+                    and p.startDate <= :day and p.endDate >= :day
+                    and (p.startTime < :endTime and p.endTime > :startTime)
+              )
+    """ + SAFE_MATRICULE_ORDER)
     List<Employee> findMyOperatorsAvailableForDay(
             @Param("supervisorMatricule") String supervisorMatricule,
             @Param("day") LocalDate day,

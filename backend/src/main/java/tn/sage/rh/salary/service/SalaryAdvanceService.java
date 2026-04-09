@@ -117,6 +117,38 @@ public class SalaryAdvanceService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<SalaryAdvanceDto> findAllHistory(Principal connectedUser) {
+        if (connectedUser == null) {
+            throw new InvalidOperationException(
+                    "Utilisateur non authentifié",
+                    ErrorCodes.UNKNOWN_CONTEXT
+            );
+        }
+
+        User user = getUserFromPrincipal(connectedUser);
+
+        if (user.getRole() != ADMIN) {
+            throw new InvalidOperationException(
+                    "Accès non autorisé à l'historique complet des avances",
+                    ErrorCodes.UNKNOWN_CONTEXT
+            );
+        }
+
+        try {
+            return salaryAdvanceRepository.findAllHistoryForAdmin()
+                    .stream()
+                    .map(salaryAdvanceMapper::toDTO)
+                    .toList();
+        } catch (Exception e) {
+            log.error("Erreur lors de la récupération de l'historique des avances", e);
+            throw new InvalidOperationException(
+                    "Erreur lors de la récupération de l'historique des avances",
+                    ErrorCodes.DATABASE_ERROR
+            );
+        }
+    }
+
     @Scheduled(cron = "0 0 0 1 * *")
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
