@@ -754,6 +754,13 @@ export default function HomePage() {
 
   const today      = new Date().toISOString().slice(0, 10);
   const monthStart = useMemo(() => today.slice(0, 7) + "-01", [today]);
+  const weekStart  = useMemo(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }, [today]);
 
   // ── Supervisor / OpManager only: permutation data ────────────────────────────
   const { data: rawPermutations, isLoading: permLoading } = useFetchPermutations(isSupervisor || isOpManager);
@@ -780,7 +787,8 @@ export default function HomePage() {
   const permRefusees  = filteredPermutations.filter(p => p.status === "REFUSEE").length;
   const permTotalOps  = filteredPermutations.reduce((s, p) => s + p.operatorIds.length, 0);
 
-  const [du, setDu] = useState(monthStart);
+  const [datePreset, setDatePreset] = useState<"today" | "week" | "month">("today");
+  const [du, setDu] = useState(today);
   const [au, setAu] = useState(today);
 
   const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isAdmin || isOpManager);
@@ -1092,13 +1100,45 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* ── Preset buttons ── */}
+            {(
+              [
+                { key: "today", label: "Aujourd'hui", getDu: () => today, getAu: () => today },
+                { key: "week",  label: "Cette semaine", getDu: () => weekStart, getAu: () => today },
+                { key: "month", label: "Ce mois", getDu: () => monthStart, getAu: () => today },
+              ] as const
+            ).map(({ key, label, getDu, getAu }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setDu(getDu());
+                  setAu(getAu());
+                  setDatePreset(key);
+                  setChartDate("");
+                  setActiveProjectId(null);
+                }}
+                className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={
+                  datePreset === key
+                    ? { background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }
+                    : { background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }
+                }
+              >
+                {label}
+              </button>
+            ))}
+
+            <span style={{ color: "var(--border-mid)" }}>|</span>
+
+            {/* ── Manual date inputs ── */}
             <div className="flex items-center gap-2">
               <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Du</span>
               <input
                 type="date"
                 value={du}
-                onChange={(e) => setDu(e.target.value)}
+                onChange={(e) => { setDu(e.target.value); setDatePreset("today"); setChartDate(""); }}
                 className="ds-input font-mono-data"
               />
             </div>
@@ -1108,7 +1148,7 @@ export default function HomePage() {
               <input
                 type="date"
                 value={au}
-                onChange={(e) => setAu(e.target.value)}
+                onChange={(e) => { setAu(e.target.value); setDatePreset("today"); setChartDate(""); }}
                 className="ds-input font-mono-data"
               />
             </div>
