@@ -81,8 +81,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
             "join fetch a.employee e " +
             "left join fetch e.department " +
             "left join fetch a.absenceReason " +
-            "WHERE (:dateFrom IS NULL OR a.date >= :dateFrom) " +
-            "AND (:dateTo IS NULL OR a.date <= :dateTo) " +
+            "WHERE (CAST(:dateFrom AS LocalDate) IS NULL OR a.date >= :dateFrom) " +
+            "AND (CAST(:dateTo AS LocalDate) IS NULL OR a.date <= :dateTo) " +
             "AND e.deleted = false")
     List<Attendance> findAllForHistory(
             @Param("dateFrom") LocalDate dateFrom,
@@ -94,8 +94,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
             "left join fetch e.department " +
             "left join fetch a.absenceReason " +
             "WHERE (e.matricule = :matricule OR e.supervisor.matricule = :matricule) " +
-            "AND (:dateFrom IS NULL OR a.date >= :dateFrom) " +
-            "AND (:dateTo IS NULL OR a.date <= :dateTo) " +
+            "AND (CAST(:dateFrom AS LocalDate) IS NULL OR a.date >= :dateFrom) " +
+            "AND (CAST(:dateTo AS LocalDate) IS NULL OR a.date <= :dateTo) " +
             "AND e.deleted = false")
     List<Attendance> findAllForHistoryBySupervisor(
             @Param("matricule") String matricule,
@@ -108,8 +108,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
             "left join fetch e.department " +
             "left join fetch a.absenceReason " +
             "WHERE e.matricule = :matricule " +
-            "AND (:dateFrom IS NULL OR a.date >= :dateFrom) " +
-            "AND (:dateTo IS NULL OR a.date <= :dateTo) " +
+            "AND (CAST(:dateFrom AS LocalDate) IS NULL OR a.date >= :dateFrom) " +
+            "AND (CAST(:dateTo AS LocalDate) IS NULL OR a.date <= :dateTo) " +
             "ORDER BY a.date")
     List<Attendance> findByMatriculeAndDateRange(
             @Param("matricule") String matricule,
@@ -129,8 +129,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
             "left join fetch a.absenceReason " +
             "WHERE e.matricule = :matricule " +
             "AND (e.supervisor.matricule = :supervisorMatricule OR e.matricule = :supervisorMatricule) " +
-            "AND (:dateFrom IS NULL OR a.date >= :dateFrom) " +
-            "AND (:dateTo IS NULL OR a.date <= :dateTo) " +
+            "AND (CAST(:dateFrom AS LocalDate) IS NULL OR a.date >= :dateFrom) " +
+            "AND (CAST(:dateTo AS LocalDate) IS NULL OR a.date <= :dateTo) " +
             "ORDER BY a.date")
     List<Attendance> findByMatriculeAndDateRangeForSupervisor(
             @Param("matricule") String matricule,

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd.exe /c \"powershell -Command \\\\\"python --version\\\\\"\")",
+      "Bash(cmd.exe /c \"C:\\\\Users\\\\w.boujlida\\\\AppData\\\\Roaming\\\\uv\\\\python\\\\cpython-3.14.3-windows-x86_64-none\\\\python.exe --version\")",
+      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -c 'import openpyxl; print\\('\\\\''openpyxl ok'\\\\''\\)')",
+      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -m pip install openpyxl --quiet)",
+      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -m pip install openpyxl --break-system-packages --quiet)",
+      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -c 'import openpyxl; print\\('\\\\''ok'\\\\''\\)')",
+      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe /c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/generate_backlog.py)"
+    ]
+  }
+}
