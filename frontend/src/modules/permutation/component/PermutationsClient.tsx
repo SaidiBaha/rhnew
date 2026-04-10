@@ -48,6 +48,8 @@ export function PermutationsClient({
     const [productionLineFilter, setProductionLineFilter] = useState<number | "">("");
     const [dateFrom, setDateFrom] = useState<string>("");
     const [dateTo, setDateTo] = useState<string>("");
+    const [createdAtFrom, setCreatedAtFrom] = useState<string>("");
+    const [createdAtTo, setCreatedAtTo] = useState<string>("");
     const [todayOnly, setTodayOnly] = useState(false);
     const [expandedOps, setExpandedOps] = useState<Record<number, boolean>>({});
 
@@ -224,9 +226,16 @@ export function PermutationsClient({
                 if (!overlaps) return false;
             }
 
+            if (createdAtFrom || createdAtTo) {
+                const createdDate = p.createdAt ? (p.createdAt as string).slice(0, 10) : "";
+                if (!createdDate) return false;
+                if (createdAtFrom && createdDate < createdAtFrom) return false;
+                if (createdAtTo && createdDate > createdAtTo) return false;
+            }
+
             return true;
         });
-    }, [data, supervisorFilter, productionLineFilter, dateFrom, dateTo, todayOnly, showTodayOnlyToggle]);
+    }, [data, supervisorFilter, productionLineFilter, dateFrom, dateTo, createdAtFrom, createdAtTo, todayOnly, showTodayOnlyToggle]);
 
     const totalItems = filteredData.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
@@ -283,6 +292,8 @@ export function PermutationsClient({
         setProductionLineFilter("");
         setDateFrom("");
         setDateTo("");
+        setCreatedAtFrom("");
+        setCreatedAtTo("");
         if (showTodayOnlyToggle) setTodayOnly(false);
         setPage(1);
     };
@@ -464,20 +475,55 @@ export function PermutationsClient({
                             ))}
                         </select>
 
-                        {/* Date début */}
+                        {/* Date début (permutation) */}
                         <input
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                             className="ds-input font-mono-data"
+                            title="Date de permutation — du"
                         />
 
-                        {/* Date fin */}
+                        {/* Date fin (permutation) */}
                         <input
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
                             className="ds-input font-mono-data"
+                            title="Date de permutation — au"
+                        />
+
+                        <span
+                            style={{
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.12em",
+                                color: "var(--text-3)",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            Créé du
+                        </span>
+
+                        {/* Date création — du */}
+                        <input
+                            type="date"
+                            value={createdAtFrom}
+                            onChange={(e) => { setCreatedAtFrom(e.target.value); setPage(1); }}
+                            className="ds-input font-mono-data"
+                            title="Date de création — du"
+                        />
+
+                        <span style={{ color: "var(--border-mid)" }}>→</span>
+
+                        {/* Date création — au */}
+                        <input
+                            type="date"
+                            value={createdAtTo}
+                            onChange={(e) => { setCreatedAtTo(e.target.value); setPage(1); }}
+                            className="ds-input font-mono-data"
+                            title="Date de création — au"
                         />
 
                         {/* Reset */}
@@ -530,6 +576,7 @@ export function PermutationsClient({
                                         <th className="text-left">Opérateurs</th>
                                         <th className="text-left">Dates</th>
                                         <th className="text-left">Horaires</th>
+                                        <th className="text-left">Date de création</th>
                                         <th className="text-left">Statut</th>
                                         <th className="text-right">Actions</th>
                                     </tr>
@@ -648,6 +695,18 @@ export function PermutationsClient({
                                                         style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-1)" }}
                                                     >
                                                         {f.timeRange}
+                                                    </span>
+                                                </td>
+
+                                                {/* DATE DE CREATION */}
+                                                <td className="px-5 py-4 align-top">
+                                                    <span
+                                                        className="font-mono-data"
+                                                        style={{ fontSize: "12px", color: "var(--text-3)" }}
+                                                    >
+                                                        {p.createdAt
+                                                            ? (p.createdAt as string).slice(0, 10)
+                                                            : "—"}
                                                     </span>
                                                 </td>
 

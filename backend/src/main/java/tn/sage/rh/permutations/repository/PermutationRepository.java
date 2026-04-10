@@ -11,6 +11,7 @@ import tn.sage.rh.permutations.entity.PermutationStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import org.springframework.data.jpa.repository.Modifying;
 
 public interface PermutationRepository extends JpaRepository<Permutation, Long> {
 
@@ -86,6 +87,39 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
     default List<Permutation> findAcceptedOverlapping(LocalDate from, LocalDate to) {
         return findAcceptedOverlapping(from, to, PermutationStatus.ACCEPTEE);
     }
+
+    /**
+     * Find all ACCEPTEE permutations whose endDate+endTime is strictly in the past.
+     * Used by PermutationExpirationScheduler to mark them TERMINEE.
+     */
+    @Query("""
+        select p from Permutation p
+        left join fetch p.operators op
+        where p.status = tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+          and (
+              p.endDate < :today
+              or (p.endDate = :today and p.endTime <= :now)
+          )
+    """)
+    List<Permutation> findExpiredAccepted(
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now
+    );
+
+    @Modifying
+    @Query("""
+        update Permutation p
+        set p.status = tn.sage.rh.permutations.entity.PermutationStatus.TERMINEE
+        where p.status = tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+          and (
+              p.endDate < :today
+              or (p.endDate = :today and p.endTime <= :now)
+          )
+    """)
+    int markExpiredAsTerminee(
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now
+    );
     @Query("""
         select count(p)
         from Permutation p

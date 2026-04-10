@@ -21,7 +21,7 @@ export function useChangePassword() {
         setSuccess(null);
 
         try {
-            await axios.put("http://192.168.2.102:9000/api/v1/users", data, {
+            await axios.put("http://192.168.8.32:9000/api/v1/users", data, {
                 headers: {
                     Authorization: `Bearer ${auth.accessToken}`,
                 },

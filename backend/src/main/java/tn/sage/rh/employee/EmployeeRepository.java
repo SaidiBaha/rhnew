@@ -16,7 +16,6 @@ import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
-    // Keep numeric matricules naturally ordered while safely supporting alphanumeric codes.
     String SAFE_MATRICULE_ORDER = """
         order by
           case
@@ -291,6 +290,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @Query("update Employee e set e.free = false")
     int resetFreeFalseForAll();
 
+    // ✅ MERGE FIX ICI
     @Query("""
         select e
         from Employee e
@@ -300,15 +300,18 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           and e.supervisor is not null
           and e.supervisor.matricule = :supervisorMatricule
           and e.matricule <> :supervisorMatricule
-              and not exists (
-                  select 1
-                  from Permutation p
-                  join p.operators o
-                  where o = e
-                    and p.status <> tn.sage.rh.permutations.entity.PermutationStatus.REFUSEE
-                    and p.startDate <= :day and p.endDate >= :day
-                    and (p.startTime < :endTime and p.endTime > :startTime)
-              )
+          and not exists (
+              select 1
+              from Permutation p
+              join p.operators o
+              where o = e
+                and p.status in (
+                    tn.sage.rh.permutations.entity.PermutationStatus.EN_ATTENTE,
+                    tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+                )
+                and p.startDate <= :day and p.endDate >= :day
+                and (p.startTime < :endTime and p.endTime > :startTime)
+          )
     """ + SAFE_MATRICULE_ORDER)
     List<Employee> findMyOperatorsAvailableForDay(
             @Param("supervisorMatricule") String supervisorMatricule,
@@ -337,6 +340,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         order by pl.id asc, count(op.id) desc
     """)
     List<ProjectBestSupervisorRow> findSupervisorCountsByProject();
+
     @Query("""
     select count(e)
     from Employee e

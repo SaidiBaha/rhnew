@@ -36,4 +36,15 @@ public class SaveAttendanceInputDto {
     private String overtime;
 
     private String absenceReason;
+
+    /** Nom du shift provenant de la colonne "Horaire." du fichier. */
+    private String horaire;
+
+    /** Heure de début planifiée ("HH:MM"). Optionnelle. */
+    @Pattern(regexp = "^([0-1]?\\d|2[0-3]):[0-5]\\d$", message = "Format invalide")
+    private String debut;
+
+    /** Heure de fin planifiée ("HH:MM"). Optionnelle. */
+    @Pattern(regexp = "^([0-1]?\\d|2[0-3]):[0-5]\\d$", message = "Format invalide")
+    private String fin;
 }

@@ -9,14 +9,13 @@ import { Separator } from "@/components/ui/Separator";
 import { FileUploadModal } from "@/components/modals/FileUploadModal";
 import { UploadAttendanceSchema } from "@/modules/attendance/schema";
 import { useBatchSaveAttendances } from "@/lib/data/attendance";
-import type { AttendanceRequest } from "@/modules/attendance/types";
 
 import {
   columns,
   type EmployeeAttendanceColumn,
 } from "@/modules/attendance/components/columns";
 import { DataTable } from "@/components/ui/DataTable";
-import { parseAttendance } from "../utils";
+import { validateAttendanceDates, parseNewAttendanceFormat } from "../utils";
 import { logError, showErrorToast } from "@/modules/employee/api-error";
 
 interface AttendancesClientProps {
@@ -33,32 +32,29 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
     try {
       const file = data.files[0];
       const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, {
-        type: "buffer",
-      });
+      const workbook = XLSX.read(arrayBuffer, { type: "buffer" });
 
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
 
+      // dateNF force le format YYYY-MM-DD sur les cellules date
       const jsonData: unknown[] = XLSX.utils.sheet_to_json(worksheet, {
         raw: false,
+        dateNF: "yyyy-mm-dd",
       });
 
-      const attendances: AttendanceRequest[] = jsonData.map((row, index) =>
-        parseAttendance(row, index)
-      );
+      // 1) Validation des dates : les 4 premières et 4 dernières uniques = aujourd'hui
+      validateAttendanceDates(jsonData);
 
+      // 2) Parse + regroupement (2 shifts par employé → 1 enregistrement)
+      const attendances = parseNewAttendanceFormat(jsonData);
+
+      // 3) Envoi au backend
       await batchSaveAttendances.mutateAsync(attendances);
       setIsFileUploadOpen(false);
-      toast.success("Import réussi !", {
-        duration: 4000,
-        icon: '✅',
-      });
+      toast.success("Import réussi !", { duration: 4000, icon: "✅" });
     } catch (error) {
-      // Logger l'erreur dans la console avec le contexte
       logError("Import des pointages", error);
-      
-      // Afficher un toast d'erreur avec les détails
       showErrorToast(error, "Erreur lors de l'import");
     } finally {
       setIsLoading(false);

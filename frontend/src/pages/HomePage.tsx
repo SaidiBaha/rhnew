@@ -146,6 +146,45 @@ function aggregateRows(rows: RowApi[]): RowProjet[] {
   return out;
 }
 
+/** Normalize without aggregating — 1 row per (project, supervisor) for the table */
+function normalizeRows(rows: RowApi[]): RowProjet[] {
+  const out: RowProjet[] = [];
+  for (const r of rows) {
+    const idProjet = Number(r.idProjet);
+    if (!Number.isFinite(idProjet)) continue;
+    const nomProjet =
+      (r.nomProjet ?? `Projet #${idProjet}`).toString().trim() || `Projet #${idProjet}`;
+    const supId =
+      r.idSuperviseur === undefined || r.idSuperviseur === null
+        ? null
+        : Number(r.idSuperviseur);
+    const supNom = (r.nomSuperviseur ?? "").toString().trim() || (supId ? `#${supId}` : "");
+    const supMat =
+      r.matriculeSuperviseur === undefined || r.matriculeSuperviseur === null
+        ? null
+        : String(r.matriculeSuperviseur);
+    const added = Number.isFinite(Number(r.heuresAjoutees)) ? Number(r.heuresAjoutees) : 0;
+    const transferred = Number.isFinite(Number(r.heuresTransferees))
+      ? Number(r.heuresTransferees)
+      : 0;
+    out.push({
+      idProjet,
+      nomProjet,
+      idSuperviseur: supId,
+      nomSuperviseur: supNom,
+      matriculeSuperviseur: supMat,
+      heuresAjoutees: round2(added),
+      heuresTransferees: round2(transferred),
+    });
+  }
+  out.sort((a, b) => {
+    const cmp = a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" });
+    if (cmp !== 0) return cmp;
+    return a.nomSuperviseur.localeCompare(b.nomSuperviseur, undefined, { sensitivity: "base" });
+  });
+  return out;
+}
+
 // ─── UI Sub-components ────────────────────────────────────────────────────────
 
 function StatCard({
@@ -716,6 +755,13 @@ export default function HomePage() {
 
   const today      = new Date().toISOString().slice(0, 10);
   const monthStart = useMemo(() => today.slice(0, 7) + "-01", [today]);
+  const weekStart  = useMemo(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }, [today]);
 
   // ── Supervisor / OpManager only: permutation data ────────────────────────────
   const { data: rawPermutations, isLoading: permLoading } = useFetchPermutations(isSupervisor || isOpManager);
@@ -742,12 +788,20 @@ export default function HomePage() {
   const permRefusees  = filteredPermutations.filter(p => p.status === "REFUSEE").length;
   const permTotalOps  = filteredPermutations.reduce((s, p) => s + p.operatorIds.length, 0);
 
-  const [du, setDu] = useState(monthStart);
+  const [datePreset, setDatePreset] = useState<"today" | "week" | "month">("today");
+  const [du, setDu] = useState(today);
   const [au, setAu] = useState(today);
 
   const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isOpManager);
 
+  // 1 row per (project, supervisor) — for the "Détails par projet" table
   const rowsByProject: RowProjet[] = useMemo(
+    () => normalizeRows((data ?? []) as RowApi[]),
+    [data]
+  );
+
+  // 1 row per project (aggregated) — for charts and topProjects
+  const rowsByProjectAgg: RowProjet[] = useMemo(
     () => aggregateRows((data ?? []) as RowApi[]),
     [data]
   );
@@ -775,7 +829,7 @@ export default function HomePage() {
 
   const topProjects = useMemo(
     () =>
-      [...rowsByProject]
+      [...rowsByProjectAgg]
         .map((r) => ({
           name: truncate(r.nomProjet, 18),
           ajoutees: r.heuresAjoutees,
@@ -784,7 +838,7 @@ export default function HomePage() {
         }))
         .sort((a, b) => b.total - a.total)
         .slice(0, 8),
-    [rowsByProject]
+    [rowsByProjectAgg]
   );
 
   const bySupervisor = useMemo(() => {
@@ -858,10 +912,13 @@ export default function HomePage() {
     () =>
       [...rowsByProject].sort((a, b) => {
         let cmp = 0;
-        if (sortField === "nom")
+        if (sortField === "ajoutees") cmp = a.heuresAjoutees - b.heuresAjoutees;
+        else if (sortField === "transferees") cmp = a.heuresTransferees - b.heuresTransferees;
+        else {
           cmp = a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" });
-        else if (sortField === "ajoutees") cmp = a.heuresAjoutees - b.heuresAjoutees;
-        else cmp = a.heuresTransferees - b.heuresTransferees;
+          if (cmp === 0)
+            cmp = a.nomSuperviseur.localeCompare(b.nomSuperviseur, undefined, { sensitivity: "base" });
+        }
         return sortDir === "asc" ? cmp : -cmp;
       }),
     [rowsByProject, sortField, sortDir]
@@ -1040,13 +1097,45 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* ── Preset buttons ── */}
+            {(
+              [
+                { key: "today", label: "Aujourd'hui", getDu: () => today, getAu: () => today },
+                { key: "week",  label: "Cette semaine", getDu: () => weekStart, getAu: () => today },
+                { key: "month", label: "Ce mois", getDu: () => monthStart, getAu: () => today },
+              ] as const
+            ).map(({ key, label, getDu, getAu }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setDu(getDu());
+                  setAu(getAu());
+                  setDatePreset(key);
+                  setChartDate("");
+                  setActiveProjectId(null);
+                }}
+                className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={
+                  datePreset === key
+                    ? { background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }
+                    : { background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }
+                }
+              >
+                {label}
+              </button>
+            ))}
+
+            <span style={{ color: "var(--border-mid)" }}>|</span>
+
+            {/* ── Manual date inputs ── */}
             <div className="flex items-center gap-2">
               <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Du</span>
               <input
                 type="date"
                 value={du}
-                onChange={(e) => setDu(e.target.value)}
+                onChange={(e) => { setDu(e.target.value); setDatePreset("today"); setChartDate(""); }}
                 className="ds-input font-mono-data"
               />
             </div>
@@ -1056,7 +1145,7 @@ export default function HomePage() {
               <input
                 type="date"
                 value={au}
-                onChange={(e) => setAu(e.target.value)}
+                onChange={(e) => { setAu(e.target.value); setDatePreset("today"); setChartDate(""); }}
                 className="ds-input font-mono-data"
               />
             </div>
@@ -1232,7 +1321,7 @@ export default function HomePage() {
                   const total = round2(r.heuresAjoutees + r.heuresTransferees);
                   return (
                     <tr
-                      key={r.idProjet}
+                      key={`${r.idProjet}-${r.idSuperviseur ?? "null"}`}
                       style={{
                         borderBottom: "1px solid var(--border)",
                         animationDelay: `${idx * 0.03}s`,

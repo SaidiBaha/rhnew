@@ -9,7 +9,7 @@ import tn.sage.rh.salary.service.SalaryAdvanceService;
 import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserRepository;
 
-import static tn.sage.rh.user.UserRole.SUPERVISOR;
+import tn.sage.rh.user.UserRole;
 
 @Component
 @AllArgsConstructor
@@ -28,9 +28,17 @@ public class EmployeeCreationListener {
             User user = User.builder()
                     .employee(event.getEmployee())
                     .password(passwordEncoder.encode(employee.getMatricule()))
-                    .role(SUPERVISOR)
+                    .role(determineRole(employee))
                     .build();
             userRepository.save(user);
         }
+    }
+
+    private static UserRole determineRole(Employee employee) {
+        if (employee.getJobTitle() != null
+                && "AIDE SOIGNANTE".equalsIgnoreCase(employee.getJobTitle().getTitle())) {
+            return UserRole.NURSE;
+        }
+        return UserRole.SUPERVISOR;
     }
 }

@@ -1,0 +1,58 @@
+Epic ID,Epic Nom,Ticket ID,Titre,Type,Priorité,Statut
+EPIC-1,Design System & UI Foundation,DS-1,Définir les tokens CSS globaux (couleurs, radius, typographie, espacements),Task,Haute,Done
+EPIC-1,Design System & UI Foundation,DS-2,Refactoriser la Sidebar avec design system (nav groups rôles icônes dynamiques),Story,Haute,Done
+EPIC-1,Design System & UI Foundation,DS-3,Corriger le padding de recherche dans DataTable,Bug,Moyenne,Done
+EPIC-1,Design System & UI Foundation,DS-4,Corriger le layout de la dropzone dans FileUploadModal,Bug,Moyenne,Done
+EPIC-1,Design System & UI Foundation,DS-5,Ajouter les props initialPageSize et hidePagination à DataTable,Task,Moyenne,Done
+EPIC-2,Module Employés,EMP-1,Backend : endpoint GET /employees avec pagination (page size),Story,Haute,Done
+EPIC-2,Module Employés,EMP-2,Backend : PageResponse<T> — wrapper générique paginé,Task,Haute,Done
+EPIC-2,Module Employés,EMP-3,Frontend : hook useFetchEmployeesPaged avec placeholderData,Task,Haute,Done
+EPIC-2,Module Employés,EMP-4,Frontend : contrôles de pagination dans EmployeesClient (prev/next/numéros),Task,Haute,Done
+EPIC-2,Module Employés,EMP-5,Ajouter le champ email sur l'entité Employee (nullable import Excel),Story,Moyenne,Done
+EPIC-2,Module Employés,EMP-6,Backend : filtres serveur sur /pagination (ligne poste type dates embauche),Story,Haute,Done
+EPIC-2,Module Employés,EMP-7,Frontend : barre de filtres UI dans EmployeesClient (dropdowns + date range),Task,Haute,Done
+EPIC-2,Module Employés,EMP-8,Frontend : hook useFetchEmployeesForFilters pour peupler les dropdowns,Task,Moyenne,Done
+EPIC-2,Module Employés,EMP-9,Export Excel : colonne EMAIL + colonnes filtres,Task,Basse,Done
+EPIC-3,Authentification & Rôles,AUTH-1,Ajouter le rôle NURSE dans UserRole enum,Task,Haute,Done
+EPIC-3,Authentification & Rôles,AUTH-2,Logique d'attribution automatique NURSE si poste = AIDE SOIGNANTE (création unitaire),Story,Haute,Done
+EPIC-3,Authentification & Rôles,AUTH-3,Même logique pour les imports batch (EmployeeCreationListener),Task,Haute,Done
+EPIC-3,Authentification & Rôles,AUTH-4,Backfill au démarrage : SUPERVISOR → NURSE pour employés existants (DataInitializer),Task,Haute,Done
+EPIC-3,Authentification & Rôles,AUTH-5,Autoriser NURSE sur /api/v1/users/** dans SecurityConfiguration,Task,Haute,Done
+EPIC-3,Authentification & Rôles,AUTH-6,Frontend : ajouter NURSE au type UserRole route /change-password et Sidebar,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-1,Backend : endpoint GET /attendances/today avec filtrage SUPERVISOR,Story,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-2,Backend : endpoint PUT /attendances/{id} — édition clockIn/clockOut/motif,Story,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-3,Backend : repository — findAllByDate + findAllByDateAndSupervisor,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-4,Frontend : types DailyAttendance et UpdateAttendanceRequest,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-5,Frontend : hook useFetchTodayPresence,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-6,Frontend : hook useImportPresence (batch-save + toast succès/erreur),Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-7,Frontend : hook useUpdateAttendance (toast succès/erreur),Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-8,Frontend : colonnes buildColumns avec badge statut calculé dynamiquement,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-9,Frontend : EditAttendanceModal — édition inline avec statut live,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-10,Frontend : PresenceClient — bouton import table guard canImport,Story,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-11,Frontend : validation import — type fichier (.xlsx/.xls) + taille max 10 Mo,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-12,Frontend : PresencePage + route protégée (ADMIN SUPERVISOR SUPER_ADMIN),Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-13,Frontend : pagination 50 lignes/page dans PresenceClient,Task,Moyenne,Done
+EPIC-5,Module Historique Présences / Absences,HIS-1,Backend : endpoint GET /attendances/history avec filtrage SUPERVISOR + KPI,Story,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-2,Backend : endpoint GET /attendances/history/{matricule} avec filtrage SUPERVISOR,Story,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-3,Backend : repository — findAllForHistory + findAllForHistoryBySupervisor,Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-4,Backend : repository — findByMatriculeAndDateRange + variante superviseur,Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-5,Frontend : types HistoryFilter HistoryEmployeeSummary HistoryResponse,Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-6,Frontend : utilitaire buildDateRange (Africa/Tunis — sans décalage UTC),Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-7,Frontend : hook useFetchHistorySummary,Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-8,Frontend : hook useFetchEmployeeHistory,Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-9,Frontend : hook useUpdateHistoryAttendance (toast succès/erreur),Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-10,Frontend : FilterBar — presets (today/week/month/all) + custom range,Task,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-11,Frontend : HistoryClient — KPI cards + table employés + recherche,Story,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-12,Frontend : EmployeeHistoryDetail — vue détail journalier + EditModal inline,Story,Haute,Done
+EPIC-5,Module Historique Présences / Absences,HIS-13,Frontend : pagination 25 lignes/page dans HistoryClient,Task,Moyenne,Done
+EPIC-5,Module Historique Présences / Absences,HIS-14,Frontend : HistoriquePresencePage + route protégée,Task,Haute,Done
+EPIC-6,RBAC & Sécurité,RBC-1,Backend : scoping SUPERVISOR sur findEmployeeHistory (détail par matricule),Story,Haute,Done
+EPIC-6,RBAC & Sécurité,RBC-2,Backend : repository findByMatriculeAndDateRangeForSupervisor,Task,Haute,Done
+EPIC-6,RBAC & Sécurité,RBC-3,Frontend : guard canEdit sur le bouton Éditer dans PresenceClient,Task,Moyenne,Done
+EPIC-6,RBAC & Sécurité,RBC-4,Frontend : guard canEdit sur le bouton Modifier dans EmployeeHistoryDetail,Task,Moyenne,Done
+EPIC-7,Bugs & Correctifs techniques,BUG-1,Fix : buildDateRange utilisait toISOString() (UTC) — date fausse à minuit Africa/Tunis,Bug,Haute,Done
+EPIC-7,Bugs & Correctifs techniques,BUG-2,Fix : PostgreSQL could not determine data type of parameter $1 sur les requêtes history,Bug,Critique,Done
+EPIC-7,Bugs & Correctifs techniques,BUG-3,Fix : CAST(:dateFrom AS LocalDate) dans les 4 requêtes avec paramètres date nullable,Task,Critique,Done
+EPIC-7,Bugs & Correctifs techniques,BUG-4,Fix : bugs liste free operators,Bug,Haute,Done
+EPIC-7,Bugs & Correctifs techniques,BUG-5,Fix : bugs module permutation,Bug,Haute,Done
+EPIC-7,Bugs & Correctifs techniques,BUG-6,Fix : erreurs de build,Bug,Haute,Done

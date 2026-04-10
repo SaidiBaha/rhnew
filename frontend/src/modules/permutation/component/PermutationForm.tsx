@@ -13,6 +13,7 @@ import type { PermutationCreatePayload, Permutation, TypePermutation } from "../
 
 import { useFetchEmployees } from "@/modules/employee/hooks/useFetchEmployees";
 import { useFetchFreeEmployees } from "@/modules/employee/hooks/useFetchFreeEmployees";
+import { useFetchEligibleOperators } from "@/modules/employee/hooks/useFetchEligibleOperators";
 import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
 import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
 import { useFetchProductionLines } from "@/modules/permutation/hooks/useFetchProductionLines";
@@ -123,9 +124,6 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     const [endTime, setEndTime] = useState(initialShift.endTime);
 
     const {
-        data: employees,
-        isLoading: empLoading,
-        isFetching: empFetching,
         error: empError,
         refetch: refetchEmployees,
     } = useFetchEmployees({ includeAll: mode === "choose" });
@@ -158,12 +156,19 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
         error: plError,
     } = useFetchProductionLines();
 
+    const {
+        data: eligibleOperators,
+        isLoading: eligLoading,
+        isFetching: eligFetching,
+    } = useFetchEligibleOperators(startTime, endTime);
+
     const { mutateAsync, isPending } = useCreatePermutation();
 
     // Déterminer quelle liste d'opérateurs utiliser selon le type
-    const allOperators = (employees ?? []) as EmployeeLocal[];
     const freeOperatorsList = (freeEmployees ?? []) as EmployeeLocal[];
-    const operators = typePermutation === "RECEVOIR" ? freeOperatorsList : allOperators;
+    // ENVOYER : opérateurs éligibles (sans chevauchement de permutation ACCEPTEE)
+    const eligibleList = (eligibleOperators ?? []) as EmployeeLocal[];
+    const operators = typePermutation === "RECEVOIR" ? freeOperatorsList : eligibleList;
 
     const permutations: Permutation[] = permutationsData ?? [];
     const lines = productionLines ?? [];
@@ -350,7 +355,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
     };
 
     const isLoading =
-        (typePermutation === "ENVOYER" && (empLoading || empFetching)) ||
+        (typePermutation === "ENVOYER" && (eligLoading || eligFetching)) ||
         (typePermutation === "RECEVOIR" && (freeEmpLoading || freeEmpFetching)) ||
         supLoading ||
         supFetching ||
@@ -727,7 +732,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                     type="date"
                                     className={inputCls}
                                     value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    onChange={(e) => {
+                                        setStartDate(e.target.value);
+                                        if (typePermutation === "ENVOYER") setEndDate(e.target.value);
+                                    }}
                                     required
                                 />
                             </div>
@@ -736,9 +744,10 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 <p className="mb-1 text-[10px] font-medium text-slate-400">Date de fin</p>
                                 <input
                                     type="date"
-                                    className={inputCls}
+                                    className={`${inputCls} ${typePermutation === "ENVOYER" ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
+                                    readOnly={typePermutation === "ENVOYER"}
                                     required
                                 />
                             </div>
@@ -817,6 +826,13 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                     />
 
                     {typePermutation === "ENVOYER" ? (
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2">
+                                <CheckCircleIcon className="h-4 w-4 shrink-0 text-blue-500" />
+                                <span className="text-xs font-medium text-blue-700">
+                                    Opérateurs disponibles pour ce créneau ({startTime} → {endTime})
+                                </span>
+                            </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-slate-600">Filtrer par :</span>
                             <div className="flex gap-1">
@@ -867,6 +883,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                                 </button>
                             </div>
                         </div>
+                        </div>
                     ) : (
                         <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3">
                             <CheckCircleIcon className="h-5 w-5 text-green-600" />
@@ -885,7 +902,7 @@ export function PermutationForm({ onCreated, mode = "send" }: Props) {
                             </div>
                             <p className="text-xs font-medium text-slate-500">
                                 {typePermutation === "ENVOYER"
-                                    ? "Aucun opérateur disponible pour cette période / recherche."
+                                    ? "Aucun opérateur disponible sur ce créneau (tous sont déjà en permutation ou filtré par la recherche)."
                                     : "Aucun opérateur libre disponible pour le moment."}
                             </p>
                         </div>

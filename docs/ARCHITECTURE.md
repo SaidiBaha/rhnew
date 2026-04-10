@@ -28,8 +28,9 @@ Client (navigateur)
 - `SecurityConfiguration` : filtre JWT avant UsernamePasswordAuthenticationFilter, CORS configure via `WebConfig`
 - `JwtAuthenticationFilter` : extrait le Bearer token, valide via `JwtService`, injecte le `SecurityContext`
 - `JwtService` : signe avec HMAC-SHA256, secret dans `application.properties`
-- `LogoutService` : invalide le token cote serveur (token blacklist ou similaire)
+- `LogoutService` : invalide le token cote serveur (token blacklist via table `token`)
 - `ApplicationAuditAware` : fournit le `currentAuditor` pour `@CreatedBy`/`@LastModifiedBy`
+- `DataInitializer` : `ApplicationRunner` qui cree les comptes SUPER_ADMIN et PLANIFICATEUR au demarrage, et backfille le role NURSE pour les employes "AIDE SOIGNANTE" existants
 
 #### Gestion des erreurs
 - `RestExceptionHandler` (handlers/) : `@ControllerAdvice` global, retourne `ErrorDto`
@@ -47,6 +48,7 @@ Client (navigateur)
 - `EmployeeValidator` : validations metier avant persistance
 - Events Spring : `EmployeeCreationEvent`/`EmployeeBatchSaveEvent` pour les effets de bord asynchrones
 - Batch insert JDBC optimise (taille 100, inserts ordonnes)
+- Attribution automatique du role : si `JobTitle.title == "AIDE SOIGNANTE"` → `NURSE`, sinon → `SUPERVISOR`
 
 **`attendance/`**
 - Entite `Attendance` avec `AbsenceReason`
@@ -71,6 +73,23 @@ Client (navigateur)
 **`auth/`**
 - `AuthenticationController` : login, register, refresh-token, validate-token
 - Retourne `AuthenticationResponseDto` contenant `accessToken` + `refreshToken` + infos user
+- Reset mot de passe via OTP email (Gmail SMTP, expiration 15 min)
+
+**`salary/`**
+- `SalaryAdvance` + `SalaryAdvanceDeadline`
+- Creation automatique d'un enregistrement `SalaryAdvance` a chaque creation d'employe (via event)
+
+**`request/`**
+- `Request` avec `RequestType` et `RequestStatus`
+
+**`edi/`**
+- Parsing, validation et conversion de fichiers EDI DELFOR → CSV
+- Historique des conversions
+
+**`user/`**
+- `User` (lie a `Employee` via `@OneToOne`)
+- `UserRole` : ADMIN | SUPERVISOR | OPERATIONAL_MANAGER | PLANIFICATEUR | SUPER_ADMIN | **NURSE**
+- Mot de passe = matricule (par defaut), hashé bcrypt
 
 ---
 
@@ -79,16 +98,17 @@ Client (navigateur)
 ### Routing (`App.tsx`)
 React Router v7 avec protection par roles :
 
-| Path | Roles |
+| Path | Roles autorises |
 |---|---|
-| `/` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER |
-| `/employees` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER |
-| `/salary-advances` | ADMIN, SUPERVISOR |
-| `/attendances` | ADMIN, SUPERVISOR |
-| `/requests` | ADMIN, SUPERVISOR |
-| `/permutations` | SUPERVISOR, OPERATIONAL_MANAGER |
-| `/free-operators` | SUPERVISOR, OPERATIONAL_MANAGER |
-| `/change-password` | tous |
+| `/` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
+| `/employees` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
+| `/salary-advances` | ADMIN, SUPERVISOR, SUPER_ADMIN |
+| `/attendances` | ADMIN, SUPERVISOR, SUPER_ADMIN |
+| `/requests` | ADMIN, SUPERVISOR, SUPER_ADMIN |
+| `/permutations` | SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
+| `/free-operators` | SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
+| `/edi` | PLANIFICATEUR, SUPER_ADMIN |
+| `/change-password` | tous (ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, PLANIFICATEUR, SUPER_ADMIN, **NURSE**) |
 
 `PersistLogin` : rehydrate la session via refresh token au rechargement de page.
 `ProtectedRoute` : redirige vers `/login` si non authentifie ou role insuffisant.
@@ -119,6 +139,8 @@ modules/employee/
 ├── constants.ts      # Constantes (listes de valeurs, labels)
 ├── hooks/
 │   ├── useFetchEmployees.ts
+│   ├── useFetchEmployeesPaged.ts
+│   ├── useFetchEmployeesForFilters.ts
 │   ├── useCreateEmployee.ts
 │   ├── useUpdateEmployee.ts
 │   └── useDeleteEmployee.ts
@@ -135,8 +157,37 @@ modules/employee/
 
 ### CSS / Design system
 - TailwindCSS 4 via plugin Vite
-- Variables CSS custom : `--accent` (orange), `--navy`, `--surface`, `--border`, `--text-2`, `--text-3`, `--steel-light`, `--accent-soft`, `--red`, `--red-soft`
-- Classe utilitaire `font-mono-data` pour les matricules et donnees numeriques
+- Variables CSS custom dans `src/index.css` :
+
+| Token | Valeur |
+|---|---|
+| `--bg` | `#f4f6fb` |
+| `--white` | `#ffffff` |
+| `--sidebar-bg` | `#1b2444` |
+| `--accent` | `#2f6bff` |
+| `--accent2` | `#00c48c` |
+| `--accent3` | `#ff8c00` |
+| `--accent4` | `#f03e3e` |
+| `--text` | `#1a2340` |
+| `--border` | `#e4e8f0` |
+| `--radius` | `14px` |
+| Police UI | `Plus Jakarta Sans` |
+| Police mono | `Fira Code` |
+
+---
+
+## Roles utilisateurs
+
+| Role | Description | Acces |
+|---|---|---|
+| `ADMIN` | Administration RH | Employes CRUD, avances, pointage, demandes |
+| `SUPERVISOR` | Chef d'equipe | Ses operateurs, avances, pointage, demandes, permutations |
+| `OPERATIONAL_MANAGER` | Responsable operations | Dashboard, permutations, operateurs disponibles |
+| `PLANIFICATEUR` | Planification | Module EDI uniquement |
+| `SUPER_ADMIN` | Acces total | Toutes les fonctionnalites |
+| `NURSE` | Infirmier/aide soignante | Changement de mot de passe uniquement |
+
+**Regle d'attribution automatique** : lors de la creation (unitaire ou batch) d'un employe dont le `Poste Occupe` (JobTitle) vaut `"AIDE SOIGNANTE"`, le compte utilisateur est cree avec le role `NURSE` plutot que `SUPERVISOR`.
 
 ---
 
@@ -159,3 +210,8 @@ modules/employee/
 - Custom dialect `PostgresDialect` pour compatibilite requetes natives
 - Audit automatique via `@EnableJpaAuditing` + `ApplicationAuditAware`
 - Batch inserts actives pour les operations en masse sur les employes
+
+## Pagination employes
+
+`GET /api/v1/employees/pagination` accepte : `page`, `size`, `search`, `productionLine`, `shift`, `employmentType`, `hireDateFrom`, `hireDateTo`, `leftCompanyFilter`.
+Retourne `PageResponse<EmployeeDto>` avec `content`, `pageNumber`, `pageSize`, `totalElements`, `totalPages`, `first`, `last`.

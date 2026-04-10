@@ -41,6 +41,15 @@ public class Attendance {
 
     private Duration overtime;
 
+    /** Nom du shift (ex: "Shift matin", "Shift Nuit", "ADM"). */
+    private String horaire;
+
+    /** Heure de début planifiée. */
+    private LocalTime debut;
+
+    /** Heure de fin planifiée. */
+    private LocalTime fin;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "absence_reason_id")
     private AbsenceReason absenceReason;
