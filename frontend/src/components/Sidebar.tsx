@@ -99,16 +99,7 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
 
 /* ===================== SIDEBAR ===================== */
 const PRINCIPAL_ITEMS: NavigationItem[] = [
-<<<<<<< HEAD
-  { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER"] },
-  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN"] },
-  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN"] },
-  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",     allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Correction Pointage",  icon: "search-check",       path: "",                 allowedRoles: ["ADMIN", "SUPERVISOR"] },
-  { label: "Historique des avances",icon: "history",             path: "/salary-advances/history", allowedRoles: ["ADMIN"] },
 
-=======
   { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
   { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
@@ -117,7 +108,7 @@ const PRINCIPAL_ITEMS: NavigationItem[] = [
   { label: "Présences / Absences", icon: "user-round-check",   path: "/presence-absences",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
   { label: "Historique Présences", icon: "calendar-search",    path: "/historique-presence",   allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
   { label: "Correction Pointage",  icon: "search-check",       path: "",                       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
->>>>>>> main
+
 ];
 
 const GESTION_ITEMS: NavigationItem[] = [

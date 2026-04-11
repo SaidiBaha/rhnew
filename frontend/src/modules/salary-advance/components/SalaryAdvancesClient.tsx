@@ -152,12 +152,12 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
               {isLocked ? (
                 <>
                   <Lock className="mr-2 size-4" />
-                  AccÃ¨s VerrouillÃ©
+                  Accès Verrouillé
                 </>
               ) : (
                 <>
                   <Unlock className="mr-2 size-4" />
-                  AccÃ¨s DÃ©verrouillÃ©
+                  Accès Déverrouillé
                 </>
               )}
             </Toggle>
