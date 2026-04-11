@@ -7,7 +7,9 @@
       "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -m pip install openpyxl --quiet)",
       "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -m pip install openpyxl --break-system-packages --quiet)",
       "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe -c 'import openpyxl; print\\('\\\\''ok'\\\\''\\)')",
-      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe /c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/generate_backlog.py)"
+      "Bash(/c/Users/w.boujlida/AppData/Roaming/uv/python/cpython-3.14.3-windows-x86_64-none/python.exe /c/Users/w.boujlida/Desktop/Baha-dev/rh-main/rh/generate_backlog.py)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Read(//tmp/**)"
     ]
   }
 }

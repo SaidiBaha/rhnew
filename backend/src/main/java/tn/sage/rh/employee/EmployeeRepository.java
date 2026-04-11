@@ -34,6 +34,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByMatricule(String matricule);
 
     @Query("""
+        select count(e) from Employee e
+        where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
+    """)
+    long countActive();
+
+    @Query("""
         select e from Employee e
         where e.deleted = false
           and e.departureDate is null

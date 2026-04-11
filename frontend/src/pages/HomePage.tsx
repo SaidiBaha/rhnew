@@ -1,1424 +1,985 @@
 // src/pages/HomePage.tsx
-import { useMemo, useState } from "react";
-import { Loader } from "@/components/Loader";
-import { ErrorAlert } from "@/components/ErrorAlert";
-import { useFetchProjectHours } from "@/modules/dashboard/hooks/useFetchProjectHours";
-import useAuth from "@/hooks/useAuth";
-
-import { exportProjectHoursToExcel } from "@/modules/dashboard/utils/exportProjectHoursExcel";
-import { exportProjectHoursToPdf } from "@/modules/dashboard/utils/exportProjectHoursPdf";
-
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   Legend,
-  Brush,
-  AreaChart,
-  Area,
-  CartesianGrid,
 } from "recharts";
-import { useFetchPermutations } from "@/modules/permutation/hooks/useFetchPermutations";
-import type { Permutation } from "@/modules/permutation/types";
-import { AdminSalaryAdvanceDashboardCard } from "@/modules/salary-advance/components/AdminSalaryAdvanceDashboardCard";
 
-function hasRole(auth: any, role: string) {
-  const r =
-    auth?.user?.role ||
-    auth?.role ||
-    auth?.user?.authorities?.[0] ||
-    auth?.authorities?.[0] ||
-    null;
-  if (!r) return false;
-  const raw = typeof r === "string" ? r : r?.authority;
-  if (!raw) return false;
-  return String(raw).replace("ROLE_", "") === role;
+import { useFetchAdminDashboard } from "@/modules/dashboard/hooks/useFetchAdminDashboard";
+import type { DashboardPeriod } from "@/modules/dashboard/types";
+import useAuth from "@/hooks/useAuth";
+import LegacyDashboard from "@/pages/LegacyDashboard";
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function fmtCurrency(n: number) {
+  return new Intl.NumberFormat("fr-TN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n ?? 0) + " TND";
 }
 
-type RowApi = {
-  idProjet: number;
-  nomProjet: string;
-  idSuperviseur: number | null;
-  nomSuperviseur: string;
-  matriculeSuperviseur?: string | null;
-  heuresAjoutees: number;
-  heuresTransferees: number;
-};
-
-type RowProjet = {
-  idProjet: number;
-  nomProjet: string;
-  idSuperviseur: number | null;
-  nomSuperviseur: string;
-  matriculeSuperviseur: string | null;
-  heuresAjoutees: number;
-  heuresTransferees: number;
-};
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
+function fmtPct(n: number) {
+  return `${(n ?? 0).toFixed(1)} %`;
 }
 
-function formatH(n: number) {
-  const v = Number.isFinite(n) ? n : 0;
-  return `${v.toFixed(2)} h`;
+function todayTunis() {
+  return new Intl.DateTimeFormat("fr-TN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Africa/Tunis",
+  }).format(new Date());
 }
 
-function truncate(s: string, max = 18) {
-  return s.length > max ? s.slice(0, max - 1) + "…" : s;
-}
+const DEPT_COLORS = ["#2f6bff", "#00c48c", "#ff8c00", "#f03e3e", "#7F77DD", "#17a2b8"];
 
-/** Shared aggregation logic — 1 row per project */
-function aggregateRows(rows: RowApi[]): RowProjet[] {
-  type SupAgg = { id: number | null; nom: string; matricule: string | null; score: number };
-  type Agg = {
-    idProjet: number;
-    nomProjet: string;
-    heuresAjoutees: number;
-    heuresTransferees: number;
-    bySup: Map<string, SupAgg>;
-  };
+type DeltaProps = { value: number; unit?: string; invert?: boolean };
 
-  const map = new Map<number, Agg>();
-
-  for (const r of rows) {
-    const idProjet = Number(r.idProjet);
-    if (!Number.isFinite(idProjet)) continue;
-
-    const nomProjet =
-      (r.nomProjet ?? `Projet #${idProjet}`).toString().trim() || `Projet #${idProjet}`;
-    const supId =
-      r.idSuperviseur === undefined || r.idSuperviseur === null
-        ? null
-        : Number(r.idSuperviseur);
-    const supNom = (r.nomSuperviseur ?? "").toString().trim() || (supId ? `#${supId}` : "");
-    const supMat =
-      r.matriculeSuperviseur === undefined || r.matriculeSuperviseur === null
-        ? null
-        : String(r.matriculeSuperviseur);
-
-    const added = Number.isFinite(Number(r.heuresAjoutees)) ? Number(r.heuresAjoutees) : 0;
-    const transferred = Number.isFinite(Number(r.heuresTransferees))
-      ? Number(r.heuresTransferees)
-      : 0;
-    const score = added + transferred;
-    const supKey = `${supId ?? "null"}|${supNom}|${supMat ?? ""}`;
-
-    let agg = map.get(idProjet);
-    if (!agg) {
-      agg = { idProjet, nomProjet, heuresAjoutees: 0, heuresTransferees: 0, bySup: new Map() };
-      map.set(idProjet, agg);
-    }
-    agg.heuresAjoutees += added;
-    agg.heuresTransferees += transferred;
-    if (!agg.nomProjet || agg.nomProjet.startsWith("Projet #")) agg.nomProjet = nomProjet;
-
-    const ex = agg.bySup.get(supKey);
-    if (!ex) agg.bySup.set(supKey, { id: supId, nom: supNom, matricule: supMat, score });
-    else ex.score += score;
-  }
-
-  const out: RowProjet[] = [];
-  for (const a of map.values()) {
-    let best: SupAgg | null = null;
-    for (const s of a.bySup.values()) {
-      if (!best) best = s;
-      else if ((s.score ?? 0) > (best.score ?? 0)) best = s;
-    }
-    out.push({
-      idProjet: a.idProjet,
-      nomProjet: a.nomProjet,
-      idSuperviseur: best?.id ?? null,
-      nomSuperviseur: best?.nom ?? "",
-      matriculeSuperviseur: best?.matricule ?? null,
-      heuresAjoutees: round2(a.heuresAjoutees),
-      heuresTransferees: round2(a.heuresTransferees),
-    });
-  }
-
-  out.sort((a, b) => a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" }));
-  return out;
-}
-
-/** Normalize without aggregating — 1 row per (project, supervisor) for the table */
-function normalizeRows(rows: RowApi[]): RowProjet[] {
-  const out: RowProjet[] = [];
-  for (const r of rows) {
-    const idProjet = Number(r.idProjet);
-    if (!Number.isFinite(idProjet)) continue;
-    const nomProjet =
-      (r.nomProjet ?? `Projet #${idProjet}`).toString().trim() || `Projet #${idProjet}`;
-    const supId =
-      r.idSuperviseur === undefined || r.idSuperviseur === null
-        ? null
-        : Number(r.idSuperviseur);
-    const supNom = (r.nomSuperviseur ?? "").toString().trim() || (supId ? `#${supId}` : "");
-    const supMat =
-      r.matriculeSuperviseur === undefined || r.matriculeSuperviseur === null
-        ? null
-        : String(r.matriculeSuperviseur);
-    const added = Number.isFinite(Number(r.heuresAjoutees)) ? Number(r.heuresAjoutees) : 0;
-    const transferred = Number.isFinite(Number(r.heuresTransferees))
-      ? Number(r.heuresTransferees)
-      : 0;
-    out.push({
-      idProjet,
-      nomProjet,
-      idSuperviseur: supId,
-      nomSuperviseur: supNom,
-      matriculeSuperviseur: supMat,
-      heuresAjoutees: round2(added),
-      heuresTransferees: round2(transferred),
-    });
-  }
-  out.sort((a, b) => {
-    const cmp = a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" });
-    if (cmp !== 0) return cmp;
-    return a.nomSuperviseur.localeCompare(b.nomSuperviseur, undefined, { sensitivity: "base" });
-  });
-  return out;
-}
-
-// ─── UI Sub-components ────────────────────────────────────────────────────────
-
-function StatCard({
-  label,
-  value,
-  color,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  color: "navy" | "teal" | "accent" | "green" | "red";
-  icon: React.ReactNode;
-}) {
-  const palette = {
-    navy:   { border: "var(--navy)",   iconBg: "rgba(26,35,50,0.08)",   iconColor: "var(--navy)" },
-    teal:   { border: "var(--teal)",   iconBg: "var(--teal-soft)",       iconColor: "var(--teal)" },
-    accent: { border: "var(--accent)", iconBg: "var(--accent-soft)",     iconColor: "var(--accent)" },
-    green:  { border: "var(--green)",  iconBg: "var(--green-soft)",      iconColor: "var(--green)" },
-    red:    { border: "var(--red)",    iconBg: "var(--red-soft)",        iconColor: "var(--red)" },
-  }[color];
-
+function Delta({ value, unit = "", invert = false }: DeltaProps) {
+  if (value === 0) return <span style={{ color: "var(--muted)", fontSize: 12 }}>— stable</span>;
+  const positive = invert ? value < 0 : value > 0;
+  const color = positive ? "var(--accent2)" : "var(--accent4)";
+  const sign = value > 0 ? "+" : "";
   return (
-    <div
-      className="ds-stat-card"
-      style={{ borderLeft: `4px solid ${palette.border}` }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <span
-          style={{
-            fontSize: "10px",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.12em",
-            color: "var(--text-3)",
-          }}
-        >
-          {label}
-        </span>
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-md"
-          style={{ background: palette.iconBg, color: palette.iconColor }}
-        >
-          {icon}
-        </span>
-      </div>
-      <div
-        className="font-mono-data"
-        style={{ fontSize: "28px", fontWeight: 600, color: "var(--text-1)", lineHeight: 1 }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-/** Semi-circle gauge */
-function GaugeCard({
-  title,
-  subtitle,
-  percent,
-  legendLeft,
-  legendRight,
-}: {
-  title: string;
-  subtitle?: string;
-  percent: number;
-  legendLeft: string;
-  legendRight: string;
-}) {
-  const p = Math.max(0, Math.min(100, percent));
-  const data = [
-    { name: "left",  value: p },
-    { name: "right", value: 100 - p },
-    { name: "rest",  value: 0 },
-  ];
-  const COLORS = ["#0d7ea8", "#e85d26", "#e8ecf2"];
-
-  return (
-    <div className="ds-card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>{title}</div>
-          {subtitle && <div style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>{subtitle}</div>}
-        </div>
-        <div
-          className="font-mono-data rounded-md px-3 py-1.5"
-          style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-2)", background: "var(--surface2)", border: "1px solid var(--border)" }}
-        >
-          {p.toFixed(1)}%
-        </div>
-      </div>
-
-      <div className="mt-3 h-[130px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              cx="50%" cy="100%"
-              startAngle={180} endAngle={0}
-              innerRadius={60} outerRadius={82}
-              paddingAngle={2}
-              stroke="transparent"
-              isAnimationActive={false}
-            >
-              {data.map((_, idx) => (
-                <Cell key={idx} fill={COLORS[idx] ?? "#e5e7eb"} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value: number | undefined, name: string | undefined) => {
-                if (name === "rest" || Number(value) === 0) return null;
-                const label = name === "left" ? legendLeft : legendRight;
-                return [`${Number(value).toFixed(1)}%`, label];
-              }}
-              contentStyle={{
-                borderRadius: "0.5rem",
-                border: "1px solid #e2e8f0",
-                fontSize: "12px",
-                padding: "6px 10px",
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="mt-2 flex items-center justify-center gap-6" style={{ fontSize: "12px" }}>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full" style={{ background: "var(--teal)" }} />
-          <span style={{ color: "var(--text-2)" }}>{legendLeft}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full" style={{ background: "var(--accent)" }} />
-          <span style={{ color: "var(--text-2)" }}>{legendRight}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Grouped bar chart — ajoutées vs transférées per project */
-function ProjectsAddedTransferredCard({
-  title,
-  subtitle,
-  data,
-  activeProjectId,
-  onToggleProject,
-  chartDate,
-  onChartDateChange,
-  loading,
-  onReset,
-}: {
-  title: string;
-  subtitle?: string;
-  data: { id: number; name: string; ajoutees: number; transferees: number }[];
-  activeProjectId: number | null;
-  onToggleProject: (id: number) => void;
-  chartDate: string | "";
-  onChartDateChange: (v: string) => void;
-  loading?: boolean;
-  onReset?: () => void;
-}) {
-  const ADDED_COLOR = "#3b82f6";
-  const TRANSFERRED_COLOR = "#f59e0b";
-  const fadedOpacity = 0.3;
-
-  return (
-    <div className="ds-card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>{title}</div>
-          {subtitle && <div style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>{subtitle}</div>}
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={chartDate}
-            onChange={(e) => onChartDateChange(e.target.value)}
-            className="ds-input font-mono-data"
-          />
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-            style={{ background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }}
-          >
-            Réinitialiser
-          </button>
-        </div>
-      </div>
-
-      {activeProjectId !== null && (
-        <div className="mt-2">
-          <span
-            className="inline-flex items-center gap-2 rounded-md px-3 py-1 text-xs"
-            style={{ background: "var(--teal-soft)", color: "var(--teal)", border: "1px solid #b3ddf0" }}
-          >
-            Filtre actif : <strong>#{activeProjectId}</strong>
-            <button onClick={() => onToggleProject(activeProjectId)} className="hover:opacity-70">✕</button>
-          </span>
-        </div>
-      )}
-
-      <div className="relative mt-3 h-[290px]">
-        {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 text-slate-500 text-sm backdrop-blur-[1px]">
-            Chargement…
-          </div>
-        )}
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 20 }}>
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} height={48} tickMargin={8} />
-            <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip
-              formatter={(v: any, _name: any, props: any) => {
-                const label = props?.dataKey === "ajoutees" ? "Ajoutées" : "Transférées";
-                return [`${Number(v).toFixed(2)} h`, label];
-              }}
-              labelFormatter={(l: any) => String(l)}
-              contentStyle={{ borderRadius: "0.5rem", fontSize: "12px" }}
-            />
-            <Legend verticalAlign="top" height={20} wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="ajoutees" name="Ajoutées" fill={ADDED_COLOR} radius={[5, 5, 0, 0]}>
-              {data.map((d, i) => (
-                <Cell
-                  key={`aj-${d.id}-${i}`}
-                  cursor="pointer"
-                  fill={ADDED_COLOR}
-                  fillOpacity={activeProjectId === null || activeProjectId === d.id ? 1 : fadedOpacity}
-                  onClick={() => onToggleProject(d.id)}
-                />
-              ))}
-            </Bar>
-            <Bar dataKey="transferees" name="Transférées" fill={TRANSFERRED_COLOR} radius={[5, 5, 0, 0]}>
-              {data.map((d, i) => (
-                <Cell
-                  key={`tr-${d.id}-${i}`}
-                  cursor="pointer"
-                  fill={TRANSFERRED_COLOR}
-                  fillOpacity={activeProjectId === null || activeProjectId === d.id ? 1 : fadedOpacity}
-                  onClick={() => onToggleProject(d.id)}
-                />
-              ))}
-            </Bar>
-            <Brush dataKey="name" height={16} stroke="#cbd5e1" travellerWidth={8} />
-          </BarChart>
-        </ResponsiveContainer>
-        {data.length === 0 && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
-            Aucun résultat pour ces filtres.
-          </div>
-        )}
-      </div>
-      <p className="mt-1 text-[10px] text-slate-400">
-        Cliquez une barre pour isoler un projet — cliquez à nouveau pour enlever le filtre.
-      </p>
-    </div>
-  );
-}
-
-/** Top projets — stacked horizontal bar chart */
-function TopProjectsCard({
-  data,
-  loading,
-}: {
-  data: { name: string; ajoutees: number; transferees: number; total: number }[];
-  loading?: boolean;
-}) {
-  return (
-    <div className="ds-card p-5">
-      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>Top projets — heures totales</div>
-      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-        Classement par volume d'heures cumulées (ajoutées + transférées)
-      </div>
-
-      {data.length === 0 ? (
-        <div className="flex h-[220px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
-          {loading ? "Chargement…" : "Aucune donnée disponible."}
-        </div>
-      ) : (
-        <div className="h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={data}
-              margin={{ top: 0, right: 24, left: 0, bottom: 0 }}
-            >
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10 }} />
-              <Tooltip
-                formatter={(v: any, _name: any, props: any) => {
-                  const label = props?.dataKey === "ajoutees" ? "Ajoutées" : "Transférées";
-                  return [`${Number(v).toFixed(2)} h`, label];
-                }}
-                contentStyle={{ borderRadius: "6px", fontSize: "12px", border: "1px solid var(--border)" }}
-              />
-              <Legend verticalAlign="top" height={22} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="ajoutees" name="Ajoutées" fill="#0d7ea8" radius={[0, 0, 0, 0]} stackId="s" />
-              <Bar dataKey="transferees" name="Transférées" fill="#e85d26" radius={[0, 4, 4, 0]} stackId="s" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Analyse par superviseur */
-function SupervisorAnalysisCard({
-  data,
-  loading,
-}: {
-  data: { name: string; ajoutees: number; transferees: number }[];
-  loading?: boolean;
-}) {
-  return (
-    <div className="ds-card p-5">
-      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>Analyse par superviseur</div>
-      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-        Heures ajoutées et transférées par superviseur (top 8)
-      </div>
-
-      {data.length === 0 ? (
-        <div className="flex h-[220px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
-          {loading ? "Chargement…" : "Aucune donnée disponible."}
-        </div>
-      ) : (
-        <div className="h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={data}
-              margin={{ top: 0, right: 24, left: 0, bottom: 0 }}
-            >
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10 }} />
-              <Tooltip
-                formatter={(v: any, _name: any, props: any) => {
-                  const label = props?.dataKey === "ajoutees" ? "Ajoutées" : "Transférées";
-                  return [`${Number(v).toFixed(2)} h`, label];
-                }}
-                contentStyle={{ borderRadius: "6px", fontSize: "12px", border: "1px solid var(--border)" }}
-              />
-              <Legend verticalAlign="top" height={22} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="ajoutees" name="Ajoutées" fill="#1a9e6a" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="transferees" name="Transférées" fill="#d97706" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Supervisor Permutation Dashboard components ──────────────────────────────
-
-function PermStatusPieCard({ permutations }: { permutations: Permutation[] }) {
-  const statusData = useMemo(() =>
-    [
-      { name: "En attente", value: permutations.filter(p => p.status === "EN_ATTENTE").length, color: "#d97706" },
-      { name: "Acceptées",  value: permutations.filter(p => p.status === "ACCEPTEE").length,  color: "#1a9e6a" },
-      { name: "Refusées",   value: permutations.filter(p => p.status === "REFUSEE").length,   color: "#c8333a" },
-    ].filter(d => d.value > 0),
-  [permutations]);
-
-  return (
-    <div className="ds-card p-5">
-      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
-        Répartition par statut
-      </div>
-      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-        {permutations.length} permutation{permutations.length !== 1 ? "s" : ""} au total
-      </div>
-      {statusData.length === 0 ? (
-        <div className="flex h-[210px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
-          Aucune donnée disponible
-        </div>
-      ) : (
-        <div className="h-[210px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                cx="50%" cy="50%"
-                innerRadius={58} outerRadius={82}
-                paddingAngle={3}
-                stroke="transparent"
-              >
-                {statusData.map((d, i) => <Cell key={i} fill={d.color} />)}
-              </Pie>
-              <Tooltip
-                formatter={(v: any, name: any) => [v, name]}
-                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }}
-              />
-              <Legend iconType="circle" iconSize={9} wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PermTypeBarCard({ permutations }: { permutations: Permutation[] }) {
-  const data = useMemo(() => [
-    {
-      name: "Envoyées",
-      "En attente": permutations.filter(p => p.typePermutation === "ENVOYER" && p.status === "EN_ATTENTE").length,
-      "Acceptées":  permutations.filter(p => p.typePermutation === "ENVOYER" && p.status === "ACCEPTEE").length,
-      "Refusées":   permutations.filter(p => p.typePermutation === "ENVOYER" && p.status === "REFUSEE").length,
-    },
-    {
-      name: "Reçues",
-      "En attente": permutations.filter(p => p.typePermutation === "RECEVOIR" && p.status === "EN_ATTENTE").length,
-      "Acceptées":  permutations.filter(p => p.typePermutation === "RECEVOIR" && p.status === "ACCEPTEE").length,
-      "Refusées":   permutations.filter(p => p.typePermutation === "RECEVOIR" && p.status === "REFUSEE").length,
-    },
-  ], [permutations]);
-
-  return (
-    <div className="ds-card p-5">
-      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
-        Envoyées vs Reçues
-      </div>
-      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-        Répartition par type et statut
-      </div>
-      <div className="h-[210px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-            <XAxis dataKey="name" tick={{ fontSize: 13, fontWeight: 600 }} />
-            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-            <Tooltip contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }} />
-            <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="En attente" fill="#d97706" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Acceptées"  fill="#1a9e6a" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Refusées"   fill="#c8333a" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function PermTimelineCard({ permutations }: { permutations: Permutation[] }) {
-  const data = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of permutations) {
-      if (p.startDate) map.set(p.startDate, (map.get(p.startDate) ?? 0) + 1);
-    }
-    return [...map.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, count]) => ({ date: date.slice(5), count }));
-  }, [permutations]);
-
-  return (
-    <div className="ds-card p-5">
-      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
-        Permutations par date
-      </div>
-      <div className="mb-3" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-        Nombre de permutations selon la date de début
-      </div>
-      {data.length === 0 ? (
-        <div className="flex h-[185px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
-          Aucune donnée disponible
-        </div>
-      ) : (
-        <div className="h-[185px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
-              <defs>
-                <linearGradient id="permGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#0d7ea8" stopOpacity={0.18} />
-                  <stop offset="95%" stopColor="#0d7ea8" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip
-                formatter={(v: any) => [v, "Permutations"]}
-                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="count"
-                stroke="#0d7ea8"
-                strokeWidth={2}
-                fill="url(#permGradient)"
-                dot={{ r: 3, fill: "#0d7ea8", strokeWidth: 0 }}
-                activeDot={{ r: 5 }}
-                name="Permutations"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PermOperatorsCard({ permutations, total }: { permutations: Permutation[]; total: number }) {
-  const { avgOps, maxOps, distData } = useMemo(() => {
-    if (permutations.length === 0) return { avgOps: 0, maxOps: 0, distData: [] };
-    const counts = permutations.map(p => p.operatorIds.length);
-    const avgOps = Math.round((counts.reduce((s, c) => s + c, 0) / permutations.length) * 10) / 10;
-    const maxOps = Math.max(...counts);
-    const distMap = new Map<number, number>();
-    for (const c of counts) distMap.set(c, (distMap.get(c) ?? 0) + 1);
-    const distData = [...distMap.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([ops, perms]) => ({ name: `${ops} op.`, perms }));
-    return { avgOps, maxOps, distData };
-  }, [permutations]);
-
-  return (
-    <div className="ds-card p-5">
-      <div className="mb-1" style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
-        Opérateurs impliqués
-      </div>
-      <div className="mb-3 flex gap-5" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-        <span>Total : <strong style={{ color: "var(--text-2)" }}>{total}</strong></span>
-        <span>Moy./perm. : <strong style={{ color: "var(--text-2)" }}>{avgOps}</strong></span>
-        <span>Max : <strong style={{ color: "var(--text-2)" }}>{maxOps}</strong></span>
-      </div>
-      {distData.length === 0 ? (
-        <div className="flex h-[155px] items-center justify-center text-sm" style={{ color: "var(--text-3)" }}>
-          Aucune donnée disponible
-        </div>
-      ) : (
-        <div className="h-[155px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={distData} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip
-                formatter={(v: any) => [v, "Permutations"]}
-                contentStyle={{ borderRadius: "0.5rem", fontSize: "12px", border: "1px solid var(--border)" }}
-              />
-              <Bar dataKey="perms" name="Permutations" fill="#e85d26" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Sort icon ────────────────────────────────────────────────────────────────
-function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  return (
-    <span className="ml-1 inline-block text-[10px] opacity-60">
-      {active ? (dir === "asc" ? "▲" : "▼") : "⇅"}
+    <span style={{ color, fontSize: 12, fontWeight: 600 }}>
+      {sign}{value}{unit} vs précédent
     </span>
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-export default function HomePage() {
-  const { auth } = useAuth();
-  const isOpManager  = hasRole(auth, "OPERATIONAL_MANAGER");
-  const isSupervisor = hasRole(auth, "SUPERVISOR");
-  const isAdmin      = !isOpManager && !isSupervisor;
+// ─── KPI card ─────────────────────────────────────────────────────────────────
 
-  const today      = new Date().toISOString().slice(0, 10);
-  const monthStart = useMemo(() => today.slice(0, 7) + "-01", [today]);
-  const weekStart  = useMemo(() => {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
-    return d.toISOString().slice(0, 10);
-  }, [today]);
-
-  // ── Supervisor / OpManager only: permutation data ────────────────────────────
-  const { data: rawPermutations, isLoading: permLoading } = useFetchPermutations(isSupervisor || isOpManager);
-
-  const [permDateFrom,    setPermDateFrom]    = useState(monthStart);
-  const [permDateTo,      setPermDateTo]      = useState(today);
-  const [permStatusFilter, setPermStatusFilter] = useState<"ALL" | "EN_ATTENTE" | "ACCEPTEE" | "REFUSEE">("ALL");
-  const [permTypeFilter,  setPermTypeFilter]  = useState<"ALL" | "ENVOYER" | "RECEVOIR">("ALL");
-
-  const filteredPermutations = useMemo(() => {
-    const perms = rawPermutations ?? [];
-    return perms.filter(p => {
-      if (permStatusFilter !== "ALL" && p.status          !== permStatusFilter) return false;
-      if (permTypeFilter   !== "ALL" && p.typePermutation !== permTypeFilter)   return false;
-      if (permDateFrom && p.startDate < permDateFrom) return false;
-      if (permDateTo   && p.startDate > permDateTo)   return false;
-      return true;
-    });
-  }, [rawPermutations, permStatusFilter, permTypeFilter, permDateFrom, permDateTo]);
-
-  const permTotal     = filteredPermutations.length;
-  const permEnAttente = filteredPermutations.filter(p => p.status === "EN_ATTENTE").length;
-  const permAcceptees = filteredPermutations.filter(p => p.status === "ACCEPTEE").length;
-  const permRefusees  = filteredPermutations.filter(p => p.status === "REFUSEE").length;
-  const permTotalOps  = filteredPermutations.reduce((s, p) => s + p.operatorIds.length, 0);
-
-  const [datePreset, setDatePreset] = useState<"today" | "week" | "month">("today");
-  const [du, setDu] = useState(today);
-  const [au, setAu] = useState(today);
-
-  const { data, isLoading, isFetching, error } = useFetchProjectHours(du, au, isOpManager);
-
-  // 1 row per (project, supervisor) — for the "Détails par projet" table
-  const rowsByProject: RowProjet[] = useMemo(
-    () => normalizeRows((data ?? []) as RowApi[]),
-    [data]
-  );
-
-  // 1 row per project (aggregated) — for charts and topProjects
-  const rowsByProjectAgg: RowProjet[] = useMemo(
-    () => aggregateRows((data ?? []) as RowApi[]),
-    [data]
-  );
-
-  const totalAjoutees = useMemo(
-    () => rowsByProject.reduce((s, r) => s + Number(r.heuresAjoutees ?? 0), 0),
-    [rowsByProject]
-  );
-  const totalTransferees = useMemo(
-    () => rowsByProject.reduce((s, r) => s + Number(r.heuresTransferees ?? 0), 0),
-    [rowsByProject]
-  );
-
-  const percentAdded = useMemo(() => {
-    const tot = totalAjoutees + totalTransferees;
-    if (!Number.isFinite(tot) || tot <= 0) return 0;
-    return (totalAjoutees / tot) * 100;
-  }, [totalAjoutees, totalTransferees]);
-
-  // ── New analytics ──────────────────────────────────────────────────────────
-  const uniqueSupervisorsCount = useMemo(
-    () => new Set(rowsByProject.map((r) => r.nomSuperviseur).filter(Boolean)).size,
-    [rowsByProject]
-  );
-
-  const topProjects = useMemo(
-    () =>
-      [...rowsByProjectAgg]
-        .map((r) => ({
-          name: truncate(r.nomProjet, 18),
-          ajoutees: r.heuresAjoutees,
-          transferees: r.heuresTransferees,
-          total: r.heuresAjoutees + r.heuresTransferees,
-        }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 8),
-    [rowsByProjectAgg]
-  );
-
-  const bySupervisor = useMemo(() => {
-    const map = new Map<string, { ajoutees: number; transferees: number }>();
-    for (const r of rowsByProject) {
-      const key = r.nomSuperviseur || "Sans superviseur";
-      const ex = map.get(key) ?? { ajoutees: 0, transferees: 0 };
-      ex.ajoutees += r.heuresAjoutees;
-      ex.transferees += r.heuresTransferees;
-      map.set(key, ex);
-    }
-    return [...map.entries()]
-      .map(([name, v]) => ({
-        name: truncate(name, 18),
-        ajoutees: round2(v.ajoutees),
-        transferees: round2(v.transferees),
-        total: v.ajoutees + v.transferees,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 8);
-  }, [rowsByProject]);
-
-  // ── Chart filters (bar chart per project) ─────────────────────────────────
-  const [chartDate, setChartDate] = useState<string>("");
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
-
-  const chartDu = chartDate || du;
-  const chartAu = chartDate || au;
-
-  const {
-    data: chartRaw,
-    isLoading: chartLoading,
-    isFetching: chartFetching,
-    error: chartError,
-  } = useFetchProjectHours(chartDu, chartAu, isOpManager);
-
-  const rowsByProjectChart: RowProjet[] = useMemo(
-    () => aggregateRows((chartRaw ?? []) as RowApi[]),
-    [chartRaw]
-  );
-
-  const projectsAddedTransferred = useMemo(() => {
-    const all = rowsByProjectChart.map((r) => ({
-      id: r.idProjet,
-      name: (r.nomProjet ?? "").toString() || `#${r.idProjet}`,
-      ajoutees: Number(r.heuresAjoutees ?? 0),
-      transferees: Number(r.heuresTransferees ?? 0),
-    }));
-    if (activeProjectId !== null) return all.filter((d) => d.id === activeProjectId);
-    return all;
-  }, [rowsByProjectChart, activeProjectId]);
-
-  const handleToggleProject = (projectId: number) =>
-    setActiveProjectId((prev) => (prev === projectId ? null : projectId));
-
-  const resetChartFilters = () => {
-    setChartDate("");
-    setActiveProjectId(null);
-  };
-
-  // ── Table sort ─────────────────────────────────────────────────────────────
-  const [sortField, setSortField] = useState<"nom" | "ajoutees" | "transferees">("nom");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-
-  const toggleSort = (field: "nom" | "ajoutees" | "transferees") => {
-    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortField(field); setSortDir(field === "nom" ? "asc" : "desc"); }
-  };
-
-  const sortedRows = useMemo(
-    () =>
-      [...rowsByProject].sort((a, b) => {
-        let cmp = 0;
-        if (sortField === "ajoutees") cmp = a.heuresAjoutees - b.heuresAjoutees;
-        else if (sortField === "transferees") cmp = a.heuresTransferees - b.heuresTransferees;
-        else {
-          cmp = a.nomProjet.localeCompare(b.nomProjet, undefined, { sensitivity: "base" });
-          if (cmp === 0)
-            cmp = a.nomSuperviseur.localeCompare(b.nomSuperviseur, undefined, { sensitivity: "base" });
-        }
-        return sortDir === "asc" ? cmp : -cmp;
-      }),
-    [rowsByProject, sortField, sortDir]
-  );
-
-  // ── Guards ─────────────────────────────────────────────────────────────────
-  if (isSupervisor) {
-    if (permLoading) return <Loader />;
-    return (
-      <div className="space-y-5">
-          {/* ── Header + Filtres ── */}
-          <div
-            className="ds-card px-6 py-4"
-            style={{ position: "relative", overflow: "hidden", borderBottom: "2px solid var(--border)" }}
-          >
-            <div
-              className="absolute bottom-0 left-0 h-0.5 w-48"
-              style={{ background: "linear-gradient(to right, var(--accent), transparent)" }}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "4px" }}>
-                  Accueil
-                  <span className="mx-2" style={{ color: "var(--border-mid)" }}>/</span>
-                  <span style={{ color: "var(--text-2)" }}>Mes Permutations</span>
-                </div>
-                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "var(--navy)", lineHeight: 1.2 }}>
-                  Dashboard Permutations
-                </h1>
-                <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
-                  Statistiques de vos permutations d'opérateurs
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Du</span>
-                  <input
-                    type="date"
-                    value={permDateFrom}
-                    onChange={e => setPermDateFrom(e.target.value)}
-                    className="ds-input font-mono-data"
-                  />
-                </div>
-                <span style={{ color: "var(--border-mid)" }}>→</span>
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Au</span>
-                  <input
-                    type="date"
-                    value={permDateTo}
-                    onChange={e => setPermDateTo(e.target.value)}
-                    className="ds-input font-mono-data"
-                  />
-                </div>
-                <select
-                  value={permStatusFilter}
-                  onChange={e => setPermStatusFilter(e.target.value as typeof permStatusFilter)}
-                  className="ds-input"
-                >
-                  <option value="ALL">Tous statuts</option>
-                  <option value="EN_ATTENTE">En attente</option>
-                  <option value="ACCEPTEE">Acceptées</option>
-                  <option value="REFUSEE">Refusées</option>
-                </select>
-                <select
-                  value={permTypeFilter}
-                  onChange={e => setPermTypeFilter(e.target.value as typeof permTypeFilter)}
-                  className="ds-input"
-                >
-                  <option value="ALL">Tous types</option>
-                  <option value="ENVOYER">Envoyées</option>
-                  <option value="RECEVOIR">Reçues</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPermDateFrom(monthStart);
-                    setPermDateTo(today);
-                    setPermStatusFilter("ALL");
-                    setPermTypeFilter("ALL");
-                  }}
-                  className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                  style={{ background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }}
-                >
-                  Réinitialiser
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ── KPI Cards ── */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Total permutations"
-              value={permTotal}
-              color="navy"
-              icon={
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
-                  <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
-                </svg>
-              }
-            />
-            <StatCard
-              label="En attente"
-              value={permEnAttente}
-              color="accent"
-              icon={
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                </svg>
-              }
-            />
-            <StatCard
-              label="Acceptées"
-              value={permAcceptees}
-              color="green"
-              icon={
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-              }
-            />
-            <StatCard
-              label="Refusées"
-              value={permRefusees}
-              color="red"
-              icon={
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-              }
-            />
-          </div>
-
-          {/* ── Charts row 1: Statut Pie + Type Bar ── */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PermStatusPieCard permutations={filteredPermutations} />
-            <PermTypeBarCard   permutations={filteredPermutations} />
-          </div>
-
-          {/* ── Charts row 2: Timeline + Opérateurs ── */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PermTimelineCard  permutations={filteredPermutations} />
-            <PermOperatorsCard permutations={filteredPermutations} total={permTotalOps} />
-          </div>
-      </div>
-    );
-  }
-
-  if (isAdmin) {
-    return <AdminSalaryAdvanceDashboardCard />;
-  }
-
-  if (isLoading || isFetching) return <Loader />;
-  if (error) return <ErrorAlert error="Impossible de charger les statistiques." />;
-
+function KpiCard({
+  label,
+  value,
+  sub,
+  accent,
+  alert,
+  icon,
+}: {
+  label: string;
+  value: string;
+  sub?: React.ReactNode;
+  accent?: string;
+  alert?: boolean;
+  icon?: React.ReactNode;
+}) {
   return (
-    <div className="space-y-5">
-      {/* ── Header card ── */}
-      <div
-        className="ds-card px-6 py-4"
-        style={{ position: "relative", overflow: "hidden", borderBottom: "2px solid var(--border)" }}
-      >
-        <div className="absolute bottom-0 left-0 h-0.5 w-48" style={{ background: "linear-gradient(to right, var(--accent), transparent)" }} />
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div style={{ fontSize: "12px", color: "var(--text-3)", marginBottom: "4px" }}>
-              Accueil
-              <span className="mx-2" style={{ color: "var(--border-mid)" }}>/</span>
-              <span style={{ color: "var(--text-2)" }}>Dashboard</span>
-            </div>
-            <h1 style={{ fontSize: "17px", fontWeight: 700, color: "var(--navy)", lineHeight: 1.2 }}>Dashboard</h1>
-            <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
-              Heures ajoutées / transférées par projet — permutations acceptées
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* ── Preset buttons ── */}
-            {(
-              [
-                { key: "today", label: "Aujourd'hui", getDu: () => today, getAu: () => today },
-                { key: "week",  label: "Cette semaine", getDu: () => weekStart, getAu: () => today },
-                { key: "month", label: "Ce mois", getDu: () => monthStart, getAu: () => today },
-              ] as const
-            ).map(({ key, label, getDu, getAu }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  setDu(getDu());
-                  setAu(getAu());
-                  setDatePreset(key);
-                  setChartDate("");
-                  setActiveProjectId(null);
-                }}
-                className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                style={
-                  datePreset === key
-                    ? { background: "var(--accent)", color: "#fff", border: "1px solid var(--accent)" }
-                    : { background: "var(--surface2)", color: "var(--text-2)", border: "1px solid var(--border)" }
-                }
-              >
-                {label}
-              </button>
-            ))}
-
-            <span style={{ color: "var(--border-mid)" }}>|</span>
-
-            {/* ── Manual date inputs ── */}
-            <div className="flex items-center gap-2">
-              <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Du</span>
-              <input
-                type="date"
-                value={du}
-                onChange={(e) => { setDu(e.target.value); setDatePreset("today"); setChartDate(""); }}
-                className="ds-input font-mono-data"
-              />
-            </div>
-            <span style={{ color: "var(--border-mid)" }}>→</span>
-            <div className="flex items-center gap-2">
-              <span style={{ fontSize: "11px", color: "var(--text-3)" }}>Au</span>
-              <input
-                type="date"
-                value={au}
-                onChange={(e) => { setAu(e.target.value); setDatePreset("today"); setChartDate(""); }}
-                className="ds-input font-mono-data"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── KPI Cards (4) ── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Heures Ajoutées"
-          value={formatH(totalAjoutees)}
-          color="teal"
-          icon={
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Heures Transférées"
-          value={formatH(totalTransferees)}
-          color="accent"
-          icon={
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Projets actifs"
-          value={rowsByProject.length}
-          color="green"
-          icon={
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <rect x="2" y="7" width="20" height="14" rx="2" />
-              <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Superviseurs"
-          value={uniqueSupervisorsCount}
-          color="navy"
-          icon={
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-            </svg>
-          }
-        />
-      </div>
-
-      {/* ── Charts row 1: Gauge + Barres par projet ── */}
-      {chartError ? (
-        <div
-          className="rounded-lg p-6 text-center"
-          style={{ background: "var(--red-soft)", border: "1px solid rgba(200,51,58,0.20)" }}
+    <div
+      className="ds-card"
+      style={{
+        padding: "20px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        borderLeft: `3px solid ${accent ?? "var(--accent)"}`,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            color: "var(--text2)",
+            fontWeight: 700,
+          }}
         >
-          <p style={{ fontWeight: 600, color: "var(--red)" }}>Erreur de chargement des données du graphique</p>
-          <p className="mt-1 text-sm" style={{ color: "var(--red)" }}>
-            {(chartError as any)?.message || "Veuillez réessayer plus tard"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <GaugeCard
-            title="Répartition Ajoutées / Transférées"
-            subtitle={`Période : ${du} → ${au}`}
-            percent={percentAdded}
-            legendLeft="Ajoutées"
-            legendRight="Transférées"
-          />
-          <ProjectsAddedTransferredCard
-            title="Projets — Ajoutées vs Transférées"
-            subtitle="Cliquez une barre pour isoler un projet"
-            data={projectsAddedTransferred}
-            activeProjectId={activeProjectId}
-            onToggleProject={handleToggleProject}
-            chartDate={chartDate}
-            onChartDateChange={setChartDate}
-            loading={chartLoading || chartFetching}
-            onReset={resetChartFilters}
-          />
-        </div>
-      )}
-
-      {/* ── Charts row 2: Top projets + Superviseurs ── */}
-      {rowsByProject.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <TopProjectsCard data={topProjects} />
-          <SupervisorAnalysisCard data={bySupervisor} />
-        </div>
-      )}
-
-      {/* ── Détails table ── */}
-      {isAdmin && <AdminSalaryAdvanceDashboardCard />}
-
-      <div className="ds-card overflow-hidden">
-        {/* Table header bar */}
-        <div
-          className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
-          <div>
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>Détails par projet</span>
-            <span className="ml-2" style={{ fontSize: "11px", color: "var(--text-3)" }}>
-              {rowsByProject.length} projet{rowsByProject.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void exportProjectHoursToExcel(rowsByProject, du, au)}
-              disabled={!rowsByProject.length}
-              className="ds-btn-primary disabled:opacity-50"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-              Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => exportProjectHoursToPdf(rowsByProject, du, au)}
-              disabled={!rowsByProject.length}
-              className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
-              style={{ background: "var(--navy)" }}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-              PDF
-            </button>
-          </div>
-        </div>
-
-        {rowsByProject.length === 0 ? (
-          <div className="p-10 text-center" style={{ color: "var(--text-3)" }}>
-            Aucune donnée pour cette période.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="ds-table min-w-full text-sm">
-              <thead>
-                <tr>
-                  <th
-                    className="cursor-pointer select-none text-left transition-colors hover:bg-[#ebeef3]"
-                    onClick={() => toggleSort("nom")}
-                  >
-                    Projet <SortIcon active={sortField === "nom"} dir={sortDir} />
-                  </th>
-                  <th className="text-left">Superviseur</th>
-                  <th
-                    className="cursor-pointer select-none text-right transition-colors hover:bg-[#ebeef3]"
-                    onClick={() => toggleSort("ajoutees")}
-                  >
-                    Ajoutées <SortIcon active={sortField === "ajoutees"} dir={sortDir} />
-                  </th>
-                  <th
-                    className="cursor-pointer select-none text-right transition-colors hover:bg-[#ebeef3]"
-                    onClick={() => toggleSort("transferees")}
-                  >
-                    Transférées <SortIcon active={sortField === "transferees"} dir={sortDir} />
-                  </th>
-                  <th className="text-right">Total</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {sortedRows.map((r, idx) => {
-                  const total = round2(r.heuresAjoutees + r.heuresTransferees);
-                  return (
-                    <tr
-                      key={`${r.idProjet}-${r.idSuperviseur ?? "null"}`}
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        animationDelay: `${idx * 0.03}s`,
-                      }}
-                    >
-                      <td className="px-5 py-4">
-                        <span style={{ fontWeight: 600, color: "var(--text-1)" }}>{r.nomProjet}</span>
-                        <span
-                          className="ml-2 font-mono-data"
-                          style={{ fontSize: "10px", color: "var(--text-3)" }}
-                        >
-                          #{r.idProjet}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div style={{ fontWeight: 500, color: "var(--text-1)" }}>{r.nomSuperviseur || "—"}</div>
-                        {r.matriculeSuperviseur && (
-                          <div
-                            className="font-mono-data"
-                            style={{ fontSize: "10px", color: "var(--text-3)" }}
-                          >
-                            #{r.matriculeSuperviseur}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        <span
-                          className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-semibold"
-                          style={{ background: "var(--teal-soft)", color: "var(--teal)", border: "1px solid #b3ddf0" }}
-                        >
-                          {Number(r.heuresAjoutees ?? 0).toFixed(2)} h
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        <span
-                          className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-semibold"
-                          style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid rgba(232,93,38,0.25)" }}
-                        >
-                          {Number(r.heuresTransferees ?? 0).toFixed(2)} h
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        <span
-                          className="font-mono-data text-xs font-semibold"
-                          style={{ color: "var(--text-2)" }}
-                        >
-                          {total.toFixed(2)} h
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-
-              <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--surface2)" }}>
-                  <td
-                    className="px-5 py-3"
-                    colSpan={2}
-                    style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-3)" }}
-                  >
-                    Totaux
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <span
-                      className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-bold"
-                      style={{ background: "var(--teal-soft)", color: "var(--teal)", border: "1px solid #b3ddf0" }}
-                    >
-                      {formatH(totalAjoutees)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <span
-                      className="font-mono-data inline-flex items-center rounded px-2.5 py-1 text-xs font-bold"
-                      style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid rgba(232,93,38,0.25)" }}
-                    >
-                      {formatH(totalTransferees)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <span
-                      className="font-mono-data text-xs font-bold"
-                      style={{ color: "var(--text-2)" }}
-                    >
-                      {formatH(totalAjoutees + totalTransferees)}
-                    </span>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          {label}
+        </span>
+        {icon && (
+          <span style={{ color: accent ?? "var(--accent)", opacity: 0.7 }}>{icon}</span>
         )}
       </div>
+      <div
+        className="font-mono-data"
+        style={{
+          fontSize: 28,
+          fontWeight: 800,
+          color: alert ? "var(--accent4)" : (accent ?? "var(--text)"),
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </div>
+      {sub && <div style={{ marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 15,
+        fontWeight: 700,
+        color: "var(--text)",
+        borderBottom: "2px solid var(--border)",
+        paddingBottom: 8,
+        marginBottom: 18,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+
+function SkeletonCard({ h = 90 }: { h?: number }) {
+  return (
+    <div
+      className="ds-card"
+      style={{ height: h, background: "var(--border)", animation: "pulse 1.5s infinite" }}
+    />
+  );
+}
+
+// ─── Period pill selector ──────────────────────────────────────────────────────
+
+const PERIODS: { label: string; value: DashboardPeriod }[] = [
+  { label: "Aujourd'hui", value: "today" },
+  { label: "Cette semaine", value: "week" },
+  { label: "Ce mois", value: "month" },
+];
+
+function PeriodSelector({
+  value,
+  onChange,
+}: {
+  value: DashboardPeriod;
+  onChange: (p: DashboardPeriod) => void;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {PERIODS.map((p) => (
+        <button
+          key={p.value}
+          onClick={() => onChange(p.value)}
+          style={{
+            padding: "5px 14px",
+            borderRadius: 20,
+            border: "1px solid var(--border)",
+            background: value === p.value ? "var(--accent)" : "var(--white)",
+            color: value === p.value ? "#fff" : "var(--text2)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Alert card ───────────────────────────────────────────────────────────────
+
+function AlertCard({
+  tag,
+  tagColor,
+  children,
+  to,
+}: {
+  tag: string;
+  tagColor: string;
+  children: React.ReactNode;
+  to: string;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span
+          style={{
+            background: tagColor + "22",
+            color: tagColor,
+            padding: "3px 10px",
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
+        >
+          {tag}
+        </span>
+        <Link
+          to={to}
+          style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
+        >
+          Voir tout →
+        </Link>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+export default function HomePage() {
+  const { auth } = useAuth();
+  const role: string =
+    (auth?.user?.role as string) ??
+    (auth?.user?.authorities?.[0] as string) ??
+    "";
+  const cleanRole = role.replace("ROLE_", "");
+
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+
+  const { data, isLoading } = useFetchAdminDashboard(period);
+
+  // SUPERVISOR et OPERATIONAL_MANAGER → dashboard permutations / heures projet
+  if (cleanRole === "SUPERVISOR" || cleanRole === "OPERATIONAL_MANAGER") {
+    return <LegacyDashboard />;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 28, paddingBottom: 48 }}>
+
+      {/* ── TOPBAR ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              color: "var(--text)",
+              margin: 0,
+              lineHeight: 1.2,
+            }}
+          >
+            Dashboard RH
+          </h1>
+          <div style={{ fontSize: 13, color: "var(--text2)", marginTop: 4, textTransform: "capitalize" }}>
+            {todayTunis()}
+          </div>
+        </div>
+        <PeriodSelector value={period} onChange={setPeriod} />
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ZONE 1 — PRÉSENCE & ABSENCES
+      ══════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionTitle>
+          <span style={{ fontSize: 18 }}>📋</span> Présence &amp; Absences
+        </SectionTitle>
+
+        {/* KPI row */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 14,
+            marginBottom: 22,
+          }}
+        >
+          {isLoading ? (
+            [1, 2, 3, 4].map((k) => <SkeletonCard key={k} />)
+          ) : (
+            <>
+              <KpiCard
+                label="Employés actifs"
+                value={String(data?.presence.totalEmployees ?? "—")}
+                accent="var(--accent)"
+              />
+              <KpiCard
+                label="Présents aujourd'hui"
+                value={String(data?.presence.presentToday ?? "—")}
+                accent="var(--accent2)"
+                sub={<Delta value={data?.presence.deltaPresentVsPrev ?? 0} />}
+              />
+              <KpiCard
+                label="Absents aujourd'hui"
+                value={String(data?.presence.absentToday ?? "—")}
+                accent="var(--accent4)"
+                alert={(data?.presence.absentToday ?? 0) > 20}
+                sub={<Delta value={data?.presence.deltaAbsentVsPrev ?? 0} invert />}
+              />
+              <KpiCard
+                label="Taux de présence"
+                value={fmtPct(data?.presence.rateToday ?? 0)}
+                accent={(data?.presence.rateToday ?? 100) < 70 ? "var(--accent4)" : "var(--accent2)"}
+                alert={(data?.presence.rateToday ?? 100) < 70}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Charts row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* Chart 1 — Evolution */}
+          <EvolutionChart data={data?.presence.chartEvolution ?? []} loading={isLoading} />
+
+          {/* Chart 2 — By dept donut */}
+          <DeptDonutChart data={data?.presence.chartByDept ?? []} loading={isLoading} />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ZONE 2 — AVANCES SUR SALAIRE
+      ══════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionTitle>
+          <span style={{ fontSize: 18 }}>💰</span> Avances sur salaire
+        </SectionTitle>
+
+        {/* KPI row */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 14,
+            marginBottom: 22,
+          }}
+        >
+          {isLoading ? (
+            [1, 2, 3, 4].map((k) => <SkeletonCard key={k} />)
+          ) : (
+            <>
+              <KpiCard
+                label="Demandes ce mois"
+                value={String(data?.advances.totalRequests ?? "—")}
+                accent="var(--accent)"
+                sub={<Delta value={data?.advances.deltaRequests ?? 0} />}
+              />
+              <KpiCard
+                label="Montant accordé"
+                value={fmtCurrency(data?.advances.totalAmountDone ?? 0)}
+                accent="var(--accent2)"
+              />
+              <KpiCard
+                label="En attente"
+                value={String(data?.advances.enCoursCount ?? "—")}
+                accent="var(--accent3)"
+                alert={(data?.advances.enCoursCount ?? 0) > 5}
+              />
+              <KpiCard
+                label="Taux d'approbation"
+                value={fmtPct(data?.advances.approvalRate ?? 0)}
+                accent="var(--accent2)"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Charts row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <AdvanceStatusChart data={data?.advances.chartStatus ?? []} loading={isLoading} />
+          <DeptAvgChart data={data?.advances.chartAvgByDept ?? []} loading={isLoading} />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ZONE 3 — ALERTES
+      ══════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionTitle>
+          <span style={{ fontSize: 18 }}>🔔</span> Alertes &amp; actions requises
+        </SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+
+          {/* Alert 1 — Absences injustifiées */}
+          <AlertCard
+            tag="Absences injustifiées"
+            tagColor="var(--accent4)"
+            to="/historique-presence?filter=unjustified"
+          >
+            {isLoading ? (
+              <SkeletonCard h={80} />
+            ) : (data?.alerts.unjustifiedAbsences ?? []).length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>
+                Aucune absence injustifiée sur les 7 derniers jours.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {(data?.alerts.unjustifiedAbsences ?? []).map((a) => (
+                  <div
+                    key={a.matricule}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ color: "var(--text)", fontWeight: 500 }}>{a.fullName}</span>
+                    <span
+                      style={{
+                        background: "var(--accent4)",
+                        color: "#fff",
+                        borderRadius: 10,
+                        padding: "1px 8px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {a.days} j
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AlertCard>
+
+          {/* Alert 2 — Avances en attente */}
+          <AlertCard
+            tag="Avances en attente"
+            tagColor="var(--accent3)"
+            to="/salary-advances?filter=pending"
+          >
+            {isLoading ? (
+              <SkeletonCard h={80} />
+            ) : (data?.alerts.pendingAdvances ?? []).length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>
+                Aucune avance en attente depuis plus de 24h.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {(data?.alerts.pendingAdvances ?? []).map((a, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ color: "var(--text)", fontWeight: 500 }}>{a.fullName}</span>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <span style={{ color: "var(--text2)" }}>{fmtCurrency(a.amount)}</span>
+                      <span style={{ color: "var(--muted)", fontSize: 11 }}>il y a {a.daysAgo} j</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AlertCard>
+
+          {/* Alert 3 — Pointage */}
+          <AlertCard
+            tag="Pointage du jour"
+            tagColor="var(--accent)"
+            to="/presence-absences"
+          >
+            {isLoading ? (
+              <SkeletonCard h={80} />
+            ) : data?.alerts.lastImportDate ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    color: "var(--accent2)",
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  <span>✓</span>
+                  <span>Pointage importé</span>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--text2)" }}>
+                  Dernier import : {data.alerts.lastImportDate}
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    color: "var(--accent4)",
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  <span>⚠</span>
+                  <span>Aucun pointage pour aujourd'hui</span>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--text2)" }}>
+                  Aucun fichier importé pour la date du jour.
+                </span>
+              </div>
+            )}
+          </AlertCard>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ZONE 4 — TABLEAUX RÉSUMÉS
+      ══════════════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionTitle>
+          <span style={{ fontSize: 18 }}>📊</span> Résumés récents
+        </SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <RecentAdvancesTable rows={data?.recentAdvances ?? []} loading={isLoading} />
+          <RecentAbsencesTable rows={data?.recentAbsences ?? []} loading={isLoading} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Chart components ─────────────────────────────────────────────────────────
+
+function EvolutionChart({
+  data,
+  loading,
+}: {
+  data: { date: string; present: number; absent: number; pending: number }[];
+  loading: boolean;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+          Évolution présence / absence
+        </span>
+      </div>
+      {loading ? (
+        <SkeletonCard h={200} />
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--text2)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--text2)" }} />
+            <Tooltip
+              contentStyle={{
+                background: "var(--white)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line
+              type="monotone"
+              dataKey="present"
+              name="Présents"
+              stroke="#00c48c"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="absent"
+              name="Absents"
+              stroke="#E24B4A"
+              strokeWidth={2}
+              strokeDasharray="5 3"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="pending"
+              name="En attente"
+              stroke="#EF9F27"
+              strokeWidth={1.5}
+              strokeDasharray="3 2"
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+const RADIAN = Math.PI / 180;
+function renderCustomLabel(props: {
+  cx?: number; cy?: number; midAngle?: number;
+  innerRadius?: number; outerRadius?: number; percent?: number;
+}) {
+  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0 } = props;
+  if (percent < 0.05) return null;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+}
+
+function DeptDonutChart({
+  data,
+  loading,
+}: {
+  data: { dept: string; absent: number }[];
+  loading: boolean;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 14 }}>
+        Absences par département
+      </div>
+      {loading ? (
+        <SkeletonCard h={200} />
+      ) : data.length === 0 ? (
+        <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
+          Aucune donnée
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="absent"
+              nameKey="dept"
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={90}
+              labelLine={false}
+              label={renderCustomLabel}
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={DEPT_COLORS[i % DEPT_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(v: number, name: string) => [`${v} absent(s)`, name]}
+              contentStyle={{
+                background: "var(--white)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+            />
+            <Legend
+              formatter={(v) => <span style={{ fontSize: 12, color: "var(--text2)" }}>{v}</span>}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+function AdvanceStatusChart({
+  data,
+  loading,
+}: {
+  data: { period: string; done: number; enCours: number }[];
+  loading: boolean;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 14 }}>
+        Avances accordées vs en attente
+      </div>
+      {loading ? (
+        <SkeletonCard h={200} />
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+            <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--text2)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--text2)" }} />
+            <Tooltip
+              contentStyle={{
+                background: "var(--white)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="done" name="Accordées" fill="#00c48c" stackId="a" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="enCours" name="En attente" fill="#EF9F27" stackId="a" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+function DeptAvgChart({
+  data,
+  loading,
+}: {
+  data: { dept: string; avgAmount: number }[];
+  loading: boolean;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 14 }}>
+        Montant moyen par département (TND)
+      </div>
+      {loading ? (
+        <SkeletonCard h={200} />
+      ) : data.length === 0 ? (
+        <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
+          Aucune donnée
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={Math.max(220, data.length * 36)}>
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 4, right: 20, bottom: 0, left: 0 }}
+          >
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 11, fill: "var(--text2)" }} />
+            <YAxis
+              type="category"
+              dataKey="dept"
+              width={110}
+              tick={{ fontSize: 11, fill: "var(--text2)" }}
+            />
+            <Tooltip
+              formatter={(v: number) => [fmtCurrency(v), "Moy. accordée"]}
+              contentStyle={{
+                background: "var(--white)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+            />
+            <Bar dataKey="avgAmount" fill="#7F77DD" radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+// ─── Recent tables ────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    EN_COURS: { label: "En attente", color: "#b45309", bg: "#fef3c7" },
+    DONE:     { label: "Traitée",    color: "#065f46", bg: "#d1fae5" },
+  };
+  const s = map[status] ?? { label: status, color: "var(--text2)", bg: "var(--border)" };
+  return (
+    <span
+      style={{
+        background: s.bg,
+        color: s.color,
+        padding: "2px 8px",
+        borderRadius: 10,
+        fontSize: 11,
+        fontWeight: 700,
+      }}
+    >
+      {s.label}
+    </span>
+  );
+}
+
+function RecentAdvancesTable({
+  rows,
+  loading,
+}: {
+  rows: { fullName: string; amount: number; date: string; status: string }[];
+  loading: boolean;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+          Dernières demandes d'avance
+        </span>
+        <Link
+          to="/salary-advances"
+          style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
+        >
+          Voir tout →
+        </Link>
+      </div>
+      {loading ? (
+        <SkeletonCard h={140} />
+      ) : rows.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--muted)" }}>Aucune demande récente.</p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["Employé", "Montant", "Date", "Statut"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "left",
+                      color: "var(--text2)",
+                      fontWeight: 600,
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr
+                  key={i}
+                  style={{
+                    borderBottom: "1px solid var(--border)",
+                    transition: "background 0.1s",
+                  }}
+                >
+                  <td style={{ padding: "8px 8px", color: "var(--text)", fontWeight: 500 }}>
+                    {r.fullName}
+                  </td>
+                  <td
+                    className="font-mono-data"
+                    style={{ padding: "8px 8px", color: "var(--text2)" }}
+                  >
+                    {fmtCurrency(r.amount)}
+                  </td>
+                  <td style={{ padding: "8px 8px", color: "var(--text2)" }}>{r.date}</td>
+                  <td style={{ padding: "8px 8px" }}>
+                    <StatusBadge status={r.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecentAbsencesTable({
+  rows,
+  loading,
+}: {
+  rows: { fullName: string; dept: string; date: string; absenceReason: string }[];
+  loading: boolean;
+}) {
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 14,
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+          Absences récentes
+        </span>
+        <Link
+          to="/historique-presence"
+          style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
+        >
+          Voir tout →
+        </Link>
+      </div>
+      {loading ? (
+        <SkeletonCard h={140} />
+      ) : rows.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--muted)" }}>Aucune absence récente.</p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["Employé", "Département", "Date", "Motif"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "left",
+                      color: "var(--text2)",
+                      fontWeight: 600,
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "8px 8px", color: "var(--text)", fontWeight: 500 }}>
+                    {r.fullName}
+                  </td>
+                  <td style={{ padding: "8px 8px", color: "var(--text2)" }}>{r.dept}</td>
+                  <td style={{ padding: "8px 8px", color: "var(--text2)" }}>{r.date}</td>
+                  <td style={{ padding: "8px 8px" }}>
+                    <span
+                      style={{
+                        background: "#fee2e2",
+                        color: "#b91c1c",
+                        padding: "2px 8px",
+                        borderRadius: 10,
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {r.absenceReason}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

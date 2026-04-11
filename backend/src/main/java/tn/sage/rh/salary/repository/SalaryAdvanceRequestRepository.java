@@ -7,6 +7,7 @@ import tn.sage.rh.salary.entity.SalaryAdvanceRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface SalaryAdvanceRequestRepository extends JpaRepository<SalaryAdvanceRequest, Long> {
 
@@ -35,6 +36,7 @@ public interface SalaryAdvanceRequestRepository extends JpaRepository<SalaryAdva
         select sar
         from SalaryAdvanceRequest sar
         join fetch sar.requester requester
+        left join fetch requester.department dept
         left join fetch sar.processedBy processedBy
         left join fetch processedBy.employee processedByEmployee
         where sar.createdAt >= :startOfYear
@@ -45,4 +47,23 @@ public interface SalaryAdvanceRequestRepository extends JpaRepository<SalaryAdva
             @Param("startOfYear") LocalDateTime startOfYear,
             @Param("startOfNextYear") LocalDateTime startOfNextYear
     );
+
+    @Query("""
+        select sar
+        from SalaryAdvanceRequest sar
+        join fetch sar.requester requester
+        left join fetch requester.department dept
+        left join fetch sar.processedBy processedBy
+        left join fetch processedBy.employee processedByEmployee
+        where sar.createdAt >= :from
+          and sar.createdAt <= :to
+        order by sar.createdAt desc
+    """)
+    List<SalaryAdvanceRequest> findAllByCreatedAtBetween(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
+    @Query("select max(sar.createdAt) from SalaryAdvanceRequest sar where sar.status = 'EN_COURS' and sar.createdAt < :threshold")
+    Optional<LocalDateTime> findOldestEnCoursCreatedAt(@Param("threshold") LocalDateTime threshold);
 }
