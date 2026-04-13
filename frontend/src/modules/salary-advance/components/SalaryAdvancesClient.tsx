@@ -54,7 +54,7 @@ interface SalaryAdvancesClientProps {
 export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const { auth } = useAuth();
   const isAdmin = auth.user?.role === "ADMIN";
-  const isSupervisor = auth.user?.role === "SUPERVISOR";
+
 
   const [salaryAdvanceData, setSalaryAdvanceData] = useState<SalaryAdvanceColumn[]>(
     () => applyDefaultAmount(data, isAdmin)
@@ -74,16 +74,6 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
     deleteSalaryAdvanceDeadline.isPending;
   const isDisabled =
     batchUpdateSalaryAdvances.isPending || (isLocked && !isAdmin);
-
-  const supervisorAdvance = useMemo(() => {
-    if (!isSupervisor || !auth.user?.matricule) return null;
-
-    return (
-      salaryAdvanceData.find(
-        (row) => row.employee.matricule === auth.user?.matricule
-      ) ?? null
-    );
-  }, [auth.user?.matricule, isSupervisor, salaryAdvanceData]);
 
   const displayedAdvances = useMemo(() => salaryAdvanceData, [salaryAdvanceData]);
 

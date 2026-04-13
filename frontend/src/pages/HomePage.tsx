@@ -240,10 +240,7 @@ function AlertCard({
 
 export default function HomePage() {
   const { auth } = useAuth();
-  const role: string =
-    (auth?.user?.role as string) ??
-    (auth?.user?.authorities?.[0] as string) ??
-    "";
+  const role: string = (auth?.user?.role as string) ?? "";
   const cleanRole = role.replace("ROLE_", "");
 
   const [period, setPeriod] = useState<DashboardPeriod>("month");
@@ -682,7 +679,7 @@ function DeptDonutChart({
               ))}
             </Pie>
             <Tooltip
-              formatter={(v: number, name: string) => [`${v} absent(s)`, name]}
+              formatter={(v: number | undefined, name: string | undefined) => [`${v ?? 0} absent(s)`, name ?? ""]}
               contentStyle={{
                 background: "var(--white)",
                 border: "1px solid var(--border)",
@@ -772,7 +769,7 @@ function DeptAvgChart({
               tick={{ fontSize: 11, fill: "var(--text2)" }}
             />
             <Tooltip
-              formatter={(v: number) => [fmtCurrency(v), "Moy. accordée"]}
+              formatter={(v: number | undefined) => [fmtCurrency(v ?? 0), "Moy. accordée"]}
               contentStyle={{
                 background: "var(--white)",
                 border: "1px solid var(--border)",
