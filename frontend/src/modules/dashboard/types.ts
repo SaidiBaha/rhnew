@@ -52,7 +52,7 @@ export type AdvanceSection = {
   totalRequests: number;
   totalAmountDone: number;
   enCoursCount: number;
-  approvalRate: number;
+  approvalRate: number | null;
   deltaRequests: number;
   chartStatus: AdvanceStatusPoint[];
   chartAvgByDept: DeptAvgAmount[];

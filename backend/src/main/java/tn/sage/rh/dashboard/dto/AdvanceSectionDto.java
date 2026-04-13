@@ -12,7 +12,7 @@ public class AdvanceSectionDto {
     private long totalRequests;
     private BigDecimal totalAmountDone;
     private long enCoursCount;
-    private double approvalRate;
+    private Double approvalRate;
     private long deltaRequests;
     private List<AdvanceStatusPointDto> chartStatus;
     private List<DeptAvgAmountDto> chartAvgByDept;

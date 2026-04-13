@@ -66,4 +66,21 @@ public interface SalaryAdvanceRequestRepository extends JpaRepository<SalaryAdva
 
     @Query("select max(sar.createdAt) from SalaryAdvanceRequest sar where sar.status = 'EN_COURS' and sar.createdAt < :threshold")
     Optional<LocalDateTime> findOldestEnCoursCreatedAt(@Param("threshold") LocalDateTime threshold);
+
+    /**
+     * Charge toutes les demandes accordées (DONE) dont processedAt est dans l'intervalle.
+     * Utilisé par le dashboard admin pour Carte 1 (employés distincts accordés) et Carte 2 (montant total accordé).
+     */
+    @Query("""
+        select sar
+        from SalaryAdvanceRequest sar
+        join fetch sar.requester requester
+        where sar.status = 'DONE'
+          and sar.processedAt >= :from
+          and sar.processedAt <= :to
+    """)
+    List<SalaryAdvanceRequest> findAllDoneByProcessedAtBetween(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 }

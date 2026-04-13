@@ -9,7 +9,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import {
   validateAttendanceDates,
   parseNewAttendanceFormat,
-} from "@/modules/attendance/utils";
+} from "../utils/parsePresenceFormat";
 import { logError, showErrorToast } from "@/modules/employee/api-error";
 
 import { useImportPresence } from "../hooks/useImportPresence";

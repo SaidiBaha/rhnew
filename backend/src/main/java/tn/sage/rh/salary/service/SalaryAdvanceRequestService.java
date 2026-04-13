@@ -128,7 +128,8 @@ public class SalaryAdvanceRequestService {
                 ));
 
         entity.setStatus(request.getStatus());
-        if (request.getStatus() == SalaryAdvanceRequestStatus.DONE) {
+        if (request.getStatus() == SalaryAdvanceRequestStatus.DONE
+                || request.getStatus() == SalaryAdvanceRequestStatus.REFUSED) {
             entity.setProcessedAt(LocalDateTime.now());
             entity.setProcessedBy(user);
         } else {

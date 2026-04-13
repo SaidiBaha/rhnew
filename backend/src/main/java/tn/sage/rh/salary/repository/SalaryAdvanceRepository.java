@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import tn.sage.rh.salary.entity.SalaryAdvance;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -60,5 +61,19 @@ public interface SalaryAdvanceRepository extends JpaRepository<SalaryAdvance, Lo
             "where sa.employee.deleted = false " +
             "order by sa.year desc, sa.month desc, " + SAFE_EMPLOYEE_MATRICULE_ORDER)
     List<SalaryAdvance> findAllHistoryForAdmin();
+
+    @Query("""
+        select sa
+        from SalaryAdvance sa
+        left join fetch sa.employee emp
+        left join fetch emp.department dept
+        where sa.createdAt >= :from
+          and sa.createdAt <= :to
+        order by sa.createdAt desc
+    """)
+    List<SalaryAdvance> findAllByCreatedAtBetween(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 
 }

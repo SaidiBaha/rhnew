@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import toast from "react-hot-toast";
 import useAuth from "@/hooks/useAuth";
-import type { AttendanceRequest } from "@/modules/attendance/types";
+import type { PresenceImportRecord } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -15,7 +15,7 @@ export const useImportPresence = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (records: AttendanceRequest[]) =>
+    mutationFn: (records: PresenceImportRecord[]) =>
       axios.post("/attendances/batch-save", records, {
         baseURL: API_BASE_URL,
         headers: { Authorization: `Bearer ${auth.accessToken}` },

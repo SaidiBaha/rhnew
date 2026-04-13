@@ -16,8 +16,10 @@ import tn.sage.rh.permutations.entity.Permutation;
 import tn.sage.rh.permutations.entity.PermutationStatus;
 import tn.sage.rh.permutations.repository.PermutationRepository;
 import tn.sage.rh.employee.projection.ProjectBestSupervisorRow;
+import tn.sage.rh.salary.entity.SalaryAdvance;
 import tn.sage.rh.salary.entity.SalaryAdvanceRequest;
 import tn.sage.rh.salary.entity.SalaryAdvanceRequestStatus;
+import tn.sage.rh.salary.repository.SalaryAdvanceRepository;
 import tn.sage.rh.salary.repository.SalaryAdvanceRequestRepository;
 
 import java.math.BigDecimal;
@@ -38,6 +40,7 @@ public class DashboardService {
     private final ProductionLineService productionLineService;
     private final AttendanceRepository attendanceRepository;
     private final SalaryAdvanceRequestRepository salaryAdvanceRequestRepository;
+    private final SalaryAdvanceRepository salaryAdvanceRepository;
 
     private static final ZoneId TZ = ZoneId.of("Africa/Tunis");
     private static final DateTimeFormatter DAY_FMT  = DateTimeFormatter.ofPattern("dd/MM");
@@ -105,6 +108,12 @@ public class DashboardService {
         List<SalaryAdvanceRequest> prevAdvances =
                 salaryAdvanceRequestRepository.findAllByCreatedAtBetween(prevFromDt, prevToDt);
 
+        // SalaryAdvance (direct admin entries, implicitly approved)
+        List<SalaryAdvance> periodSalaryAdvances =
+                salaryAdvanceRepository.findAllByCreatedAtBetween(periodFromDt, periodToDt);
+        List<SalaryAdvance> prevSalaryAdvances =
+                salaryAdvanceRepository.findAllByCreatedAtBetween(prevFromDt, prevToDt);
+
         // Recent 5 advances (all time)
         List<SalaryAdvanceRequest> allAdvancesDesc =
                 salaryAdvanceRequestRepository.findAllDetailedOrderByCreatedAtDesc();
@@ -148,20 +157,55 @@ public class DashboardService {
                 .build();
 
         // ── 4. ADVANCES section ───────────────────────────────────────────────
-        long totalRequests = periodAdvances.size();
-        long enCoursCount  = periodAdvances.stream().filter(r -> r.getStatus() == SalaryAdvanceRequestStatus.EN_COURS).count();
-        long doneCount     = periodAdvances.stream().filter(r -> r.getStatus() == SalaryAdvanceRequestStatus.DONE).count();
 
-        BigDecimal totalAmountDone = periodAdvances.stream()
-                .filter(r -> r.getStatus() == SalaryAdvanceRequestStatus.DONE)
+        // Charge les demandes accordées (DONE) dont processedAt est dans la période
+        List<SalaryAdvanceRequest> approvedInPeriod =
+                salaryAdvanceRequestRepository.findAllDoneByProcessedAtBetween(periodFromDt, periodToDt);
+
+        // Carte 1 — "Demandes ce mois" : employés DISTINCTS avec montant accordé > 0 dans la période
+        // Source 1 : SalaryAdvanceRequest DONE (processedAt dans période)
+        Set<Long> approvedEmployeeIds = approvedInPeriod.stream()
+                .filter(r -> r.getAmount() != null && r.getAmount().compareTo(BigDecimal.ZERO) > 0
+                          && r.getRequester() != null)
+                .map(r -> r.getRequester().getId())
+                .collect(Collectors.toCollection(HashSet::new));
+        // Source 2 : SalaryAdvance (toujours accordées, createdAt dans période)
+        periodSalaryAdvances.stream()
+                .filter(sa -> sa.getAmount() != null && sa.getAmount().compareTo(BigDecimal.ZERO) > 0
+                           && sa.getEmployee() != null)
+                .map(sa -> sa.getEmployee().getId())
+                .forEach(approvedEmployeeIds::add);
+        long totalRequests = approvedEmployeeIds.size(); // Carte 1
+
+        // Carte 2 — "Montant accordé" : SUM des montants des mêmes enregistrements
+        BigDecimal amountDoneRequests = approvedInPeriod.stream()
+                .filter(r -> r.getAmount() != null && r.getAmount().compareTo(BigDecimal.ZERO) > 0)
                 .map(SalaryAdvanceRequest::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal amountSalaryAdvances = periodSalaryAdvances.stream()
+                .filter(sa -> sa.getAmount() != null && sa.getAmount().compareTo(BigDecimal.ZERO) > 0)
+                .map(SalaryAdvance::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmountDone = amountDoneRequests.add(amountSalaryAdvances); // Carte 2
 
-        double approvalRate = (doneCount + enCoursCount) > 0
-                ? Math.round((doneCount * 100.0 / (doneCount + enCoursCount)) * 10.0) / 10.0
-                : 0.0;
+        // Carte 3 — "En attente" : employés DISTINCTS avec demande EN_COURS (montant > 0), toutes dates
+        long enCoursCount = allAdvancesDesc.stream()
+                .filter(r -> r.getStatus() == SalaryAdvanceRequestStatus.EN_COURS
+                          && r.getAmount() != null && r.getAmount().compareTo(BigDecimal.ZERO) > 0
+                          && r.getRequester() != null)
+                .map(r -> r.getRequester().getId())
+                .collect(Collectors.toSet())
+                .size(); // Carte 3
 
-        long deltaRequests = totalRequests - prevAdvances.size();
+        // Carte 4 — (carte1 / (carte1 + carte3)) * 100, null si dénominateur = 0
+        long denominator = totalRequests + enCoursCount;
+        Double approvalRate = denominator > 0
+                ? Math.round((totalRequests * 100.0 / denominator) * 10.0) / 10.0
+                : null; // Carte 4
+
+        // Delta — activité de création (mois courant vs mois précédent)
+        long deltaRequests = (long)(periodAdvances.size() + periodSalaryAdvances.size())
+                - ((long) prevAdvances.size() + prevSalaryAdvances.size());
 
         List<AdvanceStatusPointDto> chartStatus = buildChartStatus(periodAdvances, periodFrom, periodTo);
         List<DeptAvgAmountDto> chartAvgByDept   = buildChartAvgByDept(periodAdvances);

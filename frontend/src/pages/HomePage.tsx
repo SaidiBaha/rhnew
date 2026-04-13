@@ -368,23 +368,37 @@ export default function HomePage() {
                 label="Demandes ce mois"
                 value={String(data?.advances.totalRequests ?? "—")}
                 accent="var(--accent)"
-                sub={<Delta value={data?.advances.deltaRequests ?? 0} />}
+                sub={<span style={{ fontSize: 12, color: "var(--muted)" }}>employés accordés</span>}
               />
               <KpiCard
                 label="Montant accordé"
-                value={fmtCurrency(data?.advances.totalAmountDone ?? 0)}
+                value={
+                  (data?.advances.totalAmountDone ?? 0) === 0
+                    ? "— TND"
+                    : fmtCurrency(data?.advances.totalAmountDone ?? 0)
+                }
                 accent="var(--accent2)"
               />
               <KpiCard
                 label="En attente"
                 value={String(data?.advances.enCoursCount ?? "—")}
-                accent="var(--accent3)"
+                accent={(data?.advances.enCoursCount ?? 0) > 0 ? "var(--accent3)" : "var(--muted)"}
                 alert={(data?.advances.enCoursCount ?? 0) > 5}
+                sub={<span style={{ fontSize: 12, color: "var(--muted)" }}>demandes non traitées</span>}
               />
               <KpiCard
                 label="Taux d'approbation"
-                value={fmtPct(data?.advances.approvalRate ?? 0)}
-                accent="var(--accent2)"
+                value={data?.advances.approvalRate == null ? "—" : fmtPct(data.advances.approvalRate)}
+                accent={
+                  data?.advances.approvalRate == null
+                    ? "var(--muted)"
+                    : data.advances.approvalRate >= 75
+                    ? "var(--accent2)"
+                    : data.advances.approvalRate >= 50
+                    ? "var(--accent3)"
+                    : "var(--accent4)"
+                }
+                alert={(data?.advances.approvalRate ?? 100) < 50}
               />
             </>
           )}
