@@ -6,8 +6,10 @@ import org.mapstruct.factory.Mappers;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import tn.sage.rh.user.User;
 import tn.sage.rh.attendance.dto.DailyAttendanceDto;
 import tn.sage.rh.attendance.dto.EmployeeAttendanceDto;
 import tn.sage.rh.attendance.dto.HistoryResponseDto;
@@ -33,8 +35,15 @@ public class AttendanceController {
 
     /** Import batch (upsert). */
     @PostMapping("/batch-save")
-    public ResponseEntity<?> batchSave(@Valid @RequestBody List<SaveAttendanceInputDto> saveAttendanceInputs) {
-        attendanceService.saveAll(saveAttendanceInputs);
+    public ResponseEntity<?> batchSave(
+            @Valid @RequestBody List<SaveAttendanceInputDto> saveAttendanceInputs,
+            Principal connectedUser) {
+        Long userId = null;
+        if (connectedUser instanceof UsernamePasswordAuthenticationToken token
+                && token.getPrincipal() instanceof User user) {
+            userId = user.getId();
+        }
+        attendanceService.saveAll(saveAttendanceInputs, userId, null);
         return ResponseEntity.accepted().build();
     }
 

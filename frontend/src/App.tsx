@@ -18,6 +18,7 @@ import OperatorsAvailabilityPage from "@/pages/OperatorsAvailabilityPage";
 
 // ✅ HEAD
 import SalaryAdvancesHistoryPage from "@/pages/SalaryAdvancesHistoryPage";
+import SalaryAdvancesTrackingPage from "@/pages/SalaryAdvancesTrackingPage";
 
 // ✅ MAIN
 import EdiPage from "@/pages/EdiPage";
@@ -54,6 +55,18 @@ function App() {
             element={
               <Layout>
                 <SalaryAdvancesHistoryPage />
+              </Layout>
+            }
+          />
+        </Route>
+
+        {/* Suivi avances superviseurs */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPER_ADMIN"]} />}>
+          <Route
+            path="/salary-advances/suivi-superviseurs"
+            element={
+              <Layout>
+                <SalaryAdvancesTrackingPage />
               </Layout>
             }
           />

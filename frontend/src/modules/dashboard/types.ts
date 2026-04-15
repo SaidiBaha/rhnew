@@ -90,10 +90,22 @@ export type RecentAbsence = {
   absenceReason: string;
 };
 
+export type SupervisorPendingRow = {
+  trackingId: string;
+  supervisorMatricule: string;
+  supervisorFullName: string;
+  nbEmployees: number;
+  montantTotal: number;
+  statut: "EN_ATTENTE" | "PARTIEL";
+  importedAt?: string;
+  derniereActionAt?: string;
+};
+
 export type AdminDashboard = {
   presence: PresenceSection;
   advances: AdvanceSection;
   alerts: AlertsSection;
   recentAdvances: RecentAdvance[];
   recentAbsences: RecentAbsence[];
+  supervisorsPending: SupervisorPendingRow[];
 };

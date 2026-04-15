@@ -13,4 +13,6 @@ public class AdminDashboardDto {
     private AlertsSectionDto alerts;
     private List<RecentAdvanceDto> recentAdvances;
     private List<RecentAbsenceDto> recentAbsences;
+    /** Superviseurs n'ayant pas encore complété leurs avances (max 5 pour le dashboard). */
+    private List<SupervisorPendingRowDto> supervisorsPending;
 }

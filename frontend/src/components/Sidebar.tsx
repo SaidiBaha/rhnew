@@ -7,6 +7,7 @@ import useLogout from "@/hooks/useLogout";
 import useAuth from "@/hooks/useAuth";
 import type { UserRole } from "@/modules/auth/types";
 import { PermutationNotificationBell } from "@/components/PermutationNotificationBell";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 /* ===================== SIDEBAR ITEM ===================== */
 interface SidebarItemProps {
@@ -103,7 +104,8 @@ const PRINCIPAL_ITEMS: NavigationItem[] = [
   { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
   { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances",                    allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Suivi avances",        icon: "chart-bar-big",      path: "/salary-advances/suivi-superviseurs", allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",         allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
   { label: "Présences / Absences", icon: "user-round-check",   path: "/presence-absences",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN", "NURSE"] },
   { label: "Historique Présences", icon: "calendar-search",    path: "/historique-presence",   allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
@@ -266,7 +268,10 @@ export const Sidebar = () => {
                     {roleLabel}
                   </span>
                 </div>
-                {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+                  <NotificationCenter />
+                </div>
               </div>
             ) : (
               <>
@@ -277,7 +282,10 @@ export const Sidebar = () => {
                 >
                   {initials}
                 </div>
-                {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                  {isSupervisor && <PermutationNotificationBell expanded={expanded} />}
+                  <NotificationCenter />
+                </div>
               </>
             )}
           </div>

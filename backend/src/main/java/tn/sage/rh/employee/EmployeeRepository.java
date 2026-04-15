@@ -377,4 +377,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
            or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
 """)
     long countFormerEmployees(@Param("supervisorMatricule") String supervisorMatricule);
+
+    /** Nombre d'employés actifs rattachés à un superviseur (hors lui-même). */
+    @Query("""
+        SELECT COUNT(e) FROM Employee e
+        WHERE e.deleted = false
+          AND e.departureDate IS NULL
+          AND (e.hasLeftCompany = false OR e.hasLeftCompany IS NULL)
+          AND e.supervisor IS NOT NULL
+          AND e.supervisor.matricule = :supervisorMatricule
+          AND e.matricule <> :supervisorMatricule
+    """)
+    long countBySupervisorMatricule(@Param("supervisorMatricule") String supervisorMatricule);
 }

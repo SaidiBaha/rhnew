@@ -76,4 +76,30 @@ public interface SalaryAdvanceRepository extends JpaRepository<SalaryAdvance, Lo
             @Param("to") LocalDateTime to
     );
 
+    /** Nombre d'avances saisies (montant > 0) par un superviseur pour un mois/année donné. */
+    @Query("""
+        SELECT COUNT(sa) FROM SalaryAdvance sa
+        WHERE sa.month = :month AND sa.year = :year
+          AND sa.amount > 0
+          AND (sa.employee.id = :supervisorEmpId OR sa.employee.supervisor.id = :supervisorEmpId)
+          AND sa.employee.deleted = false
+    """)
+    int countSavedBySupervisorAndMonthAndYear(
+            @Param("supervisorEmpId") Long supervisorEmpId,
+            @Param("month") int month,
+            @Param("year") int year);
+
+    /** Somme des montants d'avances par un superviseur pour un mois/année donné. */
+    @Query("""
+        SELECT COALESCE(SUM(sa.amount), 0) FROM SalaryAdvance sa
+        WHERE sa.month = :month AND sa.year = :year
+          AND sa.amount > 0
+          AND (sa.employee.id = :supervisorEmpId OR sa.employee.supervisor.id = :supervisorEmpId)
+          AND sa.employee.deleted = false
+    """)
+    java.math.BigDecimal sumAmountBySupervisorAndMonthAndYear(
+            @Param("supervisorEmpId") Long supervisorEmpId,
+            @Param("month") int month,
+            @Param("year") int year);
+
 }

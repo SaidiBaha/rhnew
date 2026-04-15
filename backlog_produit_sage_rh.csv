@@ -32,6 +32,8 @@ EPIC-4,Module Présences / Absences (jour courant),PRE-10,Frontend : PresenceCli
 EPIC-4,Module Présences / Absences (jour courant),PRE-11,Frontend : validation import — type fichier (.xlsx/.xls) + taille max 10 Mo,Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-12,Frontend : PresencePage + route protégée (ADMIN SUPERVISOR SUPER_ADMIN),Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-13,Frontend : pagination 50 lignes/page dans PresenceClient,Task,Moyenne,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-14,Backend : entité AttendanceImport + AttendanceImportRepository (traçabilité des imports XLSX),Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-15,Backend : enregistrement de l'import dans attendance_imports après chaque batch-save,Task,Haute,Done
 EPIC-5,Module Historique Présences / Absences,HIS-1,Backend : endpoint GET /attendances/history avec filtrage SUPERVISOR + KPI,Story,Haute,Done
 EPIC-5,Module Historique Présences / Absences,HIS-2,Backend : endpoint GET /attendances/history/{matricule} avec filtrage SUPERVISOR,Story,Haute,Done
 EPIC-5,Module Historique Présences / Absences,HIS-3,Backend : repository — findAllForHistory + findAllForHistoryBySupervisor,Task,Haute,Done
@@ -56,3 +58,32 @@ EPIC-7,Bugs & Correctifs techniques,BUG-3,Fix : CAST(:dateFrom AS LocalDate) dan
 EPIC-7,Bugs & Correctifs techniques,BUG-4,Fix : bugs liste free operators,Bug,Haute,Done
 EPIC-7,Bugs & Correctifs techniques,BUG-5,Fix : bugs module permutation,Bug,Haute,Done
 EPIC-7,Bugs & Correctifs techniques,BUG-6,Fix : erreurs de build,Bug,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-1,Backend : entité Notification (userId titre message lien lu createdAt),Task,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-2,Backend : NotificationRepository — findByUserIdOrderByCreatedAtDesc + countUnread + markAllAsRead + markOneAsRead,Task,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-3,Backend : NotificationService — create / createForAll / findByUserId / countUnread / markAllAsRead / markAsRead,Story,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-4,Backend : NotificationController — GET /api/v1/notifications GET /unread-count PATCH /mark-all-read PATCH /{id}/mark-read,Story,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-5,Backend : sécuriser les endpoints notifications dans SecurityConfiguration,Task,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-6,Frontend : types NotificationDto dans modules/notifications/types.ts,Task,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-7,Frontend : hooks useFetchNotifications / useFetchUnreadCount / useMarkAllAsRead / useMarkAsRead,Task,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-8,Frontend : composant NotificationCenter (cloche + badge unread + dropdown liste + Tout marquer lu),Story,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-9,Frontend : intégration NotificationCenter dans la Sidebar,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-1,Backend : entité SupervisorAdvanceTracking (supervisorId importId statut nbSaisies montant rappel timestamps),Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-2,Backend : SupervisorAdvanceTrackingRepository — findBySupervisorIdAndAttendanceImportId / findAllByAttendanceImportId / findPendingWithoutReminderForImport,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-3,Backend : SupervisorAdvanceTrackingService — onAttendanceImported (création tracking + notification batch),Story,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-4,Backend : SupervisorAdvanceTrackingService — onAdvancesSaved (recalcul statut EN_ATTENTE/PARTIEL/COMPLETE),Story,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-5,Backend : SupervisorAdvanceTrackingService — getStats (KPI + liste pour page ADMIN),Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-6,Backend : SupervisorAdvanceTrackingService — sendManualReminder (notification individuelle),Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-7,Backend : SupervisorAdvanceTrackingService — sendAutomaticReminders (rappel 24h unique par import),Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-8,Backend : AdvanceReminderScheduler — cron toutes les heures déclenchant sendAutomaticReminders,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-9,Backend : SupervisorAdvanceTrackingController — GET /api/v1/supervisor-advance-tracking + POST /{id}/remind (ADMIN/SUPER_ADMIN),Story,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-10,Backend : DTOs SupervisorTrackingRowDto + SupervisorTrackingStatsDto,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-11,Backend : SalaryAdvanceRepository — countSavedBySupervisorAndMonthAndYear + sumAmountBySupervisorAndMonthAndYear,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-12,Frontend : types SupervisorTrackingRow / SupervisorTrackingStats / SupervisorTrackingStatut dans salary-advance/types.ts,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-13,Frontend : hooks useFetchSupervisorTracking + useSendReminder,Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-14,Frontend : composant SupervisorTrackingClient (KPI cards filtrables + table + bouton Relancer),Story,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-15,Frontend : SalaryAdvancesTrackingPage + route protégée (ADMIN SUPER_ADMIN),Task,Haute,Done
+EPIC-10,Dashboard Admin enrichi,DASH-1,Backend : AdminDashboardDto — section supervisorsPending (max 5 superviseurs en retard),Task,Haute,Done
+EPIC-10,Dashboard Admin enrichi,DASH-2,Backend : DashboardService — calcul supervisorsPending depuis SupervisorAdvanceTracking,Task,Haute,Done
+EPIC-10,Dashboard Admin enrichi,DASH-3,Backend : SupervisorPendingRowDto — trackingId matricule fullName nbEmployees montantTotal statut timestamps,Task,Haute,Done
+EPIC-10,Dashboard Admin enrichi,DASH-4,Frontend : type SupervisorPendingRow dans dashboard/types.ts,Task,Haute,Done
+EPIC-10,Dashboard Admin enrichi,DASH-5,Frontend : section "Superviseurs en attente" dans HomePage avec lien vers /salary-advances/tracking,Story,Haute,Done

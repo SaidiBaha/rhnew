@@ -2,6 +2,7 @@
 package tn.sage.rh.dashboard;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.attendance.entity.Attendance;
@@ -21,6 +22,9 @@ import tn.sage.rh.salary.entity.SalaryAdvanceRequest;
 import tn.sage.rh.salary.entity.SalaryAdvanceRequestStatus;
 import tn.sage.rh.salary.repository.SalaryAdvanceRepository;
 import tn.sage.rh.salary.repository.SalaryAdvanceRequestRepository;
+import tn.sage.rh.salary.service.SupervisorAdvanceTrackingService;
+import tn.sage.rh.salary.dto.SupervisorTrackingRowDto;
+import tn.sage.rh.salary.dto.SupervisorTrackingStatsDto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -41,6 +45,8 @@ public class DashboardService {
     private final AttendanceRepository attendanceRepository;
     private final SalaryAdvanceRequestRepository salaryAdvanceRequestRepository;
     private final SalaryAdvanceRepository salaryAdvanceRepository;
+    @Lazy
+    private final SupervisorAdvanceTrackingService supervisorAdvanceTrackingService;
 
     private static final ZoneId TZ = ZoneId.of("Africa/Tunis");
     private static final DateTimeFormatter DAY_FMT  = DateTimeFormatter.ofPattern("dd/MM");
@@ -291,13 +297,39 @@ public class DashboardService {
                 ))
                 .collect(Collectors.toList());
 
+        // ── 7. SUPERVISOR PENDING WIDGET (max 5 lignes) ──────────────────────
+        List<SupervisorPendingRowDto> supervisorsPending = buildSupervisorsPending();
+
         return AdminDashboardDto.builder()
                 .presence(presenceSection)
                 .advances(advanceSection)
                 .alerts(alertsSection)
                 .recentAdvances(recentAdvances)
                 .recentAbsences(recentAbsences)
+                .supervisorsPending(supervisorsPending)
                 .build();
+    }
+
+    private List<SupervisorPendingRowDto> buildSupervisorsPending() {
+        try {
+            SupervisorTrackingStatsDto stats = supervisorAdvanceTrackingService.getStats();
+            return stats.getRows().stream()
+                    .filter(r -> "EN_ATTENTE".equals(r.getStatut()) || "PARTIEL".equals(r.getStatut()))
+                    .limit(5)
+                    .map(r -> SupervisorPendingRowDto.builder()
+                            .trackingId(r.getTrackingId())
+                            .supervisorMatricule(r.getSupervisorMatricule())
+                            .supervisorFullName(r.getSupervisorFullName())
+                            .nbEmployees(r.getNbEmployees())
+                            .montantTotal(r.getMontantTotal())
+                            .statut(r.getStatut())
+                            .importedAt(r.getImportedAt())
+                            .derniereActionAt(r.getDerniereActionAt())
+                            .build())
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

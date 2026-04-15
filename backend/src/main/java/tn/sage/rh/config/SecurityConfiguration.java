@@ -109,6 +109,13 @@ public class SecurityConfiguration {
                 .requestMatchers(GET, "/api/v1/dashboard/**")
                     .hasAnyRole(ADMIN.name(), OPERATIONAL_MANAGER.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
 
+                // ── Suivi avances superviseurs ─────────────────────────────────
+                .requestMatchers("/api/v1/supervisor-advance-tracking/**")
+                    .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+
+                // ── Notifications ─────────────────────────────────────────────
+                .requestMatchers("/api/v1/notifications/**").authenticated()
+
                 // ── Salary advance deadlines ──────────────────────────────────
                 .requestMatchers("/api/v1/salary-advance-deadlines/**")
                     .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())

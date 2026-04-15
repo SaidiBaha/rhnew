@@ -18,9 +18,11 @@ import {
 } from "recharts";
 
 import { useFetchAdminDashboard } from "@/modules/dashboard/hooks/useFetchAdminDashboard";
-import type { DashboardPeriod } from "@/modules/dashboard/types";
+import type { DashboardPeriod, SupervisorPendingRow } from "@/modules/dashboard/types";
 import useAuth from "@/hooks/useAuth";
 import LegacyDashboard from "@/pages/LegacyDashboard";
+import { useSendReminder } from "@/modules/salary-advance/hooks/useSupervisorTracking";
+import { toast } from "react-hot-toast";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -409,6 +411,14 @@ export default function HomePage() {
           <AdvanceStatusChart data={data?.advances.chartStatus ?? []} loading={isLoading} />
           <DeptAvgChart data={data?.advances.chartAvgByDept ?? []} loading={isLoading} />
         </div>
+
+        {/* Superviseurs en attente */}
+        <div style={{ marginTop: 16 }}>
+          <SupervisorsPendingWidget
+            rows={data?.supervisorsPending ?? []}
+            loading={isLoading}
+          />
+        </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
@@ -561,6 +571,105 @@ export default function HomePage() {
           <RecentAbsencesTable rows={data?.recentAbsences ?? []} loading={isLoading} />
         </div>
       </section>
+    </div>
+  );
+}
+
+// ─── Supervisors pending widget ───────────────────────────────────────────────
+
+function StatutBadge({ statut }: { statut: string }) {
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    EN_ATTENTE: { label: "En attente", bg: "#fee2e2", color: "#991b1b" },
+    PARTIEL:    { label: "Partiel",    bg: "#fef3c7", color: "#92400e" },
+  };
+  const s = map[statut] ?? { label: statut, bg: "var(--border)", color: "var(--text2)" };
+  return (
+    <span style={{ background: s.bg, color: s.color, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+      {s.label}
+    </span>
+  );
+}
+
+function SupervisorsPendingWidget({
+  rows,
+  loading,
+}: {
+  rows: SupervisorPendingRow[];
+  loading: boolean;
+}) {
+  const sendReminder = useSendReminder();
+
+  const handleRemind = (trackingId: string, fullName: string) => {
+    sendReminder.mutate(trackingId, {
+      onSuccess: () => toast.success(`Rappel envoyé à ${fullName}`),
+      onError:   () => toast.error("Erreur lors de l'envoi du rappel"),
+    });
+  };
+
+  return (
+    <div className="ds-card" style={{ padding: "18px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+          Superviseurs n'ayant pas complété les avances
+        </span>
+        <Link
+          to="/salary-advances/suivi-superviseurs"
+          style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
+        >
+          Voir tout →
+        </Link>
+      </div>
+
+      {loading ? (
+        <SkeletonCard h={100} />
+      ) : rows.length === 0 ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent2)", fontSize: 13, fontWeight: 600 }}>
+          <span>✓</span>
+          <span>Tous les superviseurs ont complété leurs avances.</span>
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {["Matricule", "Nom", "Nb employés", "Depuis le", "Statut", "Action"].map((h) => (
+                  <th key={h} style={{ padding: "6px 8px", textAlign: "left", color: "var(--text2)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const sinceLabel = r.importedAt
+                  ? (() => {
+                      const diff = Math.floor((Date.now() - new Date(r.importedAt).getTime()) / 86_400_000);
+                      return diff === 0 ? "aujourd'hui" : diff === 1 ? "il y a 1 jour" : `il y a ${diff} jours`;
+                    })()
+                  : "—";
+                return (
+                  <tr key={r.trackingId} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "8px 8px", color: "var(--text2)", fontSize: 12, fontFamily: "monospace" }}>{r.supervisorMatricule}</td>
+                    <td style={{ padding: "8px 8px", color: "var(--text)", fontWeight: 500 }}>{r.supervisorFullName}</td>
+                    <td style={{ padding: "8px 8px", color: "var(--text2)", textAlign: "center" }}>{r.nbEmployees}</td>
+                    <td style={{ padding: "8px 8px", color: "var(--text2)" }}>{sinceLabel}</td>
+                    <td style={{ padding: "8px 8px" }}><StatutBadge statut={r.statut} /></td>
+                    <td style={{ padding: "8px 8px" }}>
+                      <button
+                        onClick={() => handleRemind(r.trackingId, r.supervisorFullName)}
+                        disabled={sendReminder.isPending}
+                        style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "1px solid var(--accent)", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}
+                      >
+                        Relancer
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

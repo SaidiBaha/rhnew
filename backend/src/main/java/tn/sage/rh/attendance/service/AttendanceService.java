@@ -2,7 +2,9 @@ package tn.sage.rh.attendance.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,7 @@ import tn.sage.rh.attendance.repository.AttendanceRepository;
 import tn.sage.rh.employee.Employee;
 import tn.sage.rh.employee.EmployeeMapper;
 import tn.sage.rh.employee.EmployeeRepository;
+import tn.sage.rh.salary.service.SupervisorAdvanceTrackingService;
 import tn.sage.rh.user.User;
 
 import java.security.Principal;
@@ -41,11 +44,14 @@ import static tn.sage.rh.user.UserRole.SUPERVISOR;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
     private final AbsenceReasonService absenceReasonService;
     private final EmployeeRepository employeeRepository;
+    @Lazy
+    private final SupervisorAdvanceTrackingService supervisorAdvanceTrackingService;
     private final AttendanceMapper attendanceMapper = Mappers.getMapper(AttendanceMapper.class);
     private final EmployeeMapper employeeMapper = Mappers.getMapper(EmployeeMapper.class);
 
@@ -125,19 +131,48 @@ public class AttendanceService {
         attendanceRepository.saveAll(new ArrayList<>(toSaveMap.values()));
     }
 
+    /**
+     * Import XLSX : sauvegarde par batch de 2000 lignes, puis déclenche
+     * la création du tracking superviseurs et l'envoi des notifications.
+     *
+     * @param attendanceInputs liste des lignes à importer
+     * @param importedByUserId id de l'utilisateur qui importe (peut être null si non authentifié)
+     * @param fichierNom       nom du fichier importé (peut être null)
+     */
     @Transactional
-    public void saveAll(List<SaveAttendanceInputDto> attendanceInputs) {
+    public void saveAll(List<SaveAttendanceInputDto> attendanceInputs,
+                        Long importedByUserId,
+                        String fichierNom) {
+        if (attendanceInputs.isEmpty()) return;
 
         int batchSize = 2000;
-
         for (int i = 0; i < attendanceInputs.size(); i += batchSize) {
-
             List<SaveAttendanceInputDto> batch = attendanceInputs
                     .subList(i, Math.min(i + batchSize, attendanceInputs.size()));
-
             batchSave(batch);
         }
 
+        // Déterminer la date du fichier (date min des lignes importées)
+        LocalDate importDate = attendanceInputs.stream()
+                .map(SaveAttendanceInputDto::getDate)
+                .filter(d -> d != null)
+                .min(LocalDate::compareTo)
+                .orElse(LocalDate.now(ZoneId.of("Africa/Tunis")));
+
+        // Déclencher l'enregistrement de l'import + notifications superviseurs
+        try {
+            supervisorAdvanceTrackingService.onAttendanceImported(
+                    importedByUserId, importDate, fichierNom, attendanceInputs.size());
+        } catch (Exception e) {
+            // Ne pas faire échouer l'import si le tracking plante
+            log.warn("Erreur lors du déclenchement du tracking superviseurs: {}", e.getMessage());
+        }
+    }
+
+    /** Compatibilité ascendante — délègue vers la surcharge avec paramètres. */
+    @Transactional
+    public void saveAll(List<SaveAttendanceInputDto> attendanceInputs) {
+        saveAll(attendanceInputs, null, null);
     }
 
     @Transactional(readOnly = true)
