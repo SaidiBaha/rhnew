@@ -105,7 +105,7 @@ const PRINCIPAL_ITEMS: NavigationItem[] = [
   { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Avances",              icon: "hand-coins",         path: "/salary-advances", allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
   { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",         allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Présences / Absences", icon: "user-round-check",   path: "/presence-absences",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Présences / Absences", icon: "user-round-check",   path: "/presence-absences",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN", "NURSE"] },
   { label: "Historique Présences", icon: "calendar-search",    path: "/historique-presence",   allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
   { label: "Correction Pointage",  icon: "search-check",       path: "",                       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
 

@@ -6,7 +6,7 @@ import type {Employee} from "@/modules/employee/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export function useFetchEmployeesForFilters() {
+export function useFetchEmployeesForFilters(enabled = true) {
     const {auth} = useAuth();
 
     return useQuery({
@@ -18,7 +18,7 @@ export function useFetchEmployeesForFilters() {
             });
             return data;
         },
-        enabled: !!auth.user?.id,
+        enabled: !!auth.user?.id && enabled,
         staleTime: 5 * 60 * 1000,
     });
 }

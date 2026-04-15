@@ -74,6 +74,35 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     Optional<Attendance> findByEmployee_MatriculeAndDate(String matricule, LocalDate date);
 
+    // ── Statut d'import du jour (module saisie manuelle superviseur) ──────────
+
+    /**
+     * Compte les enregistrements du jour pour l'équipe d'un superviseur.
+     * Utilisé pour déterminer si une saisie (XLSX ou manuelle) a déjà été effectuée.
+     */
+    @Query("SELECT COUNT(a) FROM Attendance a " +
+            "JOIN a.employee e " +
+            "WHERE a.date = :date " +
+            "AND (e.matricule = :supervisorMatricule OR e.supervisor.matricule = :supervisorMatricule) " +
+            "AND e.deleted = false")
+    long countByDateAndSupervisorMatricule(
+            @Param("date") LocalDate date,
+            @Param("supervisorMatricule") String supervisorMatricule);
+
+    /**
+     * Vérifie s'il existe au moins un enregistrement avec source = 'XLSX_IMPORT'
+     * pour la date donnée et l'équipe du superviseur.
+     */
+    @Query("SELECT CASE WHEN COUNT(a) > 0 THEN TRUE ELSE FALSE END FROM Attendance a " +
+            "JOIN a.employee e " +
+            "WHERE a.date = :date " +
+            "AND a.source = 'XLSX_IMPORT' " +
+            "AND (e.matricule = :supervisorMatricule OR e.supervisor.matricule = :supervisorMatricule) " +
+            "AND e.deleted = false")
+    boolean existsXlsxImportByDateAndSupervisor(
+            @Param("date") LocalDate date,
+            @Param("supervisorMatricule") String supervisorMatricule);
+
     // ── Historique filtré par plage de dates ──────────────────────────────────
 
     @Query("SELECT a " +

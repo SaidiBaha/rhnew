@@ -38,4 +38,13 @@ public class DailyAttendanceDto {
 
     /** Motif d'absence (MISSION, ABSENCE-N-Justifié…). Peut être null. */
     private String absenceReason;
+
+    /** true si le NURSE a marqué cet employé comme "appelé". */
+    private boolean appele;
+
+    /** Heure de l'appel "HH:mm" (Africa/Tunis). Peut être null. */
+    private String appeleAt;
+
+    /** ID du NURSE ayant marqué l'appel. Peut être null. */
+    private Long appeleBy;
 }

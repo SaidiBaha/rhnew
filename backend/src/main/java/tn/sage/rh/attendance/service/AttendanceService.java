@@ -11,7 +11,11 @@ import tn.sage.rh.attendance.dto.DailyAttendanceDto;
 import tn.sage.rh.attendance.dto.EmployeeAttendanceDto;
 import tn.sage.rh.attendance.dto.HistoryEmployeeSummaryDto;
 import tn.sage.rh.attendance.dto.HistoryResponseDto;
+import tn.sage.rh.attendance.dto.ManualPresenceEntryDto;
+import tn.sage.rh.attendance.dto.ManualPresenceInputDto;
 import tn.sage.rh.attendance.dto.SaveAttendanceInputDto;
+import tn.sage.rh.attendance.dto.TodayImportStatusDto;
+import tn.sage.rh.attendance.dto.UpdateAppeleInputDto;
 import tn.sage.rh.attendance.dto.UpdateAttendanceInputDto;
 import tn.sage.rh.attendance.entity.AbsenceReason;
 import tn.sage.rh.attendance.entity.Attendance;
@@ -25,6 +29,7 @@ import tn.sage.rh.user.User;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -101,6 +106,7 @@ public class AttendanceService {
             attendance.setHoraire(attendanceInput.getHoraire());
             attendance.setDebut(parseLocalTime(attendanceInput.getDebut()));
             attendance.setFin(parseLocalTime(attendanceInput.getFin()));
+            attendance.setSource("XLSX_IMPORT");
 
             if (attendanceInput.getAbsenceReason() != null) {
                 AbsenceReason absenceReason = absenceReasonMap.computeIfAbsent(
@@ -318,6 +324,113 @@ public class AttendanceService {
     }
 
     // =========================
+    // SAISIE MANUELLE SUPERVISEUR
+    // =========================
+
+    /**
+     * Retourne le statut d'import du jour pour l'équipe du superviseur connecté.
+     * Utilisé côté frontend pour décider d'afficher le bouton de saisie manuelle.
+     */
+    @Transactional(readOnly = true)
+    public TodayImportStatusDto getTodayImportStatus(Principal connectedUser) {
+        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+        LocalDate today = LocalDate.now(ZoneId.of("Africa/Tunis"));
+        String supervisorMatricule = user.getUsername();
+
+        long count = attendanceRepository.countByDateAndSupervisorMatricule(today, supervisorMatricule);
+        if (count == 0) {
+            return TodayImportStatusDto.builder().count(0).source(null).build();
+        }
+
+        boolean hasXlsx = attendanceRepository.existsXlsxImportByDateAndSupervisor(today, supervisorMatricule);
+        String source = hasXlsx ? "XLSX_IMPORT" : "MANUAL_SUPERVISOR";
+        return TodayImportStatusDto.builder().count(count).source(source).build();
+    }
+
+    /**
+     * Saisie manuelle des présences/absences par le superviseur pour le jour courant.
+     * Effectue un UPSERT (clé : employee_id + date) avec source = "MANUAL_SUPERVISOR".
+     */
+    @Transactional
+    public void saveManualEntry(Principal connectedUser, ManualPresenceInputDto input) {
+        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+        LocalDate today = LocalDate.now(ZoneId.of("Africa/Tunis"));
+
+        List<Long> employeeIds = input.getEntries().stream()
+                .map(ManualPresenceEntryDto::getEmployeeId)
+                .toList();
+
+        Map<Long, Employee> employeeMap = employeeRepository.findAllById(employeeIds)
+                .stream()
+                .collect(Collectors.toMap(Employee::getId, e -> e));
+
+        Set<String> matricules = employeeMap.values().stream()
+                .map(Employee::getMatricule)
+                .collect(Collectors.toSet());
+
+        Map<String, Attendance> existingMap = attendanceRepository
+                .findAllByDateBetweenAndEmployee_MatriculeIn(today, today, matricules)
+                .stream()
+                .collect(Collectors.toMap(
+                        a -> a.getEmployee().getMatricule(),
+                        a -> a
+                ));
+
+        AbsenceReason absentReason = absenceReasonService.findOrSave("ABSENCE-SAISIE-SUPERVISEUR");
+
+        LocalTime debut = parseLocalTime(input.getDebut());
+        LocalTime fin = parseLocalTime(input.getFin());
+
+        // Calcul de la durée planifiée (gestion shift de nuit fin < début)
+        Duration plannedDuration;
+        if (fin != null && debut != null) {
+            plannedDuration = fin.isBefore(debut)
+                    ? Duration.ofHours(24).minus(Duration.between(fin, debut))
+                    : Duration.between(debut, fin);
+        } else {
+            plannedDuration = Duration.ZERO;
+        }
+
+        List<Attendance> toSave = new ArrayList<>();
+
+        for (ManualPresenceEntryDto entry : input.getEntries()) {
+            Employee employee = employeeMap.get(entry.getEmployeeId());
+            if (employee == null) continue;
+
+            Attendance attendance = existingMap.getOrDefault(employee.getMatricule(), new Attendance());
+
+            if (attendance.getId() == 0) {
+                attendance.setEmployee(employee);
+            }
+
+            attendance.setDate(today);
+            attendance.setHoraire(input.getHoraire());
+            attendance.setDebut(debut);
+            attendance.setFin(fin);
+            attendance.setSource("MANUAL_SUPERVISOR");
+            attendance.setCreatedBy(user.getId());
+
+            if (entry.isPresent()) {
+                attendance.setClockIn(debut);
+                attendance.setClockOut(fin);
+                attendance.setTotalAttendance(plannedDuration);
+                attendance.setOvertime(Duration.ZERO);
+                attendance.setAbsenceReason(null);
+            } else {
+                attendance.setClockIn(null);
+                attendance.setClockOut(null);
+                attendance.setTotalAttendance(Duration.ZERO);
+                attendance.setOvertime(Duration.ZERO);
+                attendance.setAbsenceReason(absentReason);
+            }
+
+            toSave.add(attendance);
+        }
+
+        attendanceRepository.saveAll(toSave);
+    }
+
+    // =========================
     // HELPERS
     // =========================
 
@@ -355,7 +468,35 @@ public class AttendanceService {
                 .clockOut(formatTime(a.getClockOut()))
                 .absenceReason(a.getAbsenceReason() != null
                         ? a.getAbsenceReason().getReason() : null)
+                .appele(a.isAppele())
+                .appeleAt(a.getAppeleAt() != null
+                        ? a.getAppeleAt().format(DateTimeFormatter.ofPattern("HH:mm")) : null)
+                .appeleBy(a.getAppeleBy())
                 .build();
+    }
+
+    /**
+     * Bascule le statut "appelé" d'un enregistrement.
+     * Accessible uniquement au rôle NURSE (contrôle effectué dans le contrôleur).
+     */
+    @Transactional
+    public DailyAttendanceDto toggleAppele(Long id, UpdateAppeleInputDto input, Principal connectedUser) {
+        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+        Attendance attendance = attendanceRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Attendance not found (id=" + id + ")"));
+
+        if (input.isAppele()) {
+            attendance.setAppele(true);
+            attendance.setAppeleAt(LocalDateTime.now(ZoneId.of("Africa/Tunis")));
+            attendance.setAppeleBy(user.getId());
+        } else {
+            attendance.setAppele(false);
+            attendance.setAppeleAt(null);
+            attendance.setAppeleBy(null);
+        }
+
+        return toDailyDto(attendanceRepository.save(attendance));
     }
 
     private String generateAttendanceKey(String matricule, LocalDate date) {

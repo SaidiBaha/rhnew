@@ -58,7 +58,8 @@ export const LoginCard = () => {
       setAuth({ accessToken, refreshToken, user });
       localStorage.setItem("refreshToken", refreshToken || "");
 
-      navigate("/", { replace: true });
+      const destination = user?.role === "NURSE" ? "/presence-absences" : "/";
+      navigate(destination, { replace: true });
     } catch {
       setError("Matricule ou mot de passe incorrect");
     } finally {

@@ -65,7 +65,7 @@ function App() {
         </Route>
 
         {/* Présences / Absences */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "SUPER_ADMIN", "NURSE"]} />}>
           <Route path="/presence-absences" element={<Layout><PresencePage /></Layout>} />
         </Route>
 

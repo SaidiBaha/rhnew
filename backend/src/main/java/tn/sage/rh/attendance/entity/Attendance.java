@@ -54,6 +54,25 @@ public class Attendance {
     @JoinColumn(name = "absence_reason_id")
     private AbsenceReason absenceReason;
 
+    /**
+     * Source de l'enregistrement :
+     * "XLSX_IMPORT"        — import administrateur via fichier XLSX
+     * "MANUAL_SUPERVISOR"  — saisie manuelle par le superviseur
+     */
+    private String source;
+
+    /** ID de l'utilisateur ayant saisi manuellement (null si import XLSX). */
+    private Long createdBy;
+
+    /** true si le NURSE a marqué cet employé comme "appelé" aujourd'hui. */
+    private boolean appele = false;
+
+    /** Horodatage (Africa/Tunis) auquel le NURSE a marqué l'appel. */
+    private LocalDateTime appeleAt;
+
+    /** ID de l'utilisateur NURSE ayant marqué l'appel (null si non appelé). */
+    private Long appeleBy;
+
     @CreatedDate
     @Column(
             nullable = false,
