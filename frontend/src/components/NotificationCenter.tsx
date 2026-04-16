@@ -21,6 +21,7 @@ function timeAgo(dateStr: string): string {
 
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -42,6 +43,17 @@ export function NotificationCenter() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const w = Math.min(340, window.innerWidth - 16);
+      // Align left edge with the bell, but clamp so it never overflows the right edge of the viewport
+      const left = Math.min(rect.left, window.innerWidth - w - 8);
+      setDropPos({ top: rect.bottom + 8, left, width: w });
+    }
+    setOpen((o) => !o);
+  };
+
   const handleNotifClick = (id: string, lien?: string) => {
     markOneRead.mutate(id);
     setOpen(false);
@@ -52,7 +64,7 @@ export function NotificationCenter() {
     <div ref={ref} style={{ position: "relative" }}>
       {/* Bell button */}
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleToggle}
         title="Notifications"
         style={{
           position: "relative",
@@ -101,14 +113,15 @@ export function NotificationCenter() {
         )}
       </button>
 
-      {/* Dropdown */}
-      {open && (
+      {/* Dropdown — uses position:fixed so it always renders in the content area,
+          never behind the sidebar regardless of expanded/collapsed state */}
+      {open && dropPos && (
         <div
           style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            right: 0,
-            width: 340,
+            position: "fixed",
+            top: dropPos.top,
+            left: dropPos.left,
+            width: dropPos.width,
             background: "var(--white)",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius)",

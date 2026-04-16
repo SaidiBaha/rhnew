@@ -5,6 +5,7 @@ Monorepo : `backend/` (Spring Boot) + `frontend/` (React + Vite).
 
 > Architecture detaillee : @docs/ARCHITECTURE.md
 > Workflows (dev, build, debug) : @docs/WORKFLOWS.md
+> Système de notifications : @docs/NOTIFICATIONS.md
 
 ---
 
@@ -21,9 +22,12 @@ rh/
 │   │   ├── employee/         # CRUD employes, events batch
 │   │   ├── exeption/         # Exceptions metier (typo voulue dans le projet)
 │   │   ├── handlers/         # RestExceptionHandler global
+│   │   ├── notifications/    # Notifications systeme (CRUD + mark-read)
 │   │   ├── organization/     # ProductionLine, Department, JobTitle, Shift
 │   │   ├── permutations/     # Permutations d'operateurs + FreeOperators scheduler
-│   │   └── request/          # Demandes de documents
+│   │   ├── presence/         # Presences/absences journalieres
+│   │   ├── request/          # Demandes de documents
+│   │   └── salary/           # Avances sur salaire + deadlines
 │   └── src/main/resources/application.properties
 └── frontend/
     └── src/
@@ -47,10 +51,16 @@ Chaque module suit le pattern : `types.ts` | `schema.ts` (Zod) | `hooks/` (React
 | `attendance` | ADMIN, SUPERVISOR |
 | `auth` | tous (login, change-password pour NURSE aussi) |
 | `dashboard` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER |
+| `edi` | PLANIFICATEUR, SUPER_ADMIN |
 | `employee` | ADMIN (CRUD), ADMIN+SUPERVISOR (lecture) |
+| `history` | ADMIN, SUPERVISOR (historique présences) |
+| `notifications` | tous — polling 30s, mark-read |
 | `permutation` | SUPERVISOR, OPERATIONAL_MANAGER |
+| `presence` | ADMIN, SUPERVISOR, NURSE |
 | `request` | ADMIN, SUPERVISOR |
 | `salary-advance` | ADMIN, SUPERVISOR |
+
+**Composants de notification** : `NotificationCenter` (cloche générale) + `PermutationNotificationBell` (SUPERVISOR uniquement) — tous deux dans la user card de `Sidebar.tsx`. Voir `@docs/NOTIFICATIONS.md` pour la carte complète.
 
 ---
 

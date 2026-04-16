@@ -261,6 +261,9 @@ export function PermutationsClient({
         if (status === "REFUSEE") {
             return <span className="ds-pill ds-pill-red">Refusée</span>;
         }
+        if (status === "TERMINEE") {
+            return <span className="ds-pill ds-pill-muted">Terminée</span>;
+        }
         return <span className="ds-pill ds-pill-amber">En attente</span>;
     };
 

@@ -477,8 +477,8 @@ public class DashboardService {
         // 0) Best supervisor per project (source = Employee) — utilisé uniquement pour les projets sans permutation
         final Map<Long, BestSupervisorDTO> bestSupByProject = bestSupervisorByProjectFromEmployees();
 
-        // 1) Permutations acceptées overlapping
-        List<Permutation> perms = permutationRepository.findAcceptedOverlapping(from, to);
+        // 1) Permutations acceptées ou terminées overlapping (TERMINEE = expiré mais valide)
+        List<Permutation> perms = permutationRepository.findAcceptedOrTermineeOverlapping(from, to);
 
         // 1 ligne par (projet, superviseur) — clé composite "projectId|supervisorId"
         Map<String, ProjectHoursAggDTO> aggByCompositeKey = new HashMap<>();
@@ -487,7 +487,7 @@ public class DashboardService {
 
         for (Permutation p : perms) {
             if (p == null) continue;
-            if (p.getStatus() != PermutationStatus.ACCEPTEE) continue;
+            if (p.getStatus() != PermutationStatus.ACCEPTEE && p.getStatus() != PermutationStatus.TERMINEE) continue;
 
             ProductionLine destPl = p.getProductionLine();
             if (destPl == null) continue;

@@ -86,6 +86,16 @@ Client (navigateur)
 - Parsing, validation et conversion de fichiers EDI DELFOR → CSV
 - Historique des conversions
 
+**`presence/`**
+- Gestion des présences/absences journalières
+- Import de fichiers de pointage, saisie manuelle, toggle "appelé"
+- `AttendanceRecord` avec statut (présent, absent, congé…)
+
+**`notifications/`**
+- `Notification` avec `titre`, `message`, `lien` (optionnel), `lu`, `createdAt`
+- Endpoints : `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/{id}/mark-read`, `PATCH /notifications/mark-all-read`
+- Polling côté frontend toutes les 30s via TanStack Query
+
 **`user/`**
 - `User` (lie a `Employee` via `@OneToOne`)
 - `UserRole` : ADMIN | SUPERVISOR | OPERATIONAL_MANAGER | PLANIFICATEUR | SUPER_ADMIN | **NURSE**
@@ -101,14 +111,18 @@ React Router v7 avec protection par roles :
 | Path | Roles autorises |
 |---|---|
 | `/` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
-| `/employees` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
+| `/employees` | ADMIN, SUPER_ADMIN |
 | `/salary-advances` | ADMIN, SUPERVISOR, SUPER_ADMIN |
+| `/salary-advances/history` | ADMIN |
+| `/salary-advances/suivi-superviseurs` | ADMIN, SUPER_ADMIN |
 | `/attendances` | ADMIN, SUPERVISOR, SUPER_ADMIN |
 | `/requests` | ADMIN, SUPERVISOR, SUPER_ADMIN |
+| `/presence-absences` | ADMIN, SUPERVISOR, SUPER_ADMIN, NURSE |
+| `/historique-presence` | ADMIN, SUPERVISOR, SUPER_ADMIN |
 | `/permutations` | SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
 | `/free-operators` | SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
 | `/edi` | PLANIFICATEUR, SUPER_ADMIN |
-| `/change-password` | tous (ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, PLANIFICATEUR, SUPER_ADMIN, **NURSE**) |
+| `/change-password` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, PLANIFICATEUR, SUPER_ADMIN, NURSE |
 
 `PersistLogin` : rehydrate la session via refresh token au rechargement de page.
 `ProtectedRoute` : redirige vers `/login` si non authentifie ou role insuffisant.

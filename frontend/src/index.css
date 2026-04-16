@@ -178,6 +178,8 @@ body {
 .ds-pill-amber::before  { background: var(--amber); }
 .ds-pill-red    { background: var(--red-soft);   color: var(--red);   }
 .ds-pill-red::before    { background: var(--red); }
+.ds-pill-muted  { background: #eef0f5; color: var(--muted); }
+.ds-pill-muted::before  { background: var(--muted); }
 
 /* ===================== CARD ===================== */
 .ds-card {

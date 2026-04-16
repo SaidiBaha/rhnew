@@ -89,6 +89,31 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
     }
 
     /**
+     * Same as findAcceptedOverlapping but includes TERMINEE permutations.
+     * Used by the dashboard so that expired-but-completed permutations
+     * are still counted in project hours for the queried period.
+     */
+    @Query("""
+        select distinct p
+        from Permutation p
+        join fetch p.receiver r
+        left join fetch p.productionLine pl
+        join fetch p.operators op
+        left join fetch op.supervisor sup
+        left join fetch op.productionLine opPl
+        where p.status in (
+            tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE,
+            tn.sage.rh.permutations.entity.PermutationStatus.TERMINEE
+        )
+          and p.startDate <= :to
+          and p.endDate >= :from
+    """)
+    List<Permutation> findAcceptedOrTermineeOverlapping(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to
+    );
+
+    /**
      * Find all ACCEPTEE permutations whose endDate+endTime is strictly in the past.
      * Used by PermutationExpirationScheduler to mark them TERMINEE.
      */
