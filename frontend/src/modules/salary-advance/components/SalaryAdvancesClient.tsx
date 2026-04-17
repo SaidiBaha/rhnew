@@ -21,6 +21,21 @@ import type { Row } from "@tanstack/react-table";
 
 const DEFAULT_ELIGIBLE_AMOUNT = 0;
 
+function isRowEligible(row: SalaryAdvanceColumn): boolean {
+  if (row.employee.hasBankDomiciliation === "oui") return false;
+  if (
+    row.employee.attendance.absenceReasons.some((ar) =>
+      ["MALADIE L-D", "MATERNITÉ"].includes(ar.absenceReason)
+    )
+  )
+    return false;
+  const { hours } = parseDuration(row.employee.attendance.totalAttendance) ?? {
+    hours: 0,
+    minutes: 0,
+  };
+  return hours >= 40;
+}
+
 function applyDefaultAmount(
   data: SalaryAdvanceColumn[],
   isAdmin: boolean
@@ -59,6 +74,7 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const [salaryAdvanceData, setSalaryAdvanceData] = useState<SalaryAdvanceColumn[]>(
     () => applyDefaultAmount(data, isAdmin)
   );
+  const [defaultAmount, setDefaultAmount] = useState("");
 
   const batchUpdateSalaryAdvances = useBatchUpdateSalaryAdvances();
   const fetchSalaryAdvanceDeadline = useFetchSalaryAdvanceDeadline();
@@ -91,6 +107,20 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
           };
         }
         return row;
+      })
+    );
+  };
+
+  const handleApplyDefault = () => {
+    const parsed = parseInt(defaultAmount, 10);
+    if (isNaN(parsed) || parsed < 0) return;
+    setSalaryAdvanceData((prev) =>
+      prev.map((row) => {
+        const rowDisabled =
+          fetchSalaryAdvanceDeadline.isPending ||
+          ((isLocked || !isRowEligible(row)) && !isAdmin);
+        if (rowDisabled) return row;
+        return { ...row, amount: parsed };
       })
     );
   };
@@ -166,6 +196,33 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
       </div>
 
       <Separator />
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[--border] bg-[--bg] px-4 py-3">
+        <span className="text-sm font-semibold" style={{ color: "var(--text2)" }}>
+          Montant par défaut
+        </span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={defaultAmount}
+          onChange={(e) => setDefaultAmount(e.target.value)}
+          placeholder="Ex : 250"
+          disabled={isDisabled}
+          className="ds-input h-9 w-36"
+        />
+        <button
+          type="button"
+          onClick={handleApplyDefault}
+          disabled={isDisabled || defaultAmount === ""}
+          className="ds-btn-primary h-9 px-4 text-sm"
+        >
+          Appliquer à tous
+        </button>
+        <span className="text-xs" style={{ color: "var(--muted)" }}>
+          Applique le montant aux employés éligibles uniquement.
+        </span>
+      </div>
 
       <div className="mt-6">
         <DataTable

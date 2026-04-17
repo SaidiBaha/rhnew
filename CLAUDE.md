@@ -291,6 +291,33 @@ Lors de la creation d'un employe (unitaire ou batch), si `employee.getJobTitle()
 
 ---
 
+## Avances — Saisie globale par défaut (session 2026-04-17)
+
+### Fonctionnalité ajoutée
+
+Un champ **"Montant par défaut"** + bouton **"Appliquer à tous"** a été ajouté en haut de la liste des avances, entre le séparateur de titre et le tableau.
+
+### Comportement
+
+1. Le superviseur saisit un montant dans le champ "Montant par défaut".
+2. Il clique "Appliquer à tous" → le montant est appliqué à tous les employés **éligibles et non verrouillés**.
+3. Les cellules `disabled` (employé non éligible, deadline dépassée, ou deadline en cours de chargement) **ne sont pas affectées**.
+4. Le superviseur peut ensuite corriger individuellement n'importe quelle cellule éligible.
+
+### Critères d'éligibilité répliqués (identiques à `EditableCell.isEligible`)
+
+- `hasBankDomiciliation !== "oui"`
+- Pas de motif `MALADIE L-D` ou `MATERNITÉ`
+- Heures travaillées ≥ 40
+
+### Fichier modifié
+
+| Fichier | Changement |
+|---|---|
+| `modules/salary-advance/components/SalaryAdvancesClient.tsx` | Ajout `isRowEligible()`, état `defaultAmount`, `handleApplyDefault()`, et UI "Montant par défaut" |
+
+---
+
 ## Suivi-superviseurs — source de données (session 2026-04-17)
 
 ### Problème corrigé
