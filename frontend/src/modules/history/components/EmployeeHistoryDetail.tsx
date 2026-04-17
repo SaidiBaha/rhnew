@@ -23,6 +23,9 @@ function toPresenceRecord(r: HistoryDailyRecord): DailyAttendance {
     clockIn: r.clockIn,
     clockOut: r.clockOut,
     absenceReason: r.absenceReason,
+    appele: false,        // ← add
+    appeleAt: null,      // ← add
+    appeleBy: null,      // ← add
   };
 }
 
