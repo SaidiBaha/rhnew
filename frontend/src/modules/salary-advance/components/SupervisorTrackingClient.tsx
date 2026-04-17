@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Bell, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useFetchSupervisorTracking, useSendReminder } from "@/modules/salary-advance/hooks/useSupervisorTracking";
 import type { SupervisorTrackingRow, SupervisorTrackingStatut } from "@/modules/salary-advance/types";
+import { useFetchSupervisors } from "@/modules/employee/hooks/useFetchSupervisors";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,8 +89,11 @@ type FilterType = "all" | "completed" | "missing";
 
 export function SupervisorTrackingClient() {
   const [filter, setFilter] = useState<FilterType>("all");
-  const { data, isLoading } = useFetchSupervisorTracking();
+  const { data, isLoading: trackingLoading } = useFetchSupervisorTracking();
+  const { data: supervisors, isLoading: supLoading } = useFetchSupervisors();
   const sendReminder = useSendReminder();
+
+  const isLoading = trackingLoading || supLoading;
 
   const handleRemind = (trackingId: string, fullName: string) => {
     sendReminder.mutate(trackingId, {
@@ -98,7 +102,31 @@ export function SupervisorTrackingClient() {
     });
   };
 
-  const rows: SupervisorTrackingRow[] = data?.rows ?? [];
+  const trackingBySupervisorId = useMemo(() => {
+    const map = new Map<number, SupervisorTrackingRow>();
+    (data?.rows ?? []).forEach((r) => map.set(r.supervisorId, r));
+    return map;
+  }, [data]);
+
+  const rows: SupervisorTrackingRow[] = useMemo(() => {
+    if (!supervisors?.length) return data?.rows ?? [];
+    return supervisors.map((sup) => {
+      const existing = trackingBySupervisorId.get(sup.id);
+      if (existing) return existing;
+      return {
+        trackingId: `pending-${sup.id}`,
+        supervisorId: sup.id,
+        supervisorMatricule: sup.matricule,
+        supervisorFullName: sup.fullName,
+        department: "—",
+        nbEmployees: 0,
+        nbAvancesSaisies: 0,
+        montantTotal: 0,
+        statut: "EN_ATTENTE" as SupervisorTrackingStatut,
+        attendanceImportId: "",
+      };
+    });
+  }, [supervisors, trackingBySupervisorId, data]);
 
   const filtered = rows.filter((r) => {
     if (filter === "completed") return r.statut === "COMPLETE";
@@ -106,9 +134,9 @@ export function SupervisorTrackingClient() {
     return true;
   });
 
-  const nbCompleted = data?.nbCompleted ?? 0;
-  const nbMissing   = data?.nbMissing ?? 0;
-  const totalAmount = data?.totalAmount ?? 0;
+  const nbCompleted = rows.filter((r) => r.statut === "COMPLETE").length;
+  const nbMissing   = rows.filter((r) => r.statut !== "COMPLETE").length;
+  const totalAmount = rows.reduce((sum, r) => sum + (r.montantTotal ?? 0), 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>

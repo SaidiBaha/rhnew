@@ -291,6 +291,41 @@ Lors de la creation d'un employe (unitaire ou batch), si `employee.getJobTitle()
 
 ---
 
+## Suivi-superviseurs — source de données (session 2026-04-17)
+
+### Problème corrigé
+
+La liste des superviseurs dans `/salary-advances/suivi-superviseurs` provenait uniquement de l'endpoint `/supervisor-advance-tracking`, qui ne retourne que les superviseurs ayant un enregistrement de tracking. La liste était donc incomplète par rapport à la liste canonique.
+
+### Source de vérité
+
+La liste canonique des superviseurs est celle utilisée dans le formulaire **Nouvelle permutation** (champ "Destinataire (superviseur)") : `GET /employees/supervisors` via `useFetchSupervisors` de `modules/employee/hooks/useFetchSupervisors`.
+
+### Logique de fusion (SupervisorTrackingClient)
+
+1. Fetch de la liste canonique via `useFetchSupervisors()`
+2. Fetch des données de tracking via `useFetchSupervisorTracking()`
+3. Merge : pour chaque superviseur de la liste canonique, on recherche sa ligne de tracking par `supervisorId`. Si trouvée, on utilise la ligne existante. Sinon, on génère une ligne par défaut (`statut: "EN_ATTENTE"`, montants à 0).
+4. La logique d'affichage (filtres, tableau, badges) reste inchangée.
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `modules/salary-advance/components/SupervisorTrackingClient.tsx` | Import `useFetchSupervisors`, merge canonique + tracking via `useMemo`; `nbCompleted`/`nbMissing`/`totalAmount` recalculés depuis `rows` |
+
+### Calcul des statistiques (session 2026-04-17 — fix complémentaire)
+
+Les cartes **"Avances complétées"**, **"Avances manquantes"** et **"Total avances"** utilisaient auparavant `data?.nbCompleted`, `data?.nbMissing`, `data?.totalAmount` issus de l'API de tracking (ancienne liste). Elles sont désormais calculées directement depuis le tableau `rows` (liste corrigée) :
+
+```ts
+const nbCompleted = rows.filter((r) => r.statut === "COMPLETE").length;
+const nbMissing   = rows.filter((r) => r.statut !== "COMPLETE").length;
+const totalAmount = rows.reduce((sum, r) => sum + (r.montantTotal ?? 0), 0);
+```
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis
