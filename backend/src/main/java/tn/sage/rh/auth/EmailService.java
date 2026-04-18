@@ -35,6 +35,136 @@ public class EmailService {
         }
     }
 
+    public void sendSalaryAdvanceImportEmail(String to, String supervisorName, String dateStr) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "SAGE TUNISIA – Sage RH");
+            helper.setTo(to);
+            helper.setSubject("Saisie des avances requise – Pointage du " + dateStr);
+            helper.setText(buildAdvanceImportEmailTemplate(supervisorName, dateStr), true);
+            mailSender.send(message);
+            log.info("Email import avances envoyé à {}", to);
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            log.error("Erreur envoi email import avances à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de notification avances", e);
+        }
+    }
+
+    public void sendSalaryAdvanceReminderEmail(String to, String supervisorName, String dateStr) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "SAGE TUNISIA – Sage RH");
+            helper.setTo(to);
+            helper.setSubject("Rappel — Avances non complétées – Pointage du " + dateStr);
+            helper.setText(buildAdvanceReminderEmailTemplate(supervisorName, dateStr), true);
+            mailSender.send(message);
+            log.info("Email rappel avances envoyé à {}", to);
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            log.error("Erreur envoi email rappel avances à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de rappel avances", e);
+        }
+    }
+
+    private String buildAdvanceImportEmailTemplate(String supervisorName, String dateStr) {
+        return buildAdvanceEmailTemplate(
+                supervisorName,
+                "Saisie des avances requise",
+                "Le fichier de pointage du <strong>" + dateStr + "</strong> vient d'être importé.",
+                "Veuillez vous connecter à la plateforme <strong>Sage RH</strong> et saisir "
+                + "les avances sur salaire de votre équipe dans le module <em>Avances sur salaire</em>.",
+                "#2f6bff", "&#128203;"
+        );
+    }
+
+    private String buildAdvanceReminderEmailTemplate(String supervisorName, String dateStr) {
+        return buildAdvanceEmailTemplate(
+                supervisorName,
+                "Rappel — Avances non complétées",
+                "Vous n'avez pas encore saisi les avances de votre équipe "
+                + "pour le pointage du <strong>" + dateStr + "</strong>.",
+                "Merci de vous connecter à la plateforme <strong>Sage RH</strong> et de compléter "
+                + "la saisie des avances sur salaire dans le module <em>Avances sur salaire</em> dès que possible.",
+                "#ff8c00", "&#9201;"
+        );
+    }
+
+    private String buildAdvanceEmailTemplate(String supervisorName, String title,
+                                              String intro, String action,
+                                              String accentColor, String icon) {
+        return """
+                <!DOCTYPE html>
+                <html lang="fr">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>%s</title>
+                </head>
+                <body style="margin:0;padding:0;background-color:#f4f6fb;font-family:Arial,Helvetica,sans-serif;">
+                  <table width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f4f6fb;padding:40px 20px;">
+                    <tr>
+                      <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0"
+                               style="background:#ffffff;border-radius:12px;overflow:hidden;
+                                      box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:600px;">
+                          <tr>
+                            <td style="background:#1b2444;padding:28px 40px;">
+                              <table width="100%%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td>
+                                    <div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:1px;">SAGE TUNISIA</div>
+                                    <div style="font-size:10px;color:#9aa3b8;letter-spacing:3px;text-transform:uppercase;margin-top:4px;">Cutting and Sewing Division</div>
+                                  </td>
+                                  <td align="right">
+                                    <table cellpadding="0" cellspacing="0"><tr>
+                                      <td width="44" height="44" style="background:%s;border-radius:10px;text-align:center;vertical-align:middle;">
+                                        <span style="color:#fff;font-size:22px;font-weight:900;line-height:44px;">S</span>
+                                      </td>
+                                    </tr></table>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:40px 40px 28px 40px;">
+                              <h1 style="font-size:22px;font-weight:700;color:#1a2340;margin:0 0 12px 0;line-height:1.3;">
+                                %s %s
+                              </h1>
+                              <p style="font-size:14px;color:#4b5675;line-height:1.7;margin:0 0 20px 0;">
+                                Bonjour <strong>%s</strong>,<br><br>%s
+                              </p>
+                              <table width="100%%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td style="background:#eef3ff;border-left:4px solid %s;padding:14px 18px;border-radius:0 6px 6px 0;">
+                                    <p style="margin:0;font-size:13px;color:#4b5675;">%s</p>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                          <tr><td style="padding:0 40px;"><div style="border-top:1px solid #e4e8f0;"></div></td></tr>
+                          <tr>
+                            <td style="padding:24px 40px 32px 40px;">
+                              <div style="font-size:13px;font-weight:700;color:#1a2340;">SAGE TUNISIA SARL</div>
+                              <div style="font-size:12px;color:#9aa3b8;margin-top:8px;line-height:2;">
+                                Cut &amp; Sew division<br>
+                                Mobile&nbsp;: +216 27.501.097<br>
+                                Email&nbsp;: b.saidi@sagetunisia.com<br>
+                                LOT N&#176;25, Z.I El Agba, 2087 TUNISIA
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </body>
+                </html>
+                """.formatted(title, accentColor, icon, title, supervisorName, intro, accentColor, action);
+    }
+
     private String buildEmailTemplate(String otpCode) {
         return """
                 <!DOCTYPE html>

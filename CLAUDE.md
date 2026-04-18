@@ -394,6 +394,34 @@ const totalAmount = rows.reduce((sum, r) => sum + (r.montantTotal ?? 0), 0);
 
 ---
 
+## Notifications email — Avances superviseurs (session 2026-04-18)
+
+### Fonctionnalité
+
+En parallèle des notifications IN-APP existantes, un email est envoyé à chaque superviseur possédant un email renseigné dans la table `employees`, pour les 3 déclencheurs suivants :
+
+| Déclencheur | Méthode | Email envoyé |
+|---|---|---|
+| Import du fichier de pointage | `onAttendanceImported` | `sendSalaryAdvanceImportEmail` |
+| Relance manuelle admin | `sendManualReminder` | `sendSalaryAdvanceReminderEmail` |
+| Rappel automatique (cron 24h) | `sendAutomaticReminders` | `sendSalaryAdvanceReminderEmail` |
+
+### Règles
+
+- Envoi **uniquement si** `employee.email` est non vide.
+- Envoi **non bloquant** via `CompletableFuture.runAsync()` — une erreur d'email n'impacte pas la notification IN-APP ni la transaction.
+- Erreurs loggées silencieusement (`log.error`), aucune exception propagée.
+- La logique des 3 déclencheurs existants est **inchangée**.
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `auth/EmailService.java` | `sendSalaryAdvanceImportEmail` + `sendSalaryAdvanceReminderEmail` + templates HTML |
+| `salary/service/SupervisorAdvanceTrackingService.java` | Injection `EmailService`, envoi async aux 3 points de déclenchement |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

@@ -106,6 +106,31 @@ Dans `Sidebar.tsx`, les cloches sont rendues dans la user card :
 
 ---
 
+---
+
+## Notifications email — Avances superviseurs
+
+En complément des notifications IN-APP, un email est envoyé aux superviseurs lors des 3 déclencheurs du module avances sur salaire.
+
+### Conditions d'envoi
+
+- Le superviseur doit avoir un email renseigné dans `employees.email`.
+- L'envoi est **non bloquant** (`CompletableFuture.runAsync`) : un échec d'email n'interrompt pas la notification IN-APP ni la transaction.
+
+### Points de déclenchement (`SupervisorAdvanceTrackingService`)
+
+| Méthode | Déclencheur | Template email |
+|---|---|---|
+| `onAttendanceImported` | Import XLSX pointage | `sendSalaryAdvanceImportEmail` — sujet : *Saisie des avances requise* |
+| `sendManualReminder` | Relance manuelle admin | `sendSalaryAdvanceReminderEmail` — sujet : *Rappel — Avances non complétées* |
+| `sendAutomaticReminders` | Cron 24h post-import | `sendSalaryAdvanceReminderEmail` — même template |
+
+### Service d'envoi
+
+`auth/EmailService.java` — méthodes `sendSalaryAdvanceImportEmail(to, supervisorName, dateStr)` et `sendSalaryAdvanceReminderEmail(to, supervisorName, dateStr)`. Partage le même `JavaMailSender` que l'envoi OTP.
+
+---
+
 ## À ne pas modifier
 
 - La logique de fetch/mutation dans `useNotifications.ts`

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tn.sage.rh.attendance.entity.AttendanceImport;
 import tn.sage.rh.attendance.repository.AttendanceImportRepository;
+import tn.sage.rh.auth.EmailService;
 import tn.sage.rh.employee.EmployeeRepository;
 import tn.sage.rh.notification.service.NotificationService;
 import tn.sage.rh.salary.dto.SupervisorTrackingRowDto;
@@ -24,6 +25,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +38,7 @@ public class SupervisorAdvanceTrackingService {
     private final EmployeeRepository employeeRepository;
     private final SalaryAdvanceRepository salaryAdvanceRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     private static final ZoneId TZ = ZoneId.of("Africa/Tunis");
 
@@ -97,6 +100,21 @@ public class SupervisorAdvanceTrackingService {
                 "Veuillez saisir et sauvegarder les avances de votre équipe dans le module Avances sur salaire.",
                 "/salary-advances"
         );
+
+        // Email en parallèle pour chaque superviseur ayant un email renseigné
+        for (User supervisor : supervisors) {
+            if (supervisor.getEmployee() == null) continue;
+            String supervisorEmail = supervisor.getEmployee().getEmail();
+            if (supervisorEmail == null || supervisorEmail.isBlank()) continue;
+            String supervisorName = supervisor.getEmployee().getFullName();
+            CompletableFuture.runAsync(() -> {
+                try {
+                    emailService.sendSalaryAdvanceImportEmail(supervisorEmail, supervisorName, dateStr);
+                } catch (Exception e) {
+                    log.error("Email import avances KO ({}) : {}", supervisorEmail, e.getMessage());
+                }
+            });
+        }
 
         log.info("Import pointage enregistré (id={}) — {} trackings créés, {} notifications envoyées",
                 importId, supervisors.size(), supervisors.size());
@@ -217,6 +235,22 @@ public class SupervisorAdvanceTrackingService {
                 "/salary-advances"
         );
 
+        // Email en parallèle si le superviseur a un email renseigné
+        User supervisorUser = userRepository.findById(tracking.getSupervisorId()).orElse(null);
+        if (supervisorUser != null && supervisorUser.getEmployee() != null) {
+            String supervisorEmail = supervisorUser.getEmployee().getEmail();
+            if (supervisorEmail != null && !supervisorEmail.isBlank()) {
+                String supervisorName = supervisorUser.getEmployee().getFullName();
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        emailService.sendSalaryAdvanceReminderEmail(supervisorEmail, supervisorName, dateStr);
+                    } catch (Exception e) {
+                        log.error("Email relance manuelle KO ({}) : {}", supervisorEmail, e.getMessage());
+                    }
+                });
+            }
+        }
+
         log.info("Relance manuelle envoyée: supervisorId={}", tracking.getSupervisorId());
     }
 
@@ -249,6 +283,22 @@ public class SupervisorAdvanceTrackingService {
                     "pour le pointage du " + dateStr + ". Merci de les compléter dès que possible.",
                     "/salary-advances"
             );
+
+            // Email en parallèle si le superviseur a un email renseigné
+            User supervisorUser = userRepository.findById(tracking.getSupervisorId()).orElse(null);
+            if (supervisorUser != null && supervisorUser.getEmployee() != null) {
+                String supervisorEmail = supervisorUser.getEmployee().getEmail();
+                if (supervisorEmail != null && !supervisorEmail.isBlank()) {
+                    String supervisorName = supervisorUser.getEmployee().getFullName();
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            emailService.sendSalaryAdvanceReminderEmail(supervisorEmail, supervisorName, dateStr);
+                        } catch (Exception e) {
+                            log.error("Email rappel auto KO ({}) : {}", supervisorEmail, e.getMessage());
+                        }
+                    });
+                }
+            }
 
             tracking.setRappelEnvoye(true);
             tracking.setRappelEnvoyeAt(LocalDateTime.now(TZ));
