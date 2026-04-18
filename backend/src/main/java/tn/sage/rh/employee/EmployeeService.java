@@ -366,7 +366,11 @@ public class EmployeeService {
         employee.setFullName(employeeRequest.getFullName());
         employee.setHireDate(employeeRequest.getHireDate());
         employee.setHasBankDomiciliation(employeeRequest.isHasBankDomiciliation());
-        employee.setEmail(employeeRequest.getEmail());
+        boolean fileEmailBlank = employeeRequest.getEmail() == null || employeeRequest.getEmail().isBlank();
+        boolean dbEmailPresent = employee.getEmail() != null && !employee.getEmail().isBlank();
+        if (!(fileEmailBlank && dbEmailPresent)) {
+            employee.setEmail(employeeRequest.getEmail());
+        }
         employee.setDepartment(department);
         employee.setJobTitle(jobTitle);
         employee.setProductionLine(productionLine);

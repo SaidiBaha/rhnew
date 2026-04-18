@@ -107,9 +107,10 @@ public class SupervisorAdvanceTrackingService {
     /**
      * Appelé après chaque batchUpdate d'avances par un superviseur.
      * Met à jour le tracking pour ce superviseur sur le dernier import.
+     * @param nbEligibles nombre d'employés éligibles (champ non disabled) dans le batch courant
      */
     @Transactional
-    public void onAdvancesSaved(Long supervisorId) {
+    public void onAdvancesSaved(Long supervisorId, int nbEligibles) {
         Optional<AttendanceImport> latestImport = importRepository.findLatest();
         if (latestImport.isEmpty()) {
             log.debug("Aucun import connu, tracking ignoré pour supervisorId={}", supervisorId);
@@ -146,14 +147,13 @@ public class SupervisorAdvanceTrackingService {
         tracking.setMontantTotal(total != null ? total : BigDecimal.ZERO);
         tracking.setDerniereActionAt(LocalDateTime.now(TZ));
 
-        // Recalcul statut
-        int nbEmployees = tracking.getNbEmployees() != null ? tracking.getNbEmployees() : 0;
+        // Recalcul statut — basé sur les employés éligibles (champ non disabled)
         if (nbSaisies == 0) {
             tracking.setStatut("EN_ATTENTE");
-        } else if (nbSaisies < nbEmployees) {
-            tracking.setStatut("PARTIEL");
-        } else {
+        } else if (nbEligibles > 0 && nbSaisies >= nbEligibles) {
             tracking.setStatut("COMPLETE");
+        } else {
+            tracking.setStatut("PARTIEL");
         }
 
         trackingRepository.save(tracking);

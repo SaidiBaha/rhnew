@@ -378,6 +378,7 @@ public class SalaryAdvanceService {
         // Traitement des mises à jour
         int updatedCount = 0;
         int skippedCount = 0;
+        int nbEligibles = 0;
 
         for (SalaryAdvanceRequestDto request : salaryAdvanceRequests) {
             try {
@@ -400,6 +401,7 @@ public class SalaryAdvanceService {
                 boolean isEligible = salaryAdvanceValidator.checkEmployeeEligibility(employee, attendance, user);
 
                 if (isEligible) {
+                    nbEligibles++;
                     salaryAdvance.setAmount(request.getAmount());
                     salaryAdvance.setComment(request.getComment());
                     updatedCount++;
@@ -420,7 +422,7 @@ public class SalaryAdvanceService {
         // Mettre à jour le tracking superviseur si des avances ont été modifiées
         if (updatedCount > 0 && user.getRole() == SUPERVISOR) {
             try {
-                supervisorAdvanceTrackingService.onAdvancesSaved(user.getId());
+                supervisorAdvanceTrackingService.onAdvancesSaved(user.getId(), nbEligibles);
             } catch (Exception e) {
                 log.warn("Erreur lors de la mise à jour du tracking superviseur: {}", e.getMessage());
             }

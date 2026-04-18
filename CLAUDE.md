@@ -231,6 +231,17 @@ VITE_API_BASE_URL=http://<IP>:9000/api/v1
 - Import Excel : colonne `Email` ou `E-mail` (case-insensitive) → mappée vers `email`
 - Affiché dans la table et exporté Excel (colonne `EMAIL`)
 
+### Règle de préservation de l'email lors de l'import (session 2026-04-18)
+
+Dans `setEmployeeFromRequestDTO`, si l'employé possède déjà un email en base **et** que le champ email du fichier importé est vide, l'email en base est conservé (non écrasé). Tableau de décision :
+
+| Email en base | Email dans le fichier | Action |
+|---|---|---|
+| Présent | Présent | Écrase avec la valeur du fichier |
+| Présent | Vide | **Conserve l'email en base** |
+| Vide | Présent | Écrase avec la valeur du fichier |
+| Vide | Vide | Laisse vide |
+
 ### Filtres serveur sur `/pagination`
 
 L'endpoint `GET /api/v1/employees/pagination` accepte désormais des paramètres de filtre optionnels combinables :
@@ -288,6 +299,36 @@ Lors de la creation d'un employe (unitaire ou batch), si `employee.getJobTitle()
 | `modules/auth/types.ts` | `"NURSE"` ajoute a l'union `UserRole` |
 | `App.tsx` | Route `/change-password` inclut `"NURSE"` dans `allowedRoles` |
 | `components/Sidebar.tsx` | `roleLabelMap` + bouton "Changer mot de passe" incluent `NURSE` |
+
+---
+
+## Suivi-superviseurs — Calcul du statut (session 2026-04-17)
+
+### Problème corrigé
+
+Le statut `PARTIEL` / `COMPLETE` dans le module suivi-superviseurs était calculé en comparant `nbSaisies` (avances avec `amount > 0`) contre `nbEmployees` (TOUS les employés). Les employés non éligibles (domiciliation bancaire, absence MALADIE L-D/MATERNITÉ, < 40h) étaient incorrectement inclus dans le dénominateur, rendant le statut `COMPLETE` impossible à atteindre.
+
+### Nouvelle règle
+
+| Condition | Statut |
+|---|---|
+| `nbSaisies == 0` | `EN_ATTENTE` |
+| `nbSaisies > 0` et `nbSaisies < nbEligibles` | `PARTIEL` |
+| `nbSaisies >= nbEligibles` | `COMPLETE` |
+
+`nbEligibles` = nombre d'employés dont le champ "Montant à payer" est **non disabled** (même critères que `SalaryAdvanceValidator.checkEmployeeEligibility` et `EditableCell.isEligible`).
+
+### Implémentation
+
+- **`SalaryAdvanceService.batchUpdate`** : dans la boucle de traitement, comptage des employés éligibles (`nbEligibles++` lorsque `isEligible == true`). Le compteur est passé à `onAdvancesSaved`.
+- **`SupervisorAdvanceTrackingService.onAdvancesSaved`** : signature enrichie avec `int nbEligibles`. Le calcul du statut utilise `nbEligibles` au lieu de `nbEmployees`.
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `salary/service/SalaryAdvanceService.java` | Comptage `nbEligibles` dans la boucle batch, passage à `onAdvancesSaved` |
+| `salary/service/SupervisorAdvanceTrackingService.java` | Signature `onAdvancesSaved(supervisorId, nbEligibles)`, calcul statut sur `nbEligibles` |
 
 ---
 
