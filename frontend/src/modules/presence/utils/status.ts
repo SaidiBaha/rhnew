@@ -14,8 +14,8 @@ function nowTunis(): string {
 /**
  * Calcule le statut d'un enregistrement de présence.
  *
- * PRÉSENT  → Entrée renseignée ET Motif vide/absent
- * ABSENT   → Motif contient "ABSENCE" (insensible casse)
+ * PRÉSENT  → Entrée renseignée ET pas de motif d'absence
+ * ABSENT   → Motif d'absence renseigné (quel que soit sa valeur)
  *            OU (Entrée absente ET heure de Fin planifiée dépassée)
  * PENDING  → aucune condition ci-dessus
  */
@@ -23,13 +23,12 @@ export function computeStatus(record: DailyAttendance): PresenceStatus {
   const hasClockIn =
     !!record.clockIn && record.clockIn !== "00:00";
 
-  const hasAbsenceMotif =
-    !!record.absenceReason &&
-    record.absenceReason.toUpperCase().includes("ABSENCE");
+  const hasAbsenceReason =
+    !!record.absenceReason && record.absenceReason.trim() !== "";
 
-  if (hasClockIn && !hasAbsenceMotif) return "PRESENT";
+  if (hasClockIn && !hasAbsenceReason) return "PRESENT";
 
-  if (hasAbsenceMotif) return "ABSENT";
+  if (hasAbsenceReason) return "ABSENT";
 
   // Absent si pas d'entrée et que l'heure de fin planifiée est dépassée
   if (!hasClockIn && record.fin) {

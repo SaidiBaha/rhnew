@@ -14,4 +14,7 @@ public class ManualPresenceEntryDto {
 
     /** true = PRESENT, false = ABSENT */
     private boolean present;
+
+    /** Motif d'absence choisi par le superviseur. Null ou vide = valeur par défaut. */
+    private String absenceReason;
 }

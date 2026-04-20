@@ -13,10 +13,22 @@ interface ShiftOption {
 }
 
 const SHIFTS: ShiftOption[] = [
-  { label: "Shift matin", debut: "06:00", fin: "14:00" },
-  { label: "Shift nuit",  debut: "22:00", fin: "06:00" },
-  { label: "ADM",         debut: "08:00", fin: "17:00" },
+  { label: "Shift matin",    debut: "06:00", fin: "14:00" },
+  { label: "Après-midi",     debut: "14:00", fin: "22:00" },
+  { label: "Shift nuit",     debut: "22:00", fin: "06:00" },
+  { label: "ADM",            debut: "08:00", fin: "17:00" },
 ];
+
+const ABSENCE_MOTIFS = [
+  "CONGE PAYE",
+  "CONGE NON PAYE",
+  "AUTORISATION AF-PER",
+  "CHÔMAGE TECHNIQUE",
+  "MALADIE CD",
+  "MALADIE L-D",
+];
+
+const DEFAULT_MOTIF = "CONGE PAYE";
 
 // ─── Helpers timezone Africa/Tunis ────────────────────────────────────────────
 
@@ -40,9 +52,9 @@ function getTunisDateFormatted(): string {
 
 function detectShift(): ShiftOption {
   const h = getTunisHour();
-  if (h >= 5 && h <= 13) return SHIFTS[0]; // Shift matin
-  if (h >= 14 && h <= 21) return SHIFTS[2]; // ADM
-  return SHIFTS[1]; // Shift nuit (22-23 et 00-04)
+  if (h >= 5 && h <= 13) return SHIFTS[0];  // Shift matin
+  if (h >= 14 && h <= 21) return SHIFTS[1]; // Après-midi
+  return SHIFTS[2];                          // Shift nuit (22-23 et 00-04)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -68,6 +80,8 @@ export function ManualPresenceModal({
   const [debut, setDebut] = useState<string>(SHIFTS[0].debut);
   const [fin, setFin] = useState<string>(SHIFTS[0].fin);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  // motif par employé (uniquement pour les absents)
+  const [motifs, setMotifs] = useState<Map<number, string>>(new Map());
 
   const todayFormatted = useMemo(() => getTunisDateFormatted(), []);
   const isEditMode = existingRecords.length > 0;
@@ -77,33 +91,36 @@ export function ManualPresenceModal({
     if (!isOpen) return;
 
     if (isEditMode) {
-      // Mode édition : pré-remplit depuis les enregistrements existants
       const first = existingRecords[0];
       if (first.horaire) setHoraire(first.horaire);
       if (first.debut)   setDebut(first.debut);
       if (first.fin)     setFin(first.fin);
 
-      // Coche les employés marqués PRESENT
       const presentMatricules = new Set(
         existingRecords
           .filter((r) => r.clockIn && r.clockIn !== "00:00")
           .map((r) => r.matricule)
       );
       const presentIds = new Set<number>();
+      const initialMotifs = new Map<number, string>();
       employees.forEach((emp) => {
+        const id = Number(emp.id);
         if (presentMatricules.has(emp.matricule)) {
-          presentIds.add(Number(emp.id));
+          presentIds.add(id);
+        } else {
+          const rec = existingRecords.find((r) => r.matricule === emp.matricule);
+          initialMotifs.set(id, rec?.absenceReason ?? DEFAULT_MOTIF);
         }
       });
       setCheckedIds(presentIds);
+      setMotifs(initialMotifs);
     } else {
-      // Mode création : valeurs par défaut selon l'heure Tunis
       const detected = detectShift();
       setHoraire(detected.label);
       setDebut(detected.debut);
       setFin(detected.fin);
-      // Tous les employés cochés par défaut (présents)
       setCheckedIds(new Set(employees.map((e) => Number(e.id))));
+      setMotifs(new Map());
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,8 +137,23 @@ export function ManualPresenceModal({
   function toggleEmployee(id: number) {
     setCheckedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        // Affecte motif par défaut à l'absent
+        setMotifs((m) => {
+          const nm = new Map(m);
+          nm.set(id, DEFAULT_MOTIF);
+          return nm;
+        });
+      } else {
+        next.add(id);
+        // Supprime le motif quand re-coché
+        setMotifs((m) => {
+          const nm = new Map(m);
+          nm.delete(id);
+          return nm;
+        });
+      }
       return next;
     });
   }
@@ -129,9 +161,21 @@ export function ManualPresenceModal({
   function toggleAll() {
     if (checkedIds.size === employees.length) {
       setCheckedIds(new Set());
+      const allMotifs = new Map<number, string>();
+      employees.forEach((e) => allMotifs.set(Number(e.id), DEFAULT_MOTIF));
+      setMotifs(allMotifs);
     } else {
       setCheckedIds(new Set(employees.map((e) => Number(e.id))));
+      setMotifs(new Map());
     }
+  }
+
+  function handleMotifChange(id: number, value: string) {
+    setMotifs((m) => {
+      const nm = new Map(m);
+      nm.set(id, value);
+      return nm;
+    });
   }
 
   const presentCount = checkedIds.size;
@@ -140,10 +184,15 @@ export function ManualPresenceModal({
   const someChecked = checkedIds.size > 0 && checkedIds.size < employees.length;
 
   async function handleSave() {
-    const entries = employees.map((emp) => ({
-      employeeId: Number(emp.id),
-      present: checkedIds.has(Number(emp.id)),
-    }));
+    const entries = employees.map((emp) => {
+      const id = Number(emp.id);
+      const present = checkedIds.has(id);
+      return {
+        employeeId: id,
+        present,
+        absenceReason: present ? null : (motifs.get(id) ?? DEFAULT_MOTIF),
+      };
+    });
 
     await save.mutateAsync({
       input: { horaire, debut, fin, entries },
@@ -307,50 +356,73 @@ export function ManualPresenceModal({
               const id = Number(emp.id);
               const isPresent = checkedIds.has(id);
               return (
-                <label
+                <div
                   key={emp.id}
-                  className="flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-gray-50"
+                  className="px-6 py-3 transition-colors hover:bg-gray-50"
                   style={{ borderBottom: "1px solid var(--border)" }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={isPresent}
-                    onChange={() => toggleEmployee(id)}
-                    className="h-4 w-4 shrink-0 rounded"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="font-mono-data text-xs font-semibold"
-                        style={{ color: "var(--muted)" }}
-                      >
-                        {emp.matricule}
-                      </span>
-                      <span
-                        className="truncate text-sm font-medium"
-                        style={{ color: "var(--text)" }}
-                      >
-                        {emp.fullName}
-                      </span>
-                    </div>
-                    {emp.department && (
-                      <div className="mt-0.5 text-xs" style={{ color: "var(--text2)" }}>
-                        {emp.department.name}
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isPresent}
+                      onChange={() => toggleEmployee(id)}
+                      className="h-4 w-4 shrink-0 rounded"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="font-mono-data text-xs font-semibold"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          {emp.matricule}
+                        </span>
+                        <span
+                          className="truncate text-sm font-medium"
+                          style={{ color: "var(--text)" }}
+                        >
+                          {emp.fullName}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                  {/* Badge statut temps réel */}
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
-                    style={
-                      isPresent
-                        ? { background: "rgba(0,168,122,0.1)", color: "#00a87a" }
-                        : { background: "rgba(240,62,62,0.1)", color: "#f03e3e" }
-                    }
-                  >
-                    {isPresent ? "Présent" : "Absent"}
-                  </span>
-                </label>
+                      {emp.department && (
+                        <div className="mt-0.5 text-xs" style={{ color: "var(--text2)" }}>
+                          {emp.department.name}
+                        </div>
+                      )}
+                    </div>
+                    {/* Badge statut temps réel */}
+                    <span
+                      className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
+                      style={
+                        isPresent
+                          ? { background: "rgba(0,168,122,0.1)", color: "#00a87a" }
+                          : { background: "rgba(240,62,62,0.1)", color: "#f03e3e" }
+                      }
+                    >
+                      {isPresent ? "Présent" : "Absent"}
+                    </span>
+                  </label>
+
+                  {/* Motif — affiché uniquement pour les absents */}
+                  {!isPresent && (
+                    <div className="mt-2 pl-7">
+                      <select
+                        value={motifs.get(id) ?? DEFAULT_MOTIF}
+                        onChange={(e) => handleMotifChange(id, e.target.value)}
+                        className="w-full rounded-lg border px-3 py-1.5 text-xs outline-none focus:ring-2"
+                        style={{
+                          borderColor: "var(--border)",
+                          color: "var(--text2)",
+                          background: "var(--white)",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {ABSENCE_MOTIFS.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
               );
             })
           )}

@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+
+const ABSENCE_MOTIFS = [
+  "CONGE PAYE",
+  "CONGE NON PAYE",
+  "AUTORISATION AF-PER",
+  "CHÔMAGE TECHNIQUE",
+  "MALADIE CD",
+  "MALADIE L-D",
+];
 import { computeStatus, STATUS_LABEL, STATUS_STYLE } from "../utils/status";
 import { useUpdateAttendance } from "../hooks/useUpdateAttendance";
 import type { DailyAttendance } from "../types";
@@ -140,18 +149,21 @@ export function EditAttendanceModal({ record, onClose }: Props) {
             >
               Motif
             </label>
-            <input
-              type="text"
-              placeholder="Ex : ABSENCE-N-Justifié, MISSION…"
+            <select
               value={motif}
               onChange={(e) => setMotif(e.target.value)}
               className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
               style={{
                 borderColor: "var(--border)",
-                color: "var(--text)",
+                color: motif ? "var(--text)" : "var(--muted)",
                 background: "var(--white)",
               }}
-            />
+            >
+              <option value="">— Aucun motif —</option>
+              {ABSENCE_MOTIFS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
           </div>
         </div>
 

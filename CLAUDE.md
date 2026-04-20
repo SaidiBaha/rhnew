@@ -422,6 +422,81 @@ En parallèle des notifications IN-APP existantes, un email est envoyé à chaqu
 
 ---
 
+## Présences — Améliorations formulaires superviseur (session 2026-04-20)
+
+### Modification 1 — Shift Après-midi
+
+Le shift **"Après-midi"** (14:00 → 22:00) a été ajouté dans le formulaire "Ajouter présences / absences".
+
+Règle de pré-sélection automatique à l'ouverture :
+
+| Heure courante (Tunis) | Shift sélectionné | Debut | Fin |
+|---|---|---|---|
+| 05h–13h | Shift matin | 06:00 | 14:00 |
+| 14h–21h | Après-midi | 14:00 | 22:00 |
+| 22h–04h | Shift nuit | 22:00 | 06:00 |
+
+Le shift ADM n'est jamais sélectionné automatiquement — il est disponible pour sélection manuelle uniquement.
+
+### Modification 2 — Motif par employé (formulaire Manuel)
+
+Lorsqu'un employé est **décoché** (absent), un select **Motif** apparaît inline sous sa ligne.
+
+- Valeur par défaut : `ABSENCE-SAISIE-SUPERVISEUR`
+- Re-cocher l'employé masque et réinitialise le motif
+- Le motif est transmis dans `ManualPresenceEntry.absenceReason` lors de la soumission
+
+Liste des motifs disponibles (partagée avec EditAttendanceModal) :
+`CONGE PAYE`, `CONGE NON PAYE`, `ABSENCE-SAISIE-SUPERVISEUR`, `AUTORISATION AF-PER`, `CHÔMAGE TECHNIQUE`, `MALADIE CD`, `MALADIE L-D`
+
+### Modification 3 — Motif select dans "Éditer le pointage"
+
+Le champ **Motif** dans `EditAttendanceModal` est désormais un `<select>` avec la même liste de motifs. Une option `— Aucun motif —` (valeur vide) est disponible. La valeur existante est pré-sélectionnée à l'ouverture.
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/presence/types.ts` | `absenceReason?: string \| null` ajouté à `ManualPresenceEntry` |
+| `modules/presence/components/ManualPresenceModal.tsx` | Shift Après-midi, détection automatique, motif par employé absent |
+| `modules/presence/components/EditAttendanceModal.tsx` | Champ Motif : `<input text>` → `<select>` avec liste fixe |
+
+### Bug fix — Motif ignoré à la soumission (session 2026-04-20)
+
+**Cause racine (backend)** : `ManualPresenceEntryDto` n'avait pas de champ `absenceReason`, donc le backend ignorait la sélection du superviseur et appliquait systématiquement `"ABSENCE-SAISIE-SUPERVISEUR"` pour tous les absents (ligne `AbsenceReason absentReason = absenceReasonService.findOrSave("ABSENCE-SAISIE-SUPERVISEUR")` hors de la boucle).
+
+**Correction** :
+- `ManualPresenceEntryDto.java` : ajout du champ `absenceReason` (String, nullable)
+- `AttendanceService.java` : dans la boucle des absents, résolution du motif depuis `entry.getAbsenceReason()` — fallback `"ABSENCE-SAISIE-SUPERVISEUR"` uniquement si null/vide
+
+| Fichier | Changement |
+|---|---|
+| `attendance/dto/ManualPresenceEntryDto.java` | Champ `absenceReason` (String, nullable) ajouté |
+| `attendance/service/AttendanceService.java` | Motif résolu depuis `entry.getAbsenceReason()` par employé, fallback sur la valeur par défaut |
+
+### Bug fix — Statut "EN ATTENTE" pour les absents avec motif spécifique (session 2026-04-20)
+
+**Cause** : `computeStatus` dans `status.ts` ne retournait "ABSENT" que si le motif contenait le mot "ABSENCE" (via `.includes("ABSENCE")`). Les motifs "CONGE PAYE", "MALADIE CD", etc. ne passaient pas cette condition → statut "EN ATTENTE".
+
+**Correction** : La condition est désormais `!!absenceReason && absenceReason.trim() !== ""` — tout motif non vide implique le statut **ABSENT**.
+
+| Fichier | Changement |
+|---|---|
+| `modules/presence/utils/status.ts` | `hasAbsenceMotif` (includes "ABSENCE") → `hasAbsenceReason` (any non-empty value) |
+
+### Bug fix — Suppression de "ABSENCE-SAISIE-SUPERVISEUR" des listes de motifs (session 2026-04-20)
+
+L'option `"ABSENCE-SAISIE-SUPERVISEUR"` a été retirée des dropdowns Motif. Le nouveau `DEFAULT_MOTIF` dans `ManualPresenceModal` est `"CONGE PAYE"`. Les enregistrements existants en base avec cette valeur sont conservés tels quels.
+
+Liste finale des motifs disponibles : `CONGE PAYE`, `CONGE NON PAYE`, `AUTORISATION AF-PER`, `CHÔMAGE TECHNIQUE`, `MALADIE CD`, `MALADIE L-D`
+
+| Fichier | Changement |
+|---|---|
+| `modules/presence/components/ManualPresenceModal.tsx` | "ABSENCE-SAISIE-SUPERVISEUR" retiré de `ABSENCE_MOTIFS`, `DEFAULT_MOTIF` → "CONGE PAYE" |
+| `modules/presence/components/EditAttendanceModal.tsx` | "ABSENCE-SAISIE-SUPERVISEUR" retiré de `ABSENCE_MOTIFS` |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

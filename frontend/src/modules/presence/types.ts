@@ -49,6 +49,7 @@ export type TodayImportStatus = {
 export type ManualPresenceEntry = {
   employeeId: number;
   present: boolean;
+  absenceReason?: string | null;
 };
 
 /** Corps de la requête POST /attendances/manual-entry */

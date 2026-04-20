@@ -411,7 +411,7 @@ public class AttendanceService {
                         a -> a
                 ));
 
-        AbsenceReason absentReason = absenceReasonService.findOrSave("ABSENCE-SAISIE-SUPERVISEUR");
+        final String DEFAULT_ABSENCE_REASON = "ABSENCE-SAISIE-SUPERVISEUR";
 
         LocalTime debut = parseLocalTime(input.getDebut());
         LocalTime fin = parseLocalTime(input.getFin());
@@ -456,7 +456,10 @@ public class AttendanceService {
                 attendance.setClockOut(null);
                 attendance.setTotalAttendance(Duration.ZERO);
                 attendance.setOvertime(Duration.ZERO);
-                attendance.setAbsenceReason(absentReason);
+                String reasonLabel = (entry.getAbsenceReason() != null && !entry.getAbsenceReason().isBlank())
+                        ? entry.getAbsenceReason().trim().toUpperCase()
+                        : DEFAULT_ABSENCE_REASON;
+                attendance.setAbsenceReason(absenceReasonService.findOrSave(reasonLabel));
             }
 
             toSave.add(attendance);
