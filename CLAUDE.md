@@ -495,6 +495,20 @@ Liste finale des motifs disponibles : `CONGE PAYE`, `CONGE NON PAYE`, `AUTORISAT
 | `modules/presence/components/ManualPresenceModal.tsx` | "ABSENCE-SAISIE-SUPERVISEUR" retiré de `ABSENCE_MOTIFS`, `DEFAULT_MOTIF` → "CONGE PAYE" |
 | `modules/presence/components/EditAttendanceModal.tsx` | "ABSENCE-SAISIE-SUPERVISEUR" retiré de `ABSENCE_MOTIFS` |
 
+### Recherche temps réel dans la liste des employés (session 2026-04-20)
+
+Une barre de recherche a été ajoutée dans le formulaire "Ajouter présences / absences", entre le bandeau "Sélectionner tous" et la liste des employés.
+
+- Filtre côté client en temps réel sur `fullName` et `matricule`
+- Un bouton ✕ efface la recherche instantanément
+- Les employés masqués conservent leur état coché/décoché et leur motif
+- Message "Aucun résultat pour « … »" si aucun employé ne correspond
+- La recherche est réinitialisée à chaque ouverture du formulaire
+
+| Fichier | Changement |
+|---|---|
+| `modules/presence/components/ManualPresenceModal.tsx` | État `search`, `filteredEmployees` (useMemo), barre de recherche avec icône + bouton effacer |
+
 ---
 
 ## A NE PAS MODIFIER

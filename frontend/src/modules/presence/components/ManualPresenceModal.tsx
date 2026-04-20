@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useManualPresenceSave } from "../hooks/useManualPresenceSave";
 import type { DailyAttendance } from "../types";
 import type { Employee } from "@/modules/employee/types";
@@ -82,13 +82,25 @@ export function ManualPresenceModal({
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   // motif par employé (uniquement pour les absents)
   const [motifs, setMotifs] = useState<Map<number, string>>(new Map());
+  const [search, setSearch] = useState<string>("");
 
   const todayFormatted = useMemo(() => getTunisDateFormatted(), []);
   const isEditMode = existingRecords.length > 0;
 
+  const filteredEmployees = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return employees;
+    return employees.filter(
+      (e) =>
+        e.fullName?.toLowerCase().includes(q) ||
+        e.matricule?.toLowerCase().includes(q)
+    );
+  }, [employees, search]);
+
   // Initialise les valeurs à chaque ouverture
   useEffect(() => {
     if (!isOpen) return;
+    setSearch("");
 
     if (isEditMode) {
       const first = existingRecords[0];
@@ -345,14 +357,54 @@ export function ManualPresenceModal({
           </span>
         </div>
 
+        {/* ── Barre de recherche ─────────────────────────────────────────── */}
+        <div
+          className="shrink-0 px-6 py-3"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
+              style={{ color: "var(--muted)" }}
+            />
+            <input
+              type="text"
+              placeholder="Rechercher par nom ou matricule…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border py-2 pl-8 pr-8 text-sm outline-none focus:ring-2"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--text)",
+                background: "var(--white)",
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 transition-colors hover:bg-gray-100"
+                style={{ color: "var(--muted)" }}
+                aria-label="Effacer la recherche"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* ── Liste scrollable des employés ──────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
           {employees.length === 0 ? (
             <div className="px-6 py-10 text-center text-sm" style={{ color: "var(--muted)" }}>
               Aucun employé trouvé dans votre équipe.
             </div>
+          ) : filteredEmployees.length === 0 ? (
+            <div className="px-6 py-10 text-center text-sm" style={{ color: "var(--muted)" }}>
+              Aucun résultat pour « {search} ».
+            </div>
           ) : (
-            employees.map((emp) => {
+            filteredEmployees.map((emp) => {
               const id = Number(emp.id);
               const isPresent = checkedIds.has(id);
               return (
