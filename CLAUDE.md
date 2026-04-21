@@ -51,12 +51,15 @@ Chaque module suit le pattern : `types.ts` | `schema.ts` (Zod) | `hooks/` (React
 | `attendance` | ADMIN, SUPERVISOR |
 | `auth` | tous (login, change-password pour NURSE aussi) |
 | `dashboard` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER |
+| `department` | ADMIN, SUPER_ADMIN — CRUD départements |
 | `edi` | PLANIFICATEUR, SUPER_ADMIN |
 | `employee` | ADMIN (CRUD), ADMIN+SUPERVISOR (lecture) |
 | `history` | ADMIN, SUPERVISOR (historique présences) |
+| `job-title` | ADMIN, SUPER_ADMIN — CRUD postes occupés |
 | `notifications` | tous — polling 30s, mark-read |
 | `permutation` | SUPERVISOR, OPERATIONAL_MANAGER |
 | `presence` | ADMIN, SUPERVISOR, NURSE |
+| `production-line` | ADMIN, SUPER_ADMIN — CRUD lignes de production |
 | `request` | ADMIN, SUPERVISOR |
 | `salary-advance` | ADMIN, SUPERVISOR |
 
@@ -508,6 +511,199 @@ Une barre de recherche a été ajoutée dans le formulaire "Ajouter présences /
 | Fichier | Changement |
 |---|---|
 | `modules/presence/components/ManualPresenceModal.tsx` | État `search`, `filteredEmployees` (useMemo), barre de recherche avec icône + bouton effacer |
+
+---
+
+## Employés — Création et modification individuelles (session 2026-04-20)
+
+### Fonctionnalités ajoutées
+
+1. **Bouton "Nouvel employé"** — visible uniquement aux rôles ADMIN et SUPER_ADMIN. Ouvre un formulaire de création individuelle.
+2. **Bouton "Modifier"** (icône crayon) sur chaque ligne du tableau — visible uniquement aux rôles ADMIN et SUPER_ADMIN. Ouvre le même formulaire pré-rempli avec les données actuelles.
+
+### Logique réutilisée
+
+Les endpoints `POST /api/v1/employees` (création) et `PUT /api/v1/employees/{id}` (modification) existaient déjà et appellent `EmployeeService.save()` / `EmployeeService.update()` — la même logique que le batch import. Aucune duplication de logique serveur.
+
+### Règles de sécurité (côté serveur)
+
+`SecurityConfiguration` mis à jour : POST, PUT et DELETE `/api/v1/employees/**` sont désormais réservés aux rôles **ADMIN** et **SUPER_ADMIN** uniquement (SUPERVISOR retiré).
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `config/SecurityConfiguration.java` | POST/PUT/DELETE employees → ADMIN + SUPER_ADMIN uniquement (retiré SUPERVISOR) |
+| `modules/employee/components/EmployeeFormModal.tsx` | **NOUVEAU** — formulaire create/edit avec tous les champs, superviseur select, validation Zod |
+| `modules/employee/components/columns.tsx` | Ajout `getColumnsWithActions(onEdit)` — exporte aussi `columns` (inchangé) pour compat. |
+| `modules/employee/components/EmployeesClient.tsx` | Bouton "Nouvel employé", modal wiring, `tableColumns` conditionnel (ADMIN/SUPER_ADMIN) |
+| `modules/employee/hooks/useCreateEmployee.ts` | Fix URL (`/api/v1/employees` → `/employees` car VITE_API_BASE_URL inclut déjà `/api/v1`) |
+| `modules/employee/hooks/useUpdateEmployee.ts` | Fix URL idem |
+
+### Comportement
+
+- Le formulaire est un `Dialog` scrollable (max 90vh)
+- Pré-remplissage automatique à l'ouverture en mode édition
+- Uppercasing automatique de `fullName`, `department`, `jobTitle`, `productionLine`, `shift`, `employmentType` (cohérence avec le batch)
+- Champ "Date de Départ" visible uniquement si "A quitté la société" est coché
+- Le superviseur est sélectionnable via un `<select>` peuplé par `useFetchSupervisors`
+- Erreurs backend affichées via `react-hot-toast` (liste si `errors[]` présent)
+
+---
+
+## Employés — Champs dynamiques du formulaire (session 2026-04-20)
+
+### Champs convertis en `<select>`
+
+| Champ | Source | Options | Obligatoire |
+|---|---|---|---|
+| **Poste Occupé** | `GET /api/v1/job-titles` (table `job_title`) | Toutes les entrées disponibles | ✅ Oui |
+| **Département** | `GET /api/v1/departments` (table `department`) | Toutes les entrées + "— Aucun —" | ✅ Oui |
+| **Ligne de Production** | `GET /api/v1/production-lines` (table `production_line`) | Toutes les lignes + "— Aucune —" | Non |
+| **Type de Travail** | Liste fixe | `CADRE`, `INDIRECTS`, `DIRECTS` | ✅ Oui |
+| **Poste (Shift)** | Liste fixe | `A`, `B` + "— Aucun —" | Non |
+
+### Backend
+
+- **`JobTitleService`** : méthode `findAll()` ajoutée — retourne `List<JobTitleMinimalDto>` (id + title)
+- **`JobTitleController`** (NOUVEAU) : `GET /api/v1/job-titles` → liste des postes occupés
+- **`DepartmentService`** : méthode `findAll()` ajoutée — retourne `List<DepartmentMinimalDto>` (id + name)
+- **`DepartmentController`** (NOUVEAU) : `GET /api/v1/departments` → liste des départements
+- **`SecurityConfiguration`** : `GET /api/v1/job-titles/**` + `GET /api/v1/departments/**` → `.authenticated()`
+
+### Frontend
+
+- **`useFetchJobTitles`** (NOUVEAU dans `modules/employee/hooks/`) — query key `["job-titles"]`, retourne `JobTitleOption[]`
+- **`useFetchDepartments`** (NOUVEAU dans `modules/employee/hooks/`) — query key `["departments"]`, retourne `DepartmentOption[]`
+- **`EmployeeFormModal`** — redesigné en 3 sections (Identité / Rattachement professionnel / Contrat / Options), grille 2 colonnes, labels avec astérisques obligatoires, champs département en `<select>` dynamique
+
+### Sections du formulaire
+
+| Section | Champs |
+|---|---|
+| **Identité** | Matricule, Civilité, Nom et Prénom, Email |
+| **Rattachement professionnel** | Département, Poste Occupé, Type de Travail, Ligne de Production, Poste (Shift) |
+| **Contrat** | Date d'Embauche, Superviseur |
+| **Options** | Domiciliation Bancaire (checkbox), A quitté la société (checkbox), Date de Départ (conditionnel) |
+
+---
+
+## Référentiels Organisation — CRUD complet (session 2026-04-20)
+
+### Fonctionnalités ajoutées
+
+CRUD complet (liste, créer, modifier, supprimer) pour les trois référentiels :
+- **Département** (`/departments`) — table `department`
+- **Poste Occupé** (`/job-titles`) — table `job_title`
+- **Ligne de Production** (`/production-lines`) — table `production_line`
+
+Accès limité aux rôles **ADMIN** et **SUPER_ADMIN** pour les opérations d'écriture.
+
+### Contrôles métier
+
+| Contrôle | Comportement |
+|---|---|
+| Champ vide | Exception `InvalidEntityException` — message explicite |
+| Doublon (même nom, insensible à la casse) | Exception `InvalidEntityException` |
+| Suppression si utilisé dans `employee` | Exception `InvalidOperationException` avec comptage |
+| Suppression si utilisé dans `permutation` (ProductionLine) | Exception `InvalidOperationException` avec comptage |
+
+### Endpoints ajoutés
+
+| Méthode | URL | Rôles |
+|---|---|---|
+| `GET` | `/api/v1/departments` | Authentifié |
+| `POST` | `/api/v1/departments` | ADMIN, SUPER_ADMIN |
+| `PUT` | `/api/v1/departments/{id}` | ADMIN, SUPER_ADMIN |
+| `DELETE` | `/api/v1/departments/{id}` | ADMIN, SUPER_ADMIN |
+| `GET` | `/api/v1/job-titles` | Authentifié |
+| `POST` | `/api/v1/job-titles` | ADMIN, SUPER_ADMIN |
+| `PUT` | `/api/v1/job-titles/{id}` | ADMIN, SUPER_ADMIN |
+| `DELETE` | `/api/v1/job-titles/{id}` | ADMIN, SUPER_ADMIN |
+| `GET` | `/api/v1/production-lines` | Authentifié (exclut FORMATRICE, MAINTENANCE, FORMATION) |
+| `GET` | `/api/v1/production-lines/admin` | Authentifié (toutes les lignes, pour le CRUD admin) |
+| `POST` | `/api/v1/production-lines` | ADMIN, SUPER_ADMIN |
+| `PUT` | `/api/v1/production-lines/{id}` | ADMIN, SUPER_ADMIN |
+| `DELETE` | `/api/v1/production-lines/{id}` | ADMIN, SUPER_ADMIN |
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `organization/dto/DepartmentMinimalDto.java` | `@NoArgsConstructor` + `@AllArgsConstructor` ajoutés |
+| `organization/dto/JobTitleMinimalDto.java` | `@NoArgsConstructor` + `@AllArgsConstructor` ajoutés |
+| `organization/dto/ProductionLineMinimalDto.java` | `@NoArgsConstructor` + `@AllArgsConstructor` ajoutés |
+| `organization/repository/DepartmentRepository.java` | `findByNameIgnoreCase`, `findByNameIgnoreCaseAndIdNot`, `countEmployeesByDepartmentId` |
+| `organization/repository/JobTitleRepository.java` | `findByTitleIgnoreCase`, `findByTitleIgnoreCaseAndIdNot`, `countEmployeesByJobTitleId` |
+| `organization/repository/ProductionLineRepository.java` | `findByNameIgnoreCase`, `findByNameIgnoreCaseAndIdNot`, `countEmployees...`, `countPermutations...` |
+| `organization/service/DepartmentService.java` | Méthodes `create`, `update`, `delete` + toDto avec createdAt/updatedAt |
+| `organization/service/JobTitleService.java` | Méthodes `create`, `update`, `delete` + toDto avec createdAt/updatedAt |
+| `organization/service/ProductionLineService.java` | Méthodes `create`, `update`, `delete`, `findAllForAdmin` + toDto avec createdAt/updatedAt |
+| `organization/controller/DepartmentController.java` | `POST`, `PUT /{id}`, `DELETE /{id}` |
+| `organization/controller/JobTitleController.java` | `POST`, `PUT /{id}`, `DELETE /{id}` |
+| `organization/controller/ProductionLineController.java` | `GET /admin`, `POST`, `PUT /{id}`, `DELETE /{id}` |
+| `config/SecurityConfiguration.java` | POST/PUT/DELETE org endpoints → ADMIN + SUPER_ADMIN uniquement |
+
+### Fichiers créés (frontend)
+
+| Fichier | Description |
+|---|---|
+| `modules/department/types.ts` | Types `Department`, `DepartmentRequest` |
+| `modules/department/hooks/useFetchDepartments.ts` | Query `["departments"]` |
+| `modules/department/hooks/useCreateDepartment.ts` | POST /departments |
+| `modules/department/hooks/useUpdateDepartment.ts` | PUT /departments/{id} |
+| `modules/department/hooks/useDeleteDepartment.ts` | DELETE /departments/{id} |
+| `modules/department/components/DepartmentClient.tsx` | Page CRUD avec tableau + modale inline |
+| `modules/job-title/types.ts` | Types `JobTitle`, `JobTitleRequest` |
+| `modules/job-title/hooks/useFetchJobTitles.ts` | Query `["job-titles"]` |
+| `modules/job-title/hooks/useCreateJobTitle.ts` | POST /job-titles |
+| `modules/job-title/hooks/useUpdateJobTitle.ts` | PUT /job-titles/{id} |
+| `modules/job-title/hooks/useDeleteJobTitle.ts` | DELETE /job-titles/{id} |
+| `modules/job-title/components/JobTitleClient.tsx` | Page CRUD avec tableau + modale inline |
+| `modules/production-line/types.ts` | Types `ProductionLine`, `ProductionLineRequest` |
+| `modules/production-line/hooks/useFetchProductionLinesAdmin.ts` | Query `["production-lines-admin"]` — GET /production-lines/admin |
+| `modules/production-line/hooks/useCreateProductionLine.ts` | POST /production-lines |
+| `modules/production-line/hooks/useUpdateProductionLine.ts` | PUT /production-lines/{id} |
+| `modules/production-line/hooks/useDeleteProductionLine.ts` | DELETE /production-lines/{id} |
+| `modules/production-line/components/ProductionLineClient.tsx` | Page CRUD avec tableau + modale inline |
+| `pages/DepartmentPage.tsx` | Page wrapper |
+| `pages/JobTitlePage.tsx` | Page wrapper |
+| `pages/ProductionLinePage.tsx` | Page wrapper |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `App.tsx` | 3 nouvelles routes `/departments`, `/job-titles`, `/production-lines` (ADMIN + SUPER_ADMIN) |
+| `components/Sidebar.tsx` | Réorganisation en 5 groupes : Accueil / Gestion RH / Présences & Absences / Avances / Gestion. Les 3 nouveaux modules apparaissent dans "Gestion RH". |
+
+### Structure Sidebar (nouvelle organisation)
+
+```
+Accueil
+  └── Accueil
+
+Gestion RH
+  ├── Employés
+  ├── Départements         ← NOUVEAU
+  ├── Postes Occupés       ← NOUVEAU
+  └── Lignes de Production ← NOUVEAU
+
+Présences & Absences
+  ├── Pointage
+  ├── Présences / Absences
+  └── Historique Présences
+
+Avances
+  ├── Avances
+  └── Suivi avances
+
+Gestion
+  ├── Demandes Documents
+  ├── Permutations
+  ├── Opérateurs Disponibles
+  └── EDI DELFOR → CSV
+```
 
 ---
 

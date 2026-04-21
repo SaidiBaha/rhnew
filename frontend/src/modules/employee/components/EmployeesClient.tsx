@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,6 +9,7 @@ import {
   Users,
   UserCheck,
   UserX,
+  UserPlus,
 } from "lucide-react";
 import z from "zod";
 import toast from "react-hot-toast";
@@ -19,8 +20,10 @@ import { Heading } from "@/components/Heading";
 import { Separator } from "@/components/ui/Separator";
 import { DataTable } from "@/components/ui/DataTable";
 import { Loader } from "@/components/Loader";
-import { columns } from "@/modules/employee/components/columns";
+import { getColumnsWithActions } from "@/modules/employee/components/columns";
+import type { EmployeeColumn } from "@/modules/employee/components/columns";
 import { FileUploadModal } from "@/components/modals/FileUploadModal";
+import { EmployeeFormModal } from "@/modules/employee/components/EmployeeFormModal";
 import type {
   EmployeeRequest,
   Employee,
@@ -85,12 +88,17 @@ function extractAxiosError(err: unknown): {
 
 export function EmployeesClient() {
   const { auth } = useAuth();
+  const isAdminOrSuperAdmin =
+    auth?.user?.role === "ADMIN" || auth?.user?.role === "SUPER_ADMIN";
+
   const { data: stats } = useFetchEmployeesStats();
   const [page, setPage] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const batchSaveEmployees = useBatchSaveEmployees();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -169,6 +177,31 @@ export function EmployeesClient() {
       PAGE_SIZE,
       search,
       filters
+  );
+
+  const rawEmployeesById = useMemo(() => {
+    const map = new Map<string, Employee>();
+    (pageData?.content ?? []).forEach((emp) => map.set(emp.id, emp));
+    return map;
+  }, [pageData?.content]);
+
+  function handleEditEmployee(row: EmployeeColumn) {
+    const raw = rawEmployeesById.get(row.id);
+    if (raw) {
+      setSelectedEmployee(raw);
+      setIsFormModalOpen(true);
+    }
+  }
+
+  function handleNewEmployee() {
+    setSelectedEmployee(null);
+    setIsFormModalOpen(true);
+  }
+
+  const tableColumns = useMemo(
+    () => (isAdminOrSuperAdmin ? getColumnsWithActions(handleEditEmployee) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAdminOrSuperAdmin, rawEmployeesById]
   );
 
   const formattedEmployees = (pageData?.content ?? []).map(formatEmployee);
@@ -346,6 +379,15 @@ export function EmployeesClient() {
             isLoading={isUploadLoading}
         />
 
+        <EmployeeFormModal
+            isOpen={isFormModalOpen}
+            onClose={() => {
+              setIsFormModalOpen(false);
+              setSelectedEmployee(null);
+            }}
+            employee={selectedEmployee}
+        />
+
         <div className="flex items-center justify-between">
           <Heading
               title="Employés"
@@ -362,14 +404,27 @@ export function EmployeesClient() {
               Exporter Excel
             </button>
 
-            <button
-                type="button"
-                onClick={() => setIsFileUploadOpen(true)}
-                className="ds-btn-primary"
-            >
-              <Upload className="size-4" />
-              Importer
-            </button>
+            {isAdminOrSuperAdmin && (
+                <>
+                  <button
+                      type="button"
+                      onClick={() => setIsFileUploadOpen(true)}
+                      className="ds-btn-primary"
+                  >
+                    <Upload className="size-4" />
+                    Importer
+                  </button>
+
+                  <button
+                      type="button"
+                      onClick={handleNewEmployee}
+                      className="ds-btn-primary"
+                  >
+                    <UserPlus className="size-4" />
+                    Nouvel employé
+                  </button>
+                </>
+            )}
           </div>
         </div>
 
@@ -651,7 +706,7 @@ export function EmployeesClient() {
 
         <div className="mt-5">
           <DataTable
-              columns={columns}
+              columns={tableColumns}
               data={formattedEmployees}
               initialPageSize={PAGE_SIZE}
               hidePagination

@@ -18,7 +18,7 @@ export function useUpdateEmployee() {
     return useMutation({
         mutationFn: async ({id, data}: { id: string; data: EmployeeRequest }) => {
             const res = await axios.put(
-                `${API_BASE_URL}/api/v1/employees/${id}`,
+                `${API_BASE_URL}/employees/${id}`,
                 data,
                 {
                     headers: token ? {Authorization: `Bearer ${token}`} : undefined,

@@ -99,26 +99,34 @@ const NavGroup = ({ label, items, expanded, userRole, currentPath, onNavigate }:
 };
 
 /* ===================== SIDEBAR ===================== */
-const PRINCIPAL_ITEMS: NavigationItem[] = [
 
-  { label: "Accueil",              icon: "home",               path: "/",                allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
-  { label: "Employés",             icon: "users",              path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { label: "Création d'Employés",  icon: "user-plus",          path: "",                 allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { label: "Avances",              icon: "hand-coins",         path: "/salary-advances",                    allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Suivi avances",        icon: "chart-bar-big",      path: "/salary-advances/suivi-superviseurs", allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { label: "Pointage",             icon: "clipboard-clock",    path: "/attendances",         allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Présences / Absences", icon: "user-round-check",   path: "/presence-absences",     allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN", "NURSE"] },
-  { label: "Historique Présences", icon: "calendar-search",    path: "/historique-presence",   allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Correction Pointage",  icon: "search-check",       path: "",                       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+const ACCUEIL_ITEMS: NavigationItem[] = [
+  { label: "Accueil", icon: "home", path: "/", allowedRoles: ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+];
 
+const RH_ITEMS: NavigationItem[] = [
+  { label: "Employés",            icon: "users",           path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Départements",        icon: "building-2",      path: "/departments",     allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Postes Occupés",      icon: "briefcase",       path: "/job-titles",      allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Lignes de Production",icon: "factory",         path: "/production-lines",allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+];
+
+const PRESENCES_ITEMS: NavigationItem[] = [
+  { label: "Pointage",             icon: "clipboard-clock",  path: "/attendances",         allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Présences / Absences", icon: "user-round-check", path: "/presence-absences",   allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN", "NURSE"] },
+  { label: "Historique Présences", icon: "calendar-search",  path: "/historique-presence", allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+];
+
+const AVANCES_ITEMS: NavigationItem[] = [
+  { label: "Avances",        icon: "hand-coins",    path: "/salary-advances",                    allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Suivi avances",  icon: "chart-bar-big", path: "/salary-advances/suivi-superviseurs", allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
 ];
 
 const GESTION_ITEMS: NavigationItem[] = [
-  { label: "Demandes Documents",    icon: "newspaper",           path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Gestion de Carrière",   icon: "briefcase-business",  path: "",                allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Permutations",          icon: "shuffle",             path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
-  { label: "Opérateurs Disponibles",icon: "user-check",          path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
-  { label: "EDI DELFOR → CSV",      icon: "file-code",           path: "/edi",            allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
+  { label: "Demandes Documents",     icon: "newspaper",          path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Permutations",           icon: "shuffle",            path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "Opérateurs Disponibles", icon: "user-check",         path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "EDI DELFOR → CSV",       icon: "file-code",          path: "/edi",            allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
 ];
 
 export const Sidebar = () => {
@@ -294,8 +302,32 @@ export const Sidebar = () => {
         {/* ================= MENU ================= */}
         <div className="flex-1 overflow-y-auto py-1">
           <NavGroup
-            label="Principal"
-            items={PRINCIPAL_ITEMS}
+            label="Accueil"
+            items={ACCUEIL_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+          <NavGroup
+            label="Gestion RH"
+            items={RH_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+          <NavGroup
+            label="Présences & Absences"
+            items={PRESENCES_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+          <NavGroup
+            label="Avances"
+            items={AVANCES_ITEMS}
             expanded={expanded}
             userRole={user?.role}
             currentPath={location.pathname}

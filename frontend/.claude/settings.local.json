@@ -9,7 +9,9 @@
       "Bash(grep -v \"^c:/Users/b.saidi/OneDrive - SAGE TUNISIA/Bureau/Applications/rh/rhnew/backend/src/main/java/tn/sage/rh$\")",
       "Read(//c/Users/b.saidi/OneDrive - SAGE TUNISIA/Bureau/Applications/rh/rhnew/docs/**)",
       "Read(//c/Users/b.saidi/OneDrive - SAGE TUNISIA/Bureau/Applications/rh/rhnew/backend/src/main/java/tn/sage/rh/employee/**)",
-      "Read(//c/Users/b.saidi/OneDrive - SAGE TUNISIA/Bureau/Applications/rh/rhnew/backend/src/main/java/tn/sage/rh/attendance/**)"
+      "Read(//c/Users/b.saidi/OneDrive - SAGE TUNISIA/Bureau/Applications/rh/rhnew/backend/src/main/java/tn/sage/rh/attendance/**)",
+      "Bash(npx tsc *)",
+      "Bash(xargs grep *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\w.boujlida\\Desktop\\Baha-dev\\rh-main\\rh\\backend\\src\\main\\java\\tn\\sage\\rh\\employee",

@@ -65,6 +65,11 @@ Client (navigateur)
 **`organization/`**
 - Referentiels : `Department`, `EmploymentType`, `JobTitle`, `ProductionLine`, `Shift`
 - Chaque entite a son mapper MapStruct, repository JPA, service
+- CRUD complet (GET/POST/PUT/DELETE) pour `Department`, `JobTitle`, `ProductionLine` — ADMIN + SUPER_ADMIN pour les écritures
+- `ProductionLineController` : `GET /api/v1/production-lines` (exclut FORMATRICE, MAINTENANCE, FORMATION) + `GET /admin` (toutes)
+- `JobTitleController` : CRUD complet `/api/v1/job-titles`
+- `DepartmentController` : CRUD complet `/api/v1/departments`
+- Validation métier : unicité insensible à la casse, blocage suppression si référencé dans `employee` ou `permutation`
 
 **`dashboard/`**
 - `DashboardService` : agregats SQL natifs (heures par projet, meilleur superviseur)
@@ -112,6 +117,9 @@ React Router v7 avec protection par roles :
 |---|---|
 | `/` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER, SUPER_ADMIN |
 | `/employees` | ADMIN, SUPER_ADMIN |
+| `/departments` | ADMIN, SUPER_ADMIN |
+| `/job-titles` | ADMIN, SUPER_ADMIN |
+| `/production-lines` | ADMIN, SUPER_ADMIN |
 | `/salary-advances` | ADMIN, SUPERVISOR, SUPER_ADMIN |
 | `/salary-advances/history` | ADMIN |
 | `/salary-advances/suivi-superviseurs` | ADMIN, SUPER_ADMIN |
@@ -149,18 +157,21 @@ Bases Radix UI wrappees avec Tailwind : `Button`, `Dialog`, `Select`, `Popover`,
 ```
 modules/employee/
 ├── types.ts          # Types TypeScript (Employee, EmployeeRequest...)
-├── schema.ts         # Schema Zod pour validation formulaire
+├── schema.ts         # Schema Zod pour validation formulaire (batch import)
 ├── constants.ts      # Constantes (listes de valeurs, labels)
 ├── hooks/
 │   ├── useFetchEmployees.ts
 │   ├── useFetchEmployeesPaged.ts
 │   ├── useFetchEmployeesForFilters.ts
-│   ├── useCreateEmployee.ts
-│   ├── useUpdateEmployee.ts
+│   ├── useFetchSupervisors.ts
+│   ├── useFetchJobTitles.ts       # GET /job-titles — pour le select "Poste Occupé"
+│   ├── useCreateEmployee.ts       # POST /employees — ADMIN + SUPER_ADMIN
+│   ├── useUpdateEmployee.ts       # PUT /employees/{id} — ADMIN + SUPER_ADMIN
 │   └── useDeleteEmployee.ts
 ├── components/
-│   ├── columns.tsx   # Definition colonnes TanStack Table
-│   └── EmployeesClient.tsx  # Composant principal de la page
+│   ├── columns.tsx           # Colonnes TanStack Table + getColumnsWithActions(onEdit)
+│   ├── EmployeesClient.tsx   # Composant principal de la page
+│   └── EmployeeFormModal.tsx # Formulaire create/edit individuel (ADMIN + SUPER_ADMIN)
 └── utils.ts
 ```
 

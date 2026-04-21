@@ -88,19 +88,13 @@ public class SecurityConfiguration {
                     .hasAnyAuthority(EMPLOYEE_READ.name())
 
                 .requestMatchers(POST, "/api/v1/employees/**")
-                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
-                .requestMatchers(POST, "/api/v1/employees/**")
-                    .hasAnyAuthority(EMPLOYEE_CREATE.name())
+                    .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
 
                 .requestMatchers(PUT, "/api/v1/employees/**")
-                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
-                .requestMatchers(PUT, "/api/v1/employees/**")
-                    .hasAnyAuthority(EMPLOYEE_UPDATE.name())
+                    .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
 
                 .requestMatchers(DELETE, "/api/v1/employees/**")
-                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
-                .requestMatchers(DELETE, "/api/v1/employees/**")
-                    .hasAnyAuthority(EMPLOYEE_DELETE.name())
+                    .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
 
                 .requestMatchers(GET, "/api/v1/employees/operators/free")
                     .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())
@@ -145,6 +139,17 @@ public class SecurityConfiguration {
 
                 // ── Organisation ──────────────────────────────────────────────
                 .requestMatchers(GET, "/api/v1/production-lines/**").authenticated()
+                .requestMatchers(GET, "/api/v1/job-titles/**").authenticated()
+                .requestMatchers(GET, "/api/v1/departments/**").authenticated()
+                .requestMatchers(POST,   "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PUT,    "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(DELETE, "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(POST,   "/api/v1/job-titles/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PUT,    "/api/v1/job-titles/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(DELETE, "/api/v1/job-titles/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(POST,   "/api/v1/departments/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PUT,    "/api/v1/departments/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(DELETE, "/api/v1/departments/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
 
                 // ── Catch-all ─────────────────────────────────────────────────
                 .anyRequest().authenticated()

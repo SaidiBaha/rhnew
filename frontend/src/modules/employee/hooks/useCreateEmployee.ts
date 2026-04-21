@@ -18,7 +18,7 @@ export function useCreateEmployee() {
     return useMutation({
         mutationFn: async (employeeData: EmployeeRequest) => {
             const res = await axios.post(
-                `${API_BASE_URL}/api/v1/employees`,
+                `${API_BASE_URL}/employees`,
                 employeeData,
                 {
                     headers: token ? {Authorization: `Bearer ${token}`} : undefined,

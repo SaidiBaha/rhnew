@@ -1,6 +1,7 @@
-import type {ColumnDef} from "@tanstack/react-table";
-import type {Civility} from "@/modules/employee/types";
-import type {AttendanceColumn} from "@/modules/attendance/components/columns";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Pencil } from "lucide-react";
+import type { Civility } from "@/modules/employee/types";
+import type { AttendanceColumn } from "@/modules/attendance/components/columns";
 
 export type EmployeeColumn = {
     id: string;
@@ -22,7 +23,7 @@ export type EmployeeColumn = {
     departureDate: string;
 };
 
-export const columns: ColumnDef<EmployeeColumn>[] = [
+const baseColumns: ColumnDef<EmployeeColumn>[] = [
     {
         accessorKey: "matricule",
         header: "Matricule",
@@ -80,3 +81,31 @@ export const columns: ColumnDef<EmployeeColumn>[] = [
         header: "Email",
     },
 ];
+
+export const columns = baseColumns;
+
+export function getColumnsWithActions(
+    onEdit: (row: EmployeeColumn) => void
+): ColumnDef<EmployeeColumn>[] {
+    return [
+        ...baseColumns,
+        {
+            id: "actions",
+            header: "",
+            cell: ({ row }) => (
+                <button
+                    type="button"
+                    onClick={() => onEdit(row.original)}
+                    title="Modifier"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[var(--accent-light)]"
+                    style={{
+                        border: "1px solid var(--border)",
+                        color: "var(--accent)",
+                    }}
+                >
+                    <Pencil className="size-3.5" />
+                </button>
+            ),
+        },
+    ];
+}

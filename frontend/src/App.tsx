@@ -25,6 +25,9 @@ import EdiPage from "@/pages/EdiPage";
 import PresencePage from "@/pages/PresencePage";
 import HistoriquePresencePage from "@/pages/HistoriquePresencePage";
 import UnauthorizedPage from "@/pages/UnauthorizedPage";
+import DepartmentPage from "@/pages/DepartmentPage";
+import JobTitlePage from "@/pages/JobTitlePage";
+import ProductionLinePage from "@/pages/ProductionLinePage";
 
 function App() {
   return (
@@ -105,6 +108,13 @@ function App() {
         {/* EDI */}
         <Route element={<ProtectedRoute allowedRoles={["PLANIFICATEUR", "SUPER_ADMIN"]} />}>
           <Route path="/edi" element={<Layout><EdiPage /></Layout>} />
+        </Route>
+
+        {/* Référentiels organisation */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPER_ADMIN"]} />}>
+          <Route path="/departments" element={<Layout><DepartmentPage /></Layout>} />
+          <Route path="/job-titles" element={<Layout><JobTitlePage /></Layout>} />
+          <Route path="/production-lines" element={<Layout><ProductionLinePage /></Layout>} />
         </Route>
 
         {/* Changer mot de passe */}
