@@ -16,6 +16,8 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tn.sage.rh.token.TokenRepository;
+import tn.sage.rh.user.User;
+import tn.sage.rh.user.UserActivityLogService;
 
 import java.io.IOException;
 
@@ -25,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final TokenRepository tokenRepository;
+    private final UserActivityLogService activityLogService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -64,8 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (jwtService.isTokenValid(jwt, userDetails) && isTokenValid) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    if (userDetails instanceof User user) {
+                        String ip = resolveClientIp(request);
+                        activityLogService.updateLastActivity(user.getId(), ip);
+                    }
                 }
             }
         } catch (JwtException e) {
@@ -77,5 +84,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String xForwarded = request.getHeader("X-Forwarded-For");
+        if (xForwarded != null && !xForwarded.isBlank()) {
+            return xForwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

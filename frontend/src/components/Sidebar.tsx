@@ -123,10 +123,14 @@ const AVANCES_ITEMS: NavigationItem[] = [
 ];
 
 const GESTION_ITEMS: NavigationItem[] = [
-  { label: "Demandes Documents",     icon: "newspaper",          path: "/requests",       allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
-  { label: "Permutations",           icon: "shuffle",            path: "/permutations",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
-  { label: "Opérateurs Disponibles", icon: "user-check",         path: "/free-operators", allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
-  { label: "EDI DELFOR → CSV",       icon: "file-code",          path: "/edi",            allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
+  { label: "Demandes Documents",     icon: "newspaper",          path: "/requests",         allowedRoles: ["ADMIN", "SUPERVISOR", "SUPER_ADMIN"] },
+  { label: "Permutations",           icon: "shuffle",            path: "/permutations",     allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "Opérateurs Disponibles", icon: "user-check",         path: "/free-operators",   allowedRoles: ["SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"] },
+  { label: "EDI DELFOR → CSV",       icon: "file-code",          path: "/edi",              allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
+];
+
+const ADMIN_ITEMS: NavigationItem[] = [
+  { label: "Gestion Utilisateurs",   icon: "shield-check",       path: "/user-management",  allowedRoles: ["SUPER_ADMIN"] },
 ];
 
 export const Sidebar = () => {
@@ -336,6 +340,14 @@ export const Sidebar = () => {
           <NavGroup
             label="Gestion"
             items={GESTION_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+          <NavGroup
+            label="Administration"
+            items={ADMIN_ITEMS}
             expanded={expanded}
             userRole={user?.role}
             currentPath={location.pathname}

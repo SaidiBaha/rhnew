@@ -28,6 +28,7 @@ import UnauthorizedPage from "@/pages/UnauthorizedPage";
 import DepartmentPage from "@/pages/DepartmentPage";
 import JobTitlePage from "@/pages/JobTitlePage";
 import ProductionLinePage from "@/pages/ProductionLinePage";
+import UserManagementPage from "@/pages/UserManagementPage";
 
 function App() {
   return (
@@ -115,6 +116,11 @@ function App() {
           <Route path="/departments" element={<Layout><DepartmentPage /></Layout>} />
           <Route path="/job-titles" element={<Layout><JobTitlePage /></Layout>} />
           <Route path="/production-lines" element={<Layout><ProductionLinePage /></Layout>} />
+        </Route>
+
+        {/* Gestion des utilisateurs — SUPER_ADMIN uniquement */}
+        <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
+          <Route path="/user-management" element={<Layout><UserManagementPage /></Layout>} />
         </Route>
 
         {/* Changer mot de passe */}

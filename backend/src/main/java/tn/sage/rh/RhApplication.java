@@ -7,6 +7,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import tn.sage.rh.auth.AuthenticationService;
 import tn.sage.rh.auth.dto.RegisterRequestDto;
@@ -25,6 +26,7 @@ import static tn.sage.rh.user.UserRole.OPERATIONAL_MANAGER;
 @SpringBootApplication
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
 @EnableScheduling
+@EnableAsync
 public class RhApplication {
 
     public static void main(String[] args) {

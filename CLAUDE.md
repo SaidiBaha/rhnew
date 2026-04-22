@@ -27,7 +27,8 @@ rh/
 │   │   ├── permutations/     # Permutations d'operateurs + FreeOperators scheduler
 │   │   ├── presence/         # Presences/absences journalieres
 │   │   ├── request/          # Demandes de documents
-│   │   └── salary/           # Avances sur salaire + deadlines
+│   │   ├── salary/           # Avances sur salaire + deadlines
+│   │   └── user/             # User entity, UserService, UserAdminController, UserActivityLog
 │   └── src/main/resources/application.properties
 └── frontend/
     └── src/
@@ -62,6 +63,7 @@ Chaque module suit le pattern : `types.ts` | `schema.ts` (Zod) | `hooks/` (React
 | `production-line` | ADMIN, SUPER_ADMIN — CRUD lignes de production |
 | `request` | ADMIN, SUPERVISOR |
 | `salary-advance` | ADMIN, SUPERVISOR |
+| `user-management` | SUPER_ADMIN — tableau de bord, blocage, rôles, historique activité |
 
 **Composants de notification** : `NotificationCenter` (cloche générale) + `PermutationNotificationBell` (SUPERVISOR uniquement) — tous deux dans la user card de `Sidebar.tsx`. Voir `@docs/NOTIFICATIONS.md` pour la carte complète.
 
@@ -763,6 +765,103 @@ Gestion
 
 - `findAllSupervisors()` retourne les employés dont `supervisorRole = true` **OU** qui ont des opérateurs actifs rattachés — comportement inchangé.
 - `supervisorRole` est le flag qui détermine la visibilité dans le dropdown superviseur, pas le `UserRole` de l'utilisateur associé.
+
+---
+
+## Gestion des utilisateurs — Module SUPER_ADMIN (session 2026-04-22)
+
+### Fonctionnalités
+
+Module accessible uniquement aux **SUPER_ADMIN** via `/user-management`. Il centralise :
+- Tableau de bord statistiques (total, actifs, bloqués, connectés aujourd'hui, répartition par rôle)
+- Liste paginée des comptes avec recherche temps réel
+- Actions par ligne : Modifier (rôle + email), Bloquer/Débloquer, Voir l'historique
+- Journal d'activité par utilisateur (paginé, filtrable par type d'événement et plage de dates)
+
+### Traçage d'activité
+
+Une table `user_activity_logs` enregistre les événements suivants :
+
+| Type d'événement | Déclencheur |
+|---|---|
+| `LOGIN` | Connexion réussie (`AuthenticationService.login`) |
+| `LOGIN_FAILED` | Tentative échouée (`AuthenticationService.login`) |
+| `LOGOUT` | Déconnexion (`LogoutService`) |
+| `PASSWORD_CHANGE` | Changement de mot de passe (`UserService.changePassword`) |
+| `ACCOUNT_BLOCKED` | Blocage par un admin (`UserService.blockUser`) |
+| `ACCOUNT_UNBLOCKED` | Déblocage par un admin (`UserService.blockUser`) |
+| `ROLE_CHANGED` | Changement de rôle (`UserService.updateUser`) |
+
+Le filtre JWT (`JwtAuthenticationFilter`) met à jour `lastActivityAt` + `lastActivityIp` sur l'entité `User` de manière **non bloquante** via `@Async` à chaque requête authentifiée.
+
+### Blocage de compte
+
+`User.isAccountNonLocked()` retourne `!blocked`. Un compte bloqué reçoit une erreur `423 Locked` au moment du login (géré automatiquement par Spring Security).
+
+### Nouvelles colonnes sur `_user`
+
+| Colonne | Type | Description |
+|---|---|---|
+| `blocked` | `boolean` (default false) | Compte bloqué |
+| `last_login_at` | `timestamp` | Horodatage dernière connexion |
+| `last_activity_at` | `timestamp` | Horodatage dernière requête authentifiée |
+| `last_activity_ip` | `varchar` | IP dernière requête authentifiée |
+
+### Endpoints ajoutés
+
+| Méthode | URL | Description |
+|---|---|---|
+| `GET` | `/api/v1/admin/users` | Liste tous les utilisateurs |
+| `GET` | `/api/v1/admin/users/stats` | Statistiques tableau de bord |
+| `PATCH` | `/api/v1/admin/users/{id}/block?blocked=true\|false` | Bloquer/débloquer |
+| `PUT` | `/api/v1/admin/users/{id}` | Modifier rôle et/ou email |
+| `GET` | `/api/v1/admin/users/{id}/activity` | Journal paginé (filtres: eventType, from, to) |
+
+### Fichiers créés/modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `user/User.java` | Champs `blocked`, `lastLoginAt`, `lastActivityAt`, `lastActivityIp` + `isAccountNonLocked()` |
+| `user/UserActivityLog.java` | **NOUVEAU** — entité `user_activity_logs` |
+| `user/UserActivityLogRepository.java` | **NOUVEAU** — queries filtrées + comptage connectés du jour |
+| `user/UserActivityLogService.java` | **NOUVEAU** — logging async (`@Async`) |
+| `user/dto/UserAdminDto.java` | **NOUVEAU** |
+| `user/dto/UserStatsDto.java` | **NOUVEAU** |
+| `user/dto/UserActivityLogDto.java` | **NOUVEAU** |
+| `user/dto/UpdateUserRequest.java` | **NOUVEAU** |
+| `user/UserService.java` | Méthodes admin : `findAllForAdmin`, `getStats`, `blockUser`, `updateUser`, `getActivity` |
+| `user/UserAdminController.java` | **NOUVEAU** — `/api/v1/admin/users` |
+| `auth/AuthenticationService.java` | `login()` accepte `HttpServletRequest`, log LOGIN/LOGIN_FAILED, met à jour `lastLoginAt` |
+| `auth/AuthenticationController.java` | Passe `HttpServletRequest` à `login()` |
+| `config/LogoutService.java` | Log LOGOUT async |
+| `config/JwtAuthenticationFilter.java` | Met à jour `lastActivityAt` + IP async |
+| `config/SecurityConfiguration.java` | `/api/v1/admin/**` → `SUPER_ADMIN` uniquement |
+| `RhApplication.java` | `@EnableAsync` ajouté |
+
+### Fichiers créés/modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/user-management/types.ts` | `UserAdmin`, `UserStats`, `UserActivityLog`, `UpdateUserRequest` |
+| `modules/user-management/hooks/useFetchUsers.ts` | GET /admin/users |
+| `modules/user-management/hooks/useFetchUserStats.ts` | GET /admin/users/stats |
+| `modules/user-management/hooks/useFetchUserActivity.ts` | GET /admin/users/{id}/activity |
+| `modules/user-management/hooks/useBlockUser.ts` | PATCH /admin/users/{id}/block |
+| `modules/user-management/hooks/useUpdateUser.ts` | PUT /admin/users/{id} |
+| `modules/user-management/components/UserManagementClient.tsx` | Page principale (stats + tableau + modales) |
+| `modules/user-management/components/UserActivityModal.tsx` | Journal d'activité paginé avec filtres |
+| `pages/UserManagementPage.tsx` | Page wrapper |
+| `App.tsx` | Route `/user-management` (SUPER_ADMIN) |
+| `components/Sidebar.tsx` | Groupe "Administration" avec "Gestion Utilisateurs" (SUPER_ADMIN) |
+
+### Structure Sidebar (mise à jour)
+
+```
+Accueil / Gestion RH / Présences & Absences / Avances / Gestion (inchangés)
+
+Administration          ← NOUVEAU (SUPER_ADMIN uniquement)
+  └── Gestion Utilisateurs
+```
 
 ---
 

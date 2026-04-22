@@ -3,12 +3,15 @@ package tn.sage.rh.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 import tn.sage.rh.auth.dto.AuthenticationResponseDto;
 import tn.sage.rh.auth.dto.LoginRequestDto;
 import tn.sage.rh.auth.dto.RegisterRequestDto;
@@ -19,6 +22,7 @@ import tn.sage.rh.token.Token;
 import tn.sage.rh.token.TokenRepository;
 import tn.sage.rh.token.TokenType;
 import tn.sage.rh.user.User;
+import tn.sage.rh.user.UserActivityLogService;
 import tn.sage.rh.user.UserRepository;
 
 @Service
@@ -30,6 +34,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final UserActivityLogService activityLogService;
 
     private void saveUserToken(User user, String jwtToken) {
         var token = Token.builder()
@@ -120,20 +125,36 @@ public class AuthenticationService {
                 .build();
     }
 
-    public AuthenticationResponseDto login(LoginRequestDto request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getMatricule(),
-                        request.getPassword()
+    public AuthenticationResponseDto login(LoginRequestDto request, HttpServletRequest httpRequest) {
+        String ip = resolveClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
 
-                )
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getMatricule(),
+                            request.getPassword()
+                    )
+            );
+        } catch (Exception ex) {
+            activityLogService.logEventByMatricule(request.getMatricule(), "LOGIN_FAILED",
+                    ip, userAgent, "Tentative de connexion échouée");
+            throw ex;
+        }
+
         var user = userRepository.findByEmployee_Matricule(request.getMatricule())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+
         var jwtToken = jwtService.generateToken(user);
         var refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
         saveUserToken(user, jwtToken);
+
+        activityLogService.logEvent(user.getId(), "LOGIN", ip, userAgent, "Connexion réussie");
+
         return AuthenticationResponseDto.builder()
                 .accessToken(jwtToken)
                 .refreshToken(refreshToken)
@@ -142,8 +163,15 @@ public class AuthenticationService {
                         .matricule(user.getUsername())
                         .fullName(user.getEmployee().getFullName())
                         .role(user.getRole()).build())
-
                 .build();
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String xForwarded = request.getHeader("X-Forwarded-For");
+        if (xForwarded != null && !xForwarded.isBlank()) {
+            return xForwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     public ValidateTokenResponseDto validateToken(

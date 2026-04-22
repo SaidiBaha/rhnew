@@ -26,9 +26,10 @@ public class AuthenticationController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthenticationResponseDto> login(
-            @RequestBody LoginRequestDto request
+            @RequestBody LoginRequestDto request,
+            HttpServletRequest httpRequest
     ) {
-        return ResponseEntity.ok(authenticationService.login(request));
+        return ResponseEntity.ok(authenticationService.login(request, httpRequest));
     }
 
     @PostMapping("/refresh-token")

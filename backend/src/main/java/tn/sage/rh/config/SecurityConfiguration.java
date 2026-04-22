@@ -130,6 +130,9 @@ public class SecurityConfiguration {
                     .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name(), NURSE.name())
                 .requestMatchers(PUT, "/api/v1/users/**").authenticated()
 
+                // ── Admin : gestion des utilisateurs ──────────────────────────
+                .requestMatchers("/api/v1/admin/**").hasRole(SUPER_ADMIN.name())
+
                 // ── Permutations ──────────────────────────────────────────────
                 .requestMatchers("/api/v1/permutations/**")
                     .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name())

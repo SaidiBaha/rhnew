@@ -8,11 +8,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.stereotype.Service;
 import tn.sage.rh.token.TokenRepository;
+import tn.sage.rh.user.User;
+import tn.sage.rh.user.UserActivityLogService;
 
 @Service
 @RequiredArgsConstructor
 public class LogoutService implements LogoutHandler {
     private final TokenRepository tokenRepository;
+    private final UserActivityLogService activityLogService;
 
     @Override
     public void logout(
@@ -29,10 +32,23 @@ public class LogoutService implements LogoutHandler {
         var storedToken = tokenRepository.findByToken(jwt)
                 .orElse(null);
         if (storedToken != null) {
+            String ip = resolveClientIp(request);
+            String userAgent = request.getHeader("User-Agent");
+            long userId = storedToken.getUser().getId();
+            activityLogService.logEvent(userId, "LOGOUT", ip, userAgent, "Déconnexion");
+
             storedToken.setExpired(true);
             storedToken.setRevoked(true);
             tokenRepository.save(storedToken);
             SecurityContextHolder.clearContext();
         }
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String xForwarded = request.getHeader("X-Forwarded-For");
+        if (xForwarded != null && !xForwarded.isBlank()) {
+            return xForwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

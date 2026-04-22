@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import tn.sage.rh.employee.Employee;
 import tn.sage.rh.token.Token;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -32,6 +33,13 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     private UserRole role;
+
+    @Builder.Default
+    private boolean blocked = false;
+
+    private LocalDateTime lastLoginAt;
+    private LocalDateTime lastActivityAt;
+    private String lastActivityIp;
 
     @OneToMany(mappedBy = "user")
     private List<Token> tokens;
@@ -58,7 +66,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !blocked;
     }
 
     @Override
