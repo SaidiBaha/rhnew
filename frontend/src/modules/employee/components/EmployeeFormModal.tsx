@@ -66,6 +66,7 @@ const EmployeeFormSchema = z.object({
     .or(z.literal("")),
   hasLeftCompany: z.boolean().nullable().optional().default(null),
   departureDate: z.string().optional(),
+  supervisorRole: z.boolean().default(false),
 });
 
 type EmployeeFormValues = z.infer<typeof EmployeeFormSchema>;
@@ -154,6 +155,7 @@ export function EmployeeFormModal({
       email: "",
       hasLeftCompany: null,
       departureDate: "",
+      supervisorRole: false,
     },
   });
 
@@ -176,6 +178,7 @@ export function EmployeeFormModal({
           email: employee.email ?? "",
           hasLeftCompany: employee.hasLeftCompany ?? null,
           departureDate: safeIsoDate(employee.departureDate),
+          supervisorRole: employee.supervisorRole ?? false,
         });
       } else {
         form.reset({
@@ -194,6 +197,7 @@ export function EmployeeFormModal({
           email: "",
           hasLeftCompany: null,
           departureDate: "",
+          supervisorRole: false,
         });
       }
     }
@@ -216,6 +220,7 @@ export function EmployeeFormModal({
       email: values.email || undefined,
       hasLeftCompany: values.hasLeftCompany ?? null,
       departureDate: values.departureDate || null,
+      supervisorRole: values.supervisorRole,
     };
 
     try {
@@ -570,6 +575,31 @@ export function EmployeeFormModal({
                     </FormControl>
                     <FormLabel className="!mt-0 cursor-pointer text-sm" style={{ color: "var(--text2)" }}>
                       A quitté la société
+                    </FormLabel>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Est superviseur */}
+              <FormField
+                control={form.control}
+                name="supervisorRole"
+                render={({ field }) => (
+                  <FormItem
+                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+                  >
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        className="h-4 w-4 rounded accent-[var(--accent)]"
+                      />
+                    </FormControl>
+                    <FormLabel className="!mt-0 cursor-pointer text-sm" style={{ color: "var(--text2)" }}>
+                      Est superviseur
                     </FormLabel>
                     <FormMessage />
                   </FormItem>

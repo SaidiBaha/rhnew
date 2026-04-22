@@ -584,7 +584,37 @@ Les endpoints `POST /api/v1/employees` (création) et `PUT /api/v1/employees/{id
 | **Identité** | Matricule, Civilité, Nom et Prénom, Email |
 | **Rattachement professionnel** | Département, Poste Occupé, Type de Travail, Ligne de Production, Poste (Shift) |
 | **Contrat** | Date d'Embauche, Superviseur |
-| **Options** | Domiciliation Bancaire (checkbox), A quitté la société (checkbox), Date de Départ (conditionnel) |
+| **Options** | Domiciliation Bancaire (checkbox), A quitté la société (checkbox), Est superviseur (checkbox), Date de Départ (conditionnel) |
+
+---
+
+## Employés — Désignation explicite superviseur (session 2026-04-21)
+
+### Problème résolu
+
+Un superviseur créé individuellement via "Nouvel employé" n'apparaissait pas dans le dropdown "Superviseur" car `findAllSupervisors()` requiert qu'au moins un employé référence cet employé via `supervisor_id`. Un nouveau superviseur sans opérateurs rattachés était invisible.
+
+### Solution
+
+Ajout d'un flag `supervisorRole` sur l'entité `Employee`. `findAllSupervisors()` retourne désormais les employés où `supervisorRole = true` **OU** qui ont des opérateurs actifs. L'admin coche "Est superviseur" dans le formulaire pour lever ce flag explicitement.
+
+### Règles
+
+- La création du compte utilisateur avec `UserRole.SUPERVISOR` était déjà correcte (comportement inchangé).
+- Le flag `supervisorRole` n'affecte que la visibilité dans le dropdown superviseur — pas le rôle utilisateur.
+- La logique d'import Excel est inchangée (les superviseurs y sont détectés implicitement par leur `operators`).
+- Si un superviseur existant reçoit des opérateurs via import, il apparaîtra dans le dropdown même si `supervisorRole = false`.
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `employee/Employee.java` | Champ `boolean supervisorRole` (default false) |
+| `employee/dto/EmployeeRequestDto.java` | Champ `boolean supervisorRole` |
+| `employee/EmployeeRepository.java` | `findAllSupervisors()` : `OR e.supervisorRole = true` |
+| `employee/EmployeeService.java` | `setEmployeeFromRequestDTO` : `employee.setSupervisorRole(...)` |
+| `modules/employee/types.ts` | `supervisorRole?: boolean` dans `Employee` et `EmployeeRequest` |
+| `modules/employee/components/EmployeeFormModal.tsx` | Checkbox "Est superviseur" dans la section Options |
 
 ---
 
@@ -704,6 +734,35 @@ Gestion
   ├── Opérateurs Disponibles
   └── EDI DELFOR → CSV
 ```
+
+---
+
+## Employés — Correctifs affichage superviseur (session 2026-04-22)
+
+### Bug 1 — Superviseur sans superviseur affecté absent du tableau
+
+**Cause** : `findPagedWithFilters` dans `EmployeeRepository` contenait `e.supervisor.matricule` dans le WHERE, ce qui provoque une **jointure INNER implicite** sur la table `employee` (auto-référence). Même quand `supervisorMatricule is null` (ADMIN), Hibernate générait un `INNER JOIN` qui filtrait les employés avec `supervisor_id IS NULL`.
+
+**Correctif** : Ajout d'un `left join e.supervisor s` explicite dans la query et la countQuery. Remplacement de `e.supervisor.matricule` par `s.matricule` dans le WHERE.
+
+| Fichier | Changement |
+|---|---|
+| `employee/EmployeeRepository.java` | `findPagedWithFilters` : `left join e.supervisor s`, `s.matricule` au lieu de `e.supervisor.matricule` |
+
+### Bug 2 & 3 — supervisorRole réinitialisé à false lors de l'édition
+
+**Cause** : `EmployeeDto` ne contenait pas le champ `supervisorRole`. À chaque ouverture du formulaire d'édition, le champ était pré-rempli à `false` (`undefined ?? false`). Soumettre le formulaire sans toucher la case écrasait la valeur `true` en base, faisant disparaître l'employé de `findAllSupervisors()`.
+
+**Correctif** : Ajout de `private boolean supervisorRole;` dans `EmployeeDto`. MapStruct mappe automatiquement le champ depuis l'entité `Employee`.
+
+| Fichier | Changement |
+|---|---|
+| `employee/dto/EmployeeDto.java` | Champ `supervisorRole` ajouté |
+
+### Règle invariante
+
+- `findAllSupervisors()` retourne les employés dont `supervisorRole = true` **OU** qui ont des opérateurs actifs rattachés — comportement inchangé.
+- `supervisorRole` est le flag qui détermine la visibilité dans le dropdown superviseur, pas le `UserRole` de l'utilisateur associé.
 
 ---
 

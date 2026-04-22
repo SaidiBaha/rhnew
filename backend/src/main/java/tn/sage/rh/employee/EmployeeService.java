@@ -377,6 +377,7 @@ public class EmployeeService {
         employee.setShift(shift);
         employee.setEmploymentType(employmentType);
         employee.setSupervisor(supervisor);
+        employee.setSupervisorRole(employeeRequest.isSupervisorRole());
         employee.setDepartureDate(employeeRequest.getDepartureDate());
         employee.setHasLeftCompany(employeeRequest.getDepartureDate() != null);
     }

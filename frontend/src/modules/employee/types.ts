@@ -61,6 +61,7 @@ export type Employee = {
 
   hasLeftCompany?: boolean | null;
   departureDate?: Date | string | null;
+  supervisorRole?: boolean;
 };
 
 export type EmployeeRequest = {
@@ -80,6 +81,7 @@ export type EmployeeRequest = {
 
   hasLeftCompany?: boolean | null;
   departureDate?: string | null;
+  supervisorRole?: boolean;
 };
 
 export type PageResponse<T> = {

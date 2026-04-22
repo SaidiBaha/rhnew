@@ -37,6 +37,7 @@ public class EmployeeDto {
     private String email;
     private Boolean hasLeftCompany;
     private LocalDate departureDate;
+    private boolean supervisorRole;
 }
 
 

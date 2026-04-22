@@ -51,4 +51,6 @@ public class EmployeeRequestDto {
 
     private Boolean hasLeftCompany;
     private LocalDate departureDate;
+
+    private boolean supervisorRole;
 }

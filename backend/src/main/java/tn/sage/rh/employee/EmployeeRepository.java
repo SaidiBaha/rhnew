@@ -106,9 +106,10 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             left join e.productionLine pl
             left join e.shift sh
             left join e.employmentType et
+            left join e.supervisor s
             where e.deleted = false
               and (:supervisorMatricule is null
-                   or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
+                   or (s is not null and s.matricule = :supervisorMatricule))
               and (:search is null or :search = ''
                    or upper(e.fullName) like concat('%', upper(:search), '%')
                    or upper(e.matricule) like concat('%', upper(:search), '%'))
@@ -132,9 +133,10 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             left join e.productionLine pl
             left join e.shift sh
             left join e.employmentType et
+            left join e.supervisor s
             where e.deleted = false
               and (:supervisorMatricule is null
-                   or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
+                   or (s is not null and s.matricule = :supervisorMatricule))
               and (:search is null or :search = ''
                    or upper(e.fullName) like concat('%', upper(:search), '%')
                    or upper(e.matricule) like concat('%', upper(:search), '%'))
@@ -180,13 +182,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         where e.deleted = false
           and e.departureDate is null
           and (e.hasLeftCompany = false or e.hasLeftCompany is null)
-          and exists (
-              select 1
-              from Employee op
-              where op.supervisor = e
-                and (op.deleted = false or op.deleted is null)
-                and op.departureDate is null
-                and (op.hasLeftCompany = false or op.hasLeftCompany is null)
+          and (
+              e.supervisorRole = true
+              or exists (
+                  select 1
+                  from Employee op
+                  where op.supervisor = e
+                    and (op.deleted = false or op.deleted is null)
+                    and op.departureDate is null
+                    and (op.hasLeftCompany = false or op.hasLeftCompany is null)
+              )
           )
           and d.name not in ('RESSOURCES HUMAINES','IT','MAINTENANCE')
     """)

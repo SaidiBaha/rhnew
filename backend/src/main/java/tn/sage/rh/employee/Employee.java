@@ -106,6 +106,10 @@ public class Employee {
 
     private boolean deleted = Boolean.FALSE;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean supervisorRole = false;
+
     // ✅ nouveaux champs
     @Column(nullable = true)
     private Boolean hasLeftCompany;
