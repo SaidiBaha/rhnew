@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Pencil, Trash2, Plus, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import axios from "axios";
@@ -12,6 +12,8 @@ import { useCreateJobTitle } from "@/modules/job-title/hooks/useCreateJobTitle";
 import { useUpdateJobTitle } from "@/modules/job-title/hooks/useUpdateJobTitle";
 import { useDeleteJobTitle } from "@/modules/job-title/hooks/useDeleteJobTitle";
 import type { JobTitle } from "@/modules/job-title/types";
+
+const PAGE_SIZE = 10;
 
 function extractErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -108,10 +110,26 @@ export function JobTitleClient() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<JobTitle | undefined>();
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+
+  useEffect(() => { setPage(0); }, [search]);
 
   const openCreate = () => { setEditTarget(undefined); setModalOpen(true); };
   const openEdit = (jt: JobTitle) => { setEditTarget(jt); setModalOpen(true); };
   const closeModal = () => setModalOpen(false);
+
+  const filtered = useMemo(() => {
+    if (!jobTitles) return [];
+    const q = search.toLowerCase().trim();
+    if (!q) return jobTitles;
+    return jobTitles.filter((jt) => jt.title.toLowerCase().includes(q));
+  }, [jobTitles, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const rangeStart = filtered.length === 0 ? 0 : page * PAGE_SIZE + 1;
+  const rangeEnd = Math.min((page + 1) * PAGE_SIZE, filtered.length);
 
   const handleSave = (title: string) => {
     if (editTarget) {
@@ -171,73 +189,147 @@ export function JobTitleClient() {
 
       <Separator />
 
+      {/* Barre de recherche */}
+      <div
+        className="flex items-center gap-2 rounded-xl px-3 py-2"
+        style={{ background: "var(--white)", border: "1px solid var(--border)", maxWidth: 320 }}
+      >
+        <Search className="h-4 w-4 shrink-0" style={{ color: "var(--muted)" }} />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher par libellé…"
+          className="flex-1 bg-transparent text-sm outline-none"
+          style={{ color: "var(--text)" }}
+        />
+        {search && (
+          <button onClick={() => setSearch("")} style={{ color: "var(--muted)" }}>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
       {isLoading ? (
         <Loader />
       ) : (
-        <div
-          className="overflow-hidden rounded-2xl"
-          style={{ border: "1px solid var(--border)", background: "var(--white)" }}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg)" }}>
-                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>ID</th>
-                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>Libellé</th>
-                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>Créé le</th>
-                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>Modifié le</th>
-                <th className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text2)" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!jobTitles || jobTitles.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm" style={{ color: "var(--muted)" }}>
-                    Aucun poste enregistré
-                  </td>
+        <>
+          <div
+            className="overflow-hidden rounded-2xl"
+            style={{ border: "1px solid var(--border)", background: "var(--white)" }}
+          >
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg)" }}>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>ID</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>Libellé</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>Créé le</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text2)" }}>Modifié le</th>
+                  <th className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text2)" }}>Actions</th>
                 </tr>
-              ) : (
-                jobTitles.map((jt, i) => (
-                  <tr
-                    key={jt.id}
-                    style={{
-                      borderBottom: i < jobTitles.length - 1 ? "1px solid var(--border)" : "none",
-                    }}
-                    className="transition-colors hover:bg-[var(--bg)]"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--muted)" }}>{jt.id}</td>
-                    <td className="px-4 py-3 font-semibold" style={{ color: "var(--text)" }}>{jt.title}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>
-                      {jt.createdAt ? new Date(jt.createdAt).toLocaleDateString("fr-FR") : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>
-                      {jt.updatedAt ? new Date(jt.updatedAt).toLocaleDateString("fr-FR") : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEdit(jt)}
-                          title="Modifier"
-                          className="rounded-lg p-1.5 transition-colors hover:bg-[var(--accent-light)]"
-                          style={{ color: "var(--accent)" }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(jt)}
-                          title="Supprimer"
-                          className="rounded-lg p-1.5 transition-colors hover:bg-red-50"
-                          style={{ color: "var(--accent4)" }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-sm" style={{ color: "var(--muted)" }}>
+                      {search ? `Aucun résultat pour « ${search} »` : "Aucun poste enregistré"}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  paginated.map((jt, i) => (
+                    <tr
+                      key={jt.id}
+                      style={{
+                        borderBottom: i < paginated.length - 1 ? "1px solid var(--border)" : "none",
+                      }}
+                      className="transition-colors hover:bg-[var(--bg)]"
+                    >
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--muted)" }}>{jt.id}</td>
+                      <td className="px-4 py-3 font-semibold" style={{ color: "var(--text)" }}>{jt.title}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>
+                        {jt.createdAt ? new Date(jt.createdAt).toLocaleDateString("fr-FR") : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>
+                        {jt.updatedAt ? new Date(jt.updatedAt).toLocaleDateString("fr-FR") : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEdit(jt)}
+                            title="Modifier"
+                            className="rounded-lg p-1.5 transition-colors hover:bg-[var(--accent-light)]"
+                            style={{ color: "var(--accent)" }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(jt)}
+                            title="Supprimer"
+                            className="rounded-lg p-1.5 transition-colors hover:bg-red-50"
+                            style={{ color: "var(--accent4)" }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              {filtered.length === 0
+                ? "Aucun résultat"
+                : `${rangeStart}–${rangeEnd} sur ${filtered.length} résultat${filtered.length !== 1 ? "s" : ""}`}
+            </p>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                title="Page précédente"
+                className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+                style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text2)" }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i)
+                .filter((i) => Math.abs(i - page) <= 2)
+                .map((i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setPage(i)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium transition-colors"
+                    style={{
+                      background: i === page ? "var(--accent)" : "var(--white)",
+                      border: `1px solid ${i === page ? "var(--accent)" : "var(--border)"}`,
+                      color: i === page ? "#fff" : "var(--text2)",
+                    }}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                title="Page suivante"
+                className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40"
+                style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text2)" }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {modalOpen && (

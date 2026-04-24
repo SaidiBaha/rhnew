@@ -1,24 +1,31 @@
 Epic ID,Epic Nom,Ticket ID,Titre,Type,Priorité,Statut
-EPIC-1,Design System & UI Foundation,DS-1,Définir les tokens CSS globaux (couleurs, radius, typographie, espacements),Task,Haute,Done
+EPIC-1,Design System & UI Foundation,DS-1,Définir les tokens CSS globaux (couleurs radius typographie espacements),Task,Haute,Done
 EPIC-1,Design System & UI Foundation,DS-2,Refactoriser la Sidebar avec design system (nav groups rôles icônes dynamiques),Story,Haute,Done
 EPIC-1,Design System & UI Foundation,DS-3,Corriger le padding de recherche dans DataTable,Bug,Moyenne,Done
 EPIC-1,Design System & UI Foundation,DS-4,Corriger le layout de la dropzone dans FileUploadModal,Bug,Moyenne,Done
 EPIC-1,Design System & UI Foundation,DS-5,Ajouter les props initialPageSize et hidePagination à DataTable,Task,Moyenne,Done
-EPIC-2,Module Employés,EMP-1,Backend : endpoint GET /employees avec pagination (page size),Story,Haute,Done
+EPIC-2,Module Employés,EMP-1,Backend : endpoint GET /employees avec pagination (page + size),Story,Haute,Done
 EPIC-2,Module Employés,EMP-2,Backend : PageResponse<T> — wrapper générique paginé,Task,Haute,Done
 EPIC-2,Module Employés,EMP-3,Frontend : hook useFetchEmployeesPaged avec placeholderData,Task,Haute,Done
 EPIC-2,Module Employés,EMP-4,Frontend : contrôles de pagination dans EmployeesClient (prev/next/numéros),Task,Haute,Done
-EPIC-2,Module Employés,EMP-5,Ajouter le champ email sur l'entité Employee (nullable import Excel),Story,Moyenne,Done
+EPIC-2,Module Employés,EMP-5,Ajouter le champ email sur l'entité Employee (nullable + import Excel),Story,Moyenne,Done
 EPIC-2,Module Employés,EMP-6,Backend : filtres serveur sur /pagination (ligne poste type dates embauche),Story,Haute,Done
 EPIC-2,Module Employés,EMP-7,Frontend : barre de filtres UI dans EmployeesClient (dropdowns + date range),Task,Haute,Done
 EPIC-2,Module Employés,EMP-8,Frontend : hook useFetchEmployeesForFilters pour peupler les dropdowns,Task,Moyenne,Done
 EPIC-2,Module Employés,EMP-9,Export Excel : colonne EMAIL + colonnes filtres,Task,Basse,Done
+EPIC-2,Module Employés,EMP-10,Règle préservation email import : email en base non écrasé si champ fichier vide,Task,Haute,Done
+EPIC-2,Module Employés,EMP-11,Backend + Frontend : Création individuelle d'employé (bouton Nouvel employé + EmployeeFormModal),Story,Haute,Done
+EPIC-2,Module Employés,EMP-12,Backend + Frontend : Modification individuelle d'employé (bouton Modifier + EmployeeFormModal mode édition),Story,Haute,Done
+EPIC-2,Module Employés,EMP-13,Champs dynamiques du formulaire : selects pour département poste ligne de production type travail shift,Task,Haute,Done
+EPIC-2,Module Employés,EMP-14,Flag supervisorRole sur Employee — désignation explicite superviseur sans opérateurs rattachés,Story,Haute,Done
+EPIC-2,Module Employés,EMP-15,Bug: INNER JOIN implicite sur supervisor dans findPagedWithFilters — superviseurs sans employé absents du tableau,Bug,Haute,Done
+EPIC-2,Module Employés,EMP-16,Bug: supervisorRole absent de EmployeeDto — réinitialisé à false à chaque ouverture du formulaire d'édition,Bug,Haute,Done
 EPIC-3,Authentification & Rôles,AUTH-1,Ajouter le rôle NURSE dans UserRole enum,Task,Haute,Done
 EPIC-3,Authentification & Rôles,AUTH-2,Logique d'attribution automatique NURSE si poste = AIDE SOIGNANTE (création unitaire),Story,Haute,Done
 EPIC-3,Authentification & Rôles,AUTH-3,Même logique pour les imports batch (EmployeeCreationListener),Task,Haute,Done
 EPIC-3,Authentification & Rôles,AUTH-4,Backfill au démarrage : SUPERVISOR → NURSE pour employés existants (DataInitializer),Task,Haute,Done
 EPIC-3,Authentification & Rôles,AUTH-5,Autoriser NURSE sur /api/v1/users/** dans SecurityConfiguration,Task,Haute,Done
-EPIC-3,Authentification & Rôles,AUTH-6,Frontend : ajouter NURSE au type UserRole route /change-password et Sidebar,Task,Haute,Done
+EPIC-3,Authentification & Rôles,AUTH-6,Frontend : ajouter NURSE au type UserRole + route /change-password + Sidebar,Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-1,Backend : endpoint GET /attendances/today avec filtrage SUPERVISOR,Story,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-2,Backend : endpoint PUT /attendances/{id} — édition clockIn/clockOut/motif,Story,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-3,Backend : repository — findAllByDate + findAllByDateAndSupervisor,Task,Haute,Done
@@ -28,12 +35,19 @@ EPIC-4,Module Présences / Absences (jour courant),PRE-6,Frontend : hook useImpo
 EPIC-4,Module Présences / Absences (jour courant),PRE-7,Frontend : hook useUpdateAttendance (toast succès/erreur),Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-8,Frontend : colonnes buildColumns avec badge statut calculé dynamiquement,Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-9,Frontend : EditAttendanceModal — édition inline avec statut live,Task,Haute,Done
-EPIC-4,Module Présences / Absences (jour courant),PRE-10,Frontend : PresenceClient — bouton import table guard canImport,Story,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-10,Frontend : PresenceClient — bouton import + table guard canImport,Story,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-11,Frontend : validation import — type fichier (.xlsx/.xls) + taille max 10 Mo,Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-12,Frontend : PresencePage + route protégée (ADMIN SUPERVISOR SUPER_ADMIN),Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-13,Frontend : pagination 50 lignes/page dans PresenceClient,Task,Moyenne,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-14,Backend : entité AttendanceImport + AttendanceImportRepository (traçabilité des imports XLSX),Task,Haute,Done
 EPIC-4,Module Présences / Absences (jour courant),PRE-15,Backend : enregistrement de l'import dans attendance_imports après chaque batch-save,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-16,Shift Après-midi (14h-22h) + sélection automatique selon heure courante Tunis dans ManualPresenceModal,Story,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-17,Motif par employé (select inline) pour absents dans ManualPresenceModal,Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-18,Champ Motif converti en select dans EditAttendanceModal (liste fixe + pré-sélection valeur existante),Task,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-19,Bug: absenceReason absent de ManualPresenceEntryDto — motif ignoré à la soumission (toujours ABSENCE-SAISIE-SUPERVISEUR),Bug,Critique,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-20,Bug: statut EN ATTENTE pour absents avec motif — condition includes(ABSENCE) → any non-empty,Bug,Haute,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-21,Bug: retirer ABSENCE-SAISIE-SUPERVISEUR des listes de motifs + DEFAULT_MOTIF = CONGE PAYE,Bug,Moyenne,Done
+EPIC-4,Module Présences / Absences (jour courant),PRE-22,Recherche temps réel (fullName + matricule) dans liste employés du formulaire manuel,Task,Moyenne,Done
 EPIC-5,Module Historique Présences / Absences,HIS-1,Backend : endpoint GET /attendances/history avec filtrage SUPERVISOR + KPI,Story,Haute,Done
 EPIC-5,Module Historique Présences / Absences,HIS-2,Backend : endpoint GET /attendances/history/{matricule} avec filtrage SUPERVISOR,Story,Haute,Done
 EPIC-5,Module Historique Présences / Absences,HIS-3,Backend : repository — findAllForHistory + findAllForHistoryBySupervisor,Task,Haute,Done
@@ -61,7 +75,7 @@ EPIC-7,Bugs & Correctifs techniques,BUG-6,Fix : erreurs de build,Bug,Haute,Done
 EPIC-8,Module Notifications IN-APP,NOTIF-1,Backend : entité Notification (userId titre message lien lu createdAt),Task,Haute,Done
 EPIC-8,Module Notifications IN-APP,NOTIF-2,Backend : NotificationRepository — findByUserIdOrderByCreatedAtDesc + countUnread + markAllAsRead + markOneAsRead,Task,Haute,Done
 EPIC-8,Module Notifications IN-APP,NOTIF-3,Backend : NotificationService — create / createForAll / findByUserId / countUnread / markAllAsRead / markAsRead,Story,Haute,Done
-EPIC-8,Module Notifications IN-APP,NOTIF-4,Backend : NotificationController — GET /api/v1/notifications GET /unread-count PATCH /mark-all-read PATCH /{id}/mark-read,Story,Haute,Done
+EPIC-8,Module Notifications IN-APP,NOTIF-4,Backend : NotificationController — GET /notifications + GET /unread-count + PATCH /mark-all-read + PATCH /{id}/mark-read,Story,Haute,Done
 EPIC-8,Module Notifications IN-APP,NOTIF-5,Backend : sécuriser les endpoints notifications dans SecurityConfiguration,Task,Haute,Done
 EPIC-8,Module Notifications IN-APP,NOTIF-6,Frontend : types NotificationDto dans modules/notifications/types.ts,Task,Haute,Done
 EPIC-8,Module Notifications IN-APP,NOTIF-7,Frontend : hooks useFetchNotifications / useFetchUnreadCount / useMarkAllAsRead / useMarkAsRead,Task,Haute,Done
@@ -75,15 +89,38 @@ EPIC-9,Suivi Avances Superviseurs,SAT-5,Backend : SupervisorAdvanceTrackingServi
 EPIC-9,Suivi Avances Superviseurs,SAT-6,Backend : SupervisorAdvanceTrackingService — sendManualReminder (notification individuelle),Task,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-7,Backend : SupervisorAdvanceTrackingService — sendAutomaticReminders (rappel 24h unique par import),Task,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-8,Backend : AdvanceReminderScheduler — cron toutes les heures déclenchant sendAutomaticReminders,Task,Haute,Done
-EPIC-9,Suivi Avances Superviseurs,SAT-9,Backend : SupervisorAdvanceTrackingController — GET /api/v1/supervisor-advance-tracking + POST /{id}/remind (ADMIN/SUPER_ADMIN),Story,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-9,Backend : SupervisorAdvanceTrackingController — GET /supervisor-advance-tracking + POST /{id}/remind (ADMIN/SUPER_ADMIN),Story,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-10,Backend : DTOs SupervisorTrackingRowDto + SupervisorTrackingStatsDto,Task,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-11,Backend : SalaryAdvanceRepository — countSavedBySupervisorAndMonthAndYear + sumAmountBySupervisorAndMonthAndYear,Task,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-12,Frontend : types SupervisorTrackingRow / SupervisorTrackingStats / SupervisorTrackingStatut dans salary-advance/types.ts,Task,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-13,Frontend : hooks useFetchSupervisorTracking + useSendReminder,Task,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-14,Frontend : composant SupervisorTrackingClient (KPI cards filtrables + table + bouton Relancer),Story,Haute,Done
 EPIC-9,Suivi Avances Superviseurs,SAT-15,Frontend : SalaryAdvancesTrackingPage + route protégée (ADMIN SUPER_ADMIN),Task,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-16,Bug: statut PARTIEL/COMPLETE calculé sur nbEmployees → nbEligibles (exclut domiciliés + absents maladie + moins de 40h),Bug,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-17,Fix source de données superviseurs — merge canonique useFetchSupervisors + données tracking (SupervisorTrackingClient),Story,Haute,Done
+EPIC-9,Suivi Avances Superviseurs,SAT-18,Statistiques cartes (complétées/manquantes/total) recalculées depuis rows fusionnés (liste corrigée),Task,Haute,Done
 EPIC-10,Dashboard Admin enrichi,DASH-1,Backend : AdminDashboardDto — section supervisorsPending (max 5 superviseurs en retard),Task,Haute,Done
 EPIC-10,Dashboard Admin enrichi,DASH-2,Backend : DashboardService — calcul supervisorsPending depuis SupervisorAdvanceTracking,Task,Haute,Done
 EPIC-10,Dashboard Admin enrichi,DASH-3,Backend : SupervisorPendingRowDto — trackingId matricule fullName nbEmployees montantTotal statut timestamps,Task,Haute,Done
 EPIC-10,Dashboard Admin enrichi,DASH-4,Frontend : type SupervisorPendingRow dans dashboard/types.ts,Task,Haute,Done
-EPIC-10,Dashboard Admin enrichi,DASH-5,Frontend : section "Superviseurs en attente" dans HomePage avec lien vers /salary-advances/tracking,Story,Haute,Done
+EPIC-10,Dashboard Admin enrichi,DASH-5,Frontend : section Superviseurs en attente dans HomePage avec lien vers /salary-advances/tracking,Story,Haute,Done
+EPIC-11,Module Avances — Améliorations,ADV-1,Champ Montant par défaut + bouton Appliquer à tous dans SalaryAdvancesClient (employés éligibles et non verrouillés),Story,Haute,Done
+EPIC-11,Module Avances — Améliorations,ADV-2,Notifications email avances superviseurs (import + relance manuelle + rappel auto) via EmailService async — non bloquant,Story,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-1,Backend CRUD Département — create/update/delete + contrôles doublon insensible casse + contrôle usage dans Employee,Story,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-2,Backend CRUD Poste Occupé — create/update/delete + contrôles doublon insensible casse + contrôle usage dans Employee,Story,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-3,Backend CRUD Ligne de Production — create/update/delete + endpoint /admin (toutes lignes) + contrôles doublon et usage,Story,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-4,Frontend : module department (types hooks DepartmentClient DepartmentPage),Task,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-5,Frontend : module job-title (types hooks JobTitleClient JobTitlePage),Task,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-6,Frontend : module production-line (types hooks ProductionLineClient ProductionLinePage),Task,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-7,Sidebar : réorganisation en 5 groupes — Gestion RH inclut Départements + Postes Occupés + Lignes de Production,Task,Haute,Done
+EPIC-12,Référentiels Organisation — CRUD complet,ORG-8,Sécurisation endpoints organisation — POST/PUT/DELETE → ADMIN + SUPER_ADMIN uniquement,Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-1,Backend : entité User enrichie (blocked lastLoginAt lastActivityAt lastActivityIp isAccountNonLocked),Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-2,Backend : entité UserActivityLog + UserActivityLogRepository + UserActivityLogService async (@Async),Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-3,Backend : UserAdminController — 5 endpoints admin (/api/v1/admin/users) + DTOs UserAdminDto UserStatsDto UserActivityLogDto,Story,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-4,Backend : traçage événements LOGIN / LOGIN_FAILED / LOGOUT / PASSWORD_CHANGE / ACCOUNT_BLOCKED / ACCOUNT_UNBLOCKED / ROLE_CHANGED,Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-5,Backend : JwtAuthenticationFilter — mise à jour lastActivityAt + lastActivityIp async à chaque requête authentifiée,Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-6,Backend : blocage de compte (isAccountNonLocked + 423 Locked au login géré par Spring Security),Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-7,Frontend : module user-management (types hooks UserManagementClient UserActivityModal) — tableau de bord + actions + journal,Story,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-8,Frontend : route /user-management + groupe Administration dans Sidebar (SUPER_ADMIN uniquement),Task,Haute,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-9,Bug: PSQLException 42P18 — @Query JPQL paramètres nullable → native SQL avec CAST(:eventType AS varchar) CAST(:from AS timestamp),Bug,Critique,Done
+EPIC-13,Gestion des Utilisateurs — Module SUPER_ADMIN,USR-10,Bug: ORDER BY createdAt (camelCase Java) ajouté par Hibernate à la requête native — suppression Sort du PageRequest,Bug,Haute,Done

@@ -8,18 +8,24 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Repository
 public interface UserActivityLogRepository extends JpaRepository<UserActivityLog, Long> {
 
     Page<UserActivityLog> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-    @Query("SELECT l FROM UserActivityLog l WHERE l.user.id = :userId " +
-           "AND (:eventType IS NULL OR l.eventType = :eventType) " +
-           "AND (:from IS NULL OR l.createdAt >= :from) " +
-           "AND (:to IS NULL OR l.createdAt <= :to) " +
-           "ORDER BY l.createdAt DESC")
+    @Query(value = "SELECT * FROM user_activity_logs ual " +
+           "WHERE ual.user_id = :userId " +
+           "AND (CAST(:eventType AS varchar) IS NULL OR ual.event_type = :eventType) " +
+           "AND (CAST(:from AS timestamp) IS NULL OR ual.created_at >= CAST(:from AS timestamp)) " +
+           "AND (CAST(:to AS timestamp) IS NULL OR ual.created_at <= CAST(:to AS timestamp)) " +
+           "ORDER BY ual.created_at DESC",
+           countQuery = "SELECT COUNT(*) FROM user_activity_logs ual " +
+           "WHERE ual.user_id = :userId " +
+           "AND (CAST(:eventType AS varchar) IS NULL OR ual.event_type = :eventType) " +
+           "AND (CAST(:from AS timestamp) IS NULL OR ual.created_at >= CAST(:from AS timestamp)) " +
+           "AND (CAST(:to AS timestamp) IS NULL OR ual.created_at <= CAST(:to AS timestamp))",
+           nativeQuery = true)
     Page<UserActivityLog> findFiltered(
             @Param("userId") Long userId,
             @Param("eventType") String eventType,

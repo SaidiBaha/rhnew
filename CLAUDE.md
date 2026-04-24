@@ -865,6 +865,63 @@ Administration          ← NOUVEAU (SUPER_ADMIN uniquement)
 
 ---
 
+## Correctif PostgreSQL — Requête filtrée UserActivityLog (session 2026-04-22)
+
+### Problème
+
+`GET /api/v1/admin/users/{id}/activity` levait une `PSQLException: could not determine data type of parameter` (SQLState 42P18) lorsque les filtres `from`, `to` ou `eventType` étaient `null`.
+
+**Cause** : la requête JPQL utilisait le pattern `(:param IS NULL OR col >= :param)`. PostgreSQL ne peut pas inférer le type d'un paramètre `?` isolé dans une expression `? IS NULL` sans cast explicite.
+
+### Correctif appliqué
+
+Remplacement de la `@Query` JPQL par une requête **native PostgreSQL** avec `CAST(... AS <type>)` explicite sur chaque paramètre nullable. La `countQuery` correspondante a aussi été mise à jour.
+
+| Fichier | Changement |
+|---|---|
+| `user/UserActivityLogRepository.java` | `@Query` JPQL → native SQL avec `CAST(:eventType AS varchar)`, `CAST(:from AS timestamp)`, `CAST(:to AS timestamp)` |
+
+### Règle générale à retenir
+
+Ne jamais utiliser `(:param IS NULL OR ...)` dans une `@Query` JPQL Spring Data avec PostgreSQL quand le paramètre est un type temporel ou enum. Utiliser soit des Specifications (if-null côté Java), soit une requête native avec `CAST(... AS type)`.
+
+---
+
+## Référentiels Organisation — Recherche et pagination (session 2026-04-24)
+
+### Fonctionnalité ajoutée
+
+Barre de recherche + pagination côté client (10 entrées/page) sur les trois modules de référentiels :
+- **Départements** (`DepartmentClient.tsx`) — recherche sur `name`
+- **Postes Occupés** (`JobTitleClient.tsx`) — recherche sur `title`
+- **Lignes de Production** (`ProductionLineClient.tsx`) — recherche sur `name`
+
+### Comportement
+
+- Recherche insensible à la casse, filtre en temps réel via `useMemo`
+- Bouton ✕ pour effacer la recherche instantanément
+- Message `Aucun résultat pour « … »` si aucune entrée ne correspond
+- La pagination se réinitialise à la page 1 lors de tout changement de recherche (`useEffect`)
+- La pagination porte sur les résultats filtrés (pas sur la liste brute)
+- Affichage `X–Y sur N résultat(s)` + contrôles prev/page numbers/next (fenêtre ±2)
+- `PAGE_SIZE = 10` (constante locale dans chaque fichier)
+
+### Pattern réutilisé
+
+Identique aux patterns existants dans l'application :
+- Barre de recherche : même style que `UserManagementClient.tsx`
+- Contrôles de pagination : même style que `EmployeesClient.tsx`
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `modules/department/components/DepartmentClient.tsx` | Barre de recherche + pagination client-side |
+| `modules/job-title/components/JobTitleClient.tsx` | Barre de recherche + pagination client-side |
+| `modules/production-line/components/ProductionLineClient.tsx` | Barre de recherche + pagination client-side |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis
