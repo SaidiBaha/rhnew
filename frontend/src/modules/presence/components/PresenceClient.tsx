@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
-import { ClipboardList, Upload, X } from "lucide-react";
+import type { CSSProperties } from "react";
+import { ClipboardList, Upload, X, History } from "lucide-react";
 import * as XLSX from "xlsx";
 
 import { Heading } from "@/components/Heading";
@@ -23,6 +24,9 @@ import { computeStatus } from "../utils/status";
 import type { DailyAttendance, PresenceStatus } from "../types";
 import type { PresenceRow } from "./columns";
 import useAuth from "@/hooks/useAuth";
+import { PresenceAuditLogPanel } from "./PresenceAuditLogPanel";
+
+type TabView = "presences" | "audit";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -166,6 +170,8 @@ export function PresenceClient({ data }: Props) {
     ? (["ADMIN", "SUPER_ADMIN", "SUPERVISOR", "NURSE"] as string[]).includes(role)
     : false;
 
+  const [activeTab, setActiveTab] = useState<TabView>("presences");
+
   // NURSE : filtre par défaut = ABSENT. Autres rôles : ALL.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     isNurse ? "ABSENT" : "ALL"
@@ -297,6 +303,55 @@ export function PresenceClient({ data }: Props) {
   const totalCardLabel = isSupervisor ? "Total équipe" : "Total employés";
   const totalCardSub   = isSupervisor ? "dans mon équipe" : "employés aujourd'hui";
 
+  // ─── Tab switcher ─────────────────────────────────────────────────────────
+
+  const tabStyle = (active: boolean): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "7px 16px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "none",
+    background: active ? "var(--accent)" : "transparent",
+    color: active ? "#fff" : "var(--text2)",
+    transition: "all 0.15s ease",
+  });
+
+  if (activeTab === "audit") {
+    return (
+      <>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Heading
+            title="Présences / Absences"
+            description="Présences du jour courant — import, édition et suivi en temps réel."
+          />
+          <div
+            style={{
+              display: "inline-flex",
+              gap: 4,
+              padding: 4,
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+            }}
+          >
+            <button style={tabStyle(false)} onClick={() => setActiveTab("presences")}>
+              Présences du jour
+            </button>
+            <button style={tabStyle(true)} onClick={() => setActiveTab("audit")}>
+              <History size={14} />
+              Historique des modifications
+            </button>
+          </div>
+        </div>
+        <PresenceAuditLogPanel module="PRESENCE_ABSENCE" />
+      </>
+    );
+  }
+
   return (
     <>
       <FileUploadModal
@@ -327,6 +382,25 @@ export function PresenceClient({ data }: Props) {
         />
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Tab switcher */}
+          <div
+            style={{
+              display: "inline-flex",
+              gap: 4,
+              padding: 4,
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+            }}
+          >
+            <button style={tabStyle(true)} onClick={() => setActiveTab("presences")}>
+              Présences du jour
+            </button>
+            <button style={tabStyle(false)} onClick={() => setActiveTab("audit")}>
+              <History size={14} />
+              Historique des modifications
+            </button>
+          </div>
           {/* Bouton saisie manuelle — SUPERVISOR uniquement, si pas d'import XLSX */}
           {showManualButton && (
             <button

@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.mapstruct.factory.Mappers;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.sage.rh.request.dto.BulkStatusResultDto;
+import tn.sage.rh.request.dto.BulkStatusUpdateDto;
+import tn.sage.rh.request.dto.PatchStatusDto;
 import tn.sage.rh.request.dto.RequestDto;
 import tn.sage.rh.request.dto.SaveRequestInputDto;
 import tn.sage.rh.request.mapper.RequestMapper;
@@ -47,6 +50,22 @@ public class RequestController {
             @RequestBody SaveRequestInputDto saveRequestInput) {
         requestService.update(connectedUser, id, saveRequestInput);
         return ResponseEntity.accepted().build();
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> patchStatus(
+            Principal connectedUser,
+            @PathVariable Long id,
+            @RequestBody PatchStatusDto patchStatusDto) {
+        requestService.patchStatus(connectedUser, id, patchStatusDto.getStatus());
+        return ResponseEntity.accepted().build();
+    }
+
+    @PatchMapping("/bulk-status")
+    public ResponseEntity<BulkStatusResultDto> bulkPatchStatus(
+            Principal connectedUser,
+            @RequestBody BulkStatusUpdateDto bulkDto) {
+        return ResponseEntity.ok(requestService.bulkPatchStatus(connectedUser, bulkDto));
     }
 
 }

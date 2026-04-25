@@ -121,9 +121,10 @@ public class SecurityConfiguration {
                 // ── Requests ──────────────────────────────────────────────────
                 .requestMatchers("/api/v1/requests/**")
                     .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
-                .requestMatchers(GET,  "/api/v1/requests/**").hasAnyAuthority(REQUEST_READ.name())
-                .requestMatchers(POST, "/api/v1/requests/**").hasAnyAuthority(REQUEST_CREATE.name())
-                .requestMatchers(PUT,  "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
+                .requestMatchers(GET,   "/api/v1/requests/**").hasAnyAuthority(REQUEST_READ.name())
+                .requestMatchers(POST,  "/api/v1/requests/**").hasAnyAuthority(REQUEST_CREATE.name())
+                .requestMatchers(PUT,   "/api/v1/requests/**").hasAnyAuthority(REQUEST_UPDATE.name())
+                .requestMatchers(PATCH, "/api/v1/requests/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
 
                 // ── Users ─────────────────────────────────────────────────────
                 .requestMatchers("/api/v1/users/**")
@@ -153,6 +154,10 @@ public class SecurityConfiguration {
                 .requestMatchers(POST,   "/api/v1/departments/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
                 .requestMatchers(PUT,    "/api/v1/departments/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
                 .requestMatchers(DELETE, "/api/v1/departments/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+
+                // ── Logs d'audit présences ────────────────────────────────────
+                .requestMatchers(GET, "/api/v1/presence-audit-logs/**")
+                    .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name(), NURSE.name())
 
                 // ── Catch-all ─────────────────────────────────────────────────
                 .anyRequest().authenticated()

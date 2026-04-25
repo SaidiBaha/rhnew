@@ -18,6 +18,7 @@ export const useUpdateAttendance = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presence", "today"] });
+      queryClient.invalidateQueries({ queryKey: ["presence-audit-logs"] });
       toast.success("Pointage mis à jour");
     },
     onError: () => {

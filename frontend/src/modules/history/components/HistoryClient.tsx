@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { CalendarDays, Users, TrendingUp, ChevronRight, Loader2, ChevronLeft } from "lucide-react";
+import type { CSSProperties } from "react";
+import { CalendarDays, Users, TrendingUp, ChevronRight, Loader2, ChevronLeft, History } from "lucide-react";
 import { useFetchHistorySummary } from "../hooks/useFetchHistorySummary";
 import type { HistoryFilter, HistoryEmployeeSummary } from "../types";
 import { buildDateRange } from "../utils/dateRange";
 import { FilterBar } from "./FilterBar";
 import { EmployeeHistoryDetail } from "./EmployeeHistoryDetail";
+import { PresenceAuditLogPanel } from "@/modules/presence/components/PresenceAuditLogPanel";
+
+type TabView = "history" | "audit";
 
 /* ── KPI card ─────────────────────────────────────────────────────────── */
 function KpiCard({
@@ -102,6 +106,42 @@ function EmployeeRow({
 
 const PAGE_SIZE = 25;
 
+const tabStyle = (active: boolean): CSSProperties => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "7px 16px",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+  border: "none",
+  background: active ? "var(--accent)" : "transparent",
+  color: active ? "#fff" : "var(--text2)",
+  transition: "all 0.15s ease",
+});
+
+const TabSwitcher = ({ active, onSwitch }: { active: TabView; onSwitch: (t: TabView) => void }) => (
+  <div
+    style={{
+      display: "inline-flex",
+      gap: 4,
+      padding: 4,
+      background: "var(--bg)",
+      border: "1px solid var(--border)",
+      borderRadius: 10,
+    }}
+  >
+    <button style={tabStyle(active === "history")} onClick={() => onSwitch("history")}>
+      Historique
+    </button>
+    <button style={tabStyle(active === "audit")} onClick={() => onSwitch("audit")}>
+      <History size={14} />
+      Historique des modifications
+    </button>
+  </div>
+);
+
 /* ── Main component ───────────────────────────────────────────────────── */
 export function HistoryClient() {
   const [filter, setFilter]         = useState<HistoryFilter>("month");
@@ -110,6 +150,7 @@ export function HistoryClient() {
   const [selectedMatricule, setSelectedMatricule] = useState<string | null>(null);
   const [search, setSearch]         = useState("");
   const [page, setPage]             = useState(0);
+  const [activeTab, setActiveTab]   = useState<TabView>("history");
 
   const { dateFrom, dateTo } = buildDateRange(filter, customFrom, customTo);
   const { data, isLoading }  = useFetchHistorySummary(dateFrom, dateTo);
@@ -130,6 +171,26 @@ export function HistoryClient() {
     );
   }
 
+  /* Audit log tab */
+  if (activeTab === "audit") {
+    return (
+      <div className="flex flex-col gap-5 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>
+              Historique Présences / Absences
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "var(--text2)" }}>
+              Récapitulatif des présences et absences par employé
+            </p>
+          </div>
+          <TabSwitcher active={activeTab} onSwitch={setActiveTab} />
+        </div>
+        <PresenceAuditLogPanel module="HISTORIQUE_PRESENCE" />
+      </div>
+    );
+  }
+
   const employees = data?.employees ?? [];
   const filtered = search.trim()
     ? employees.filter(
@@ -147,13 +208,16 @@ export function HistoryClient() {
     <div className="flex flex-col gap-5 p-6">
 
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>
-          Historique Présences / Absences
-        </h1>
-        <p className="text-sm mt-0.5" style={{ color: "var(--text2)" }}>
-          Récapitulatif des présences et absences par employé
-        </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>
+            Historique Présences / Absences
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text2)" }}>
+            Récapitulatif des présences et absences par employé
+          </p>
+        </div>
+        <TabSwitcher active={activeTab} onSwitch={setActiveTab} />
       </div>
 
       {/* Filter bar */}

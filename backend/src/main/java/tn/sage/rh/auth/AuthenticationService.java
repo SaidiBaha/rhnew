@@ -16,6 +16,7 @@ import tn.sage.rh.auth.dto.AuthenticationResponseDto;
 import tn.sage.rh.auth.dto.LoginRequestDto;
 import tn.sage.rh.auth.dto.RegisterRequestDto;
 import tn.sage.rh.auth.dto.ValidateTokenResponseDto;
+import tn.sage.rh.config.IpUtils;
 import tn.sage.rh.config.JwtService;
 import tn.sage.rh.employee.EmployeeRepository;
 import tn.sage.rh.token.Token;
@@ -167,11 +168,7 @@ public class AuthenticationService {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        String xForwarded = request.getHeader("X-Forwarded-For");
-        if (xForwarded != null && !xForwarded.isBlank()) {
-            return xForwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return IpUtils.resolveClientIp(request);
     }
 
     public ValidateTokenResponseDto validateToken(

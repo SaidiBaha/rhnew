@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tn.sage.rh.attendance.audit.PresenceAuditLogService;
 import tn.sage.rh.attendance.dto.AttendanceDto;
 import tn.sage.rh.attendance.dto.DailyAttendanceDto;
 import tn.sage.rh.attendance.dto.EmployeeAttendanceDto;
@@ -50,6 +51,7 @@ public class AttendanceService {
     private final AttendanceRepository attendanceRepository;
     private final AbsenceReasonService absenceReasonService;
     private final EmployeeRepository employeeRepository;
+    private final PresenceAuditLogService auditLogService;
     @Lazy
     private final SupervisorAdvanceTrackingService supervisorAdvanceTrackingService;
     private final AttendanceMapper attendanceMapper = Mappers.getMapper(AttendanceMapper.class);
@@ -87,7 +89,6 @@ public class AttendanceService {
                 .stream()
                 .collect(Collectors.toMap(Employee::getMatricule, e -> e));
 
-        // ✅ Map pour dédupliquer les entrées de l'input lui-même
         Map<String, Attendance> toSaveMap = new LinkedHashMap<>();
 
         for (SaveAttendanceInputDto attendanceInput : attendanceInputs) {
@@ -124,7 +125,6 @@ public class AttendanceService {
                 attendance.setAbsenceReason(null);
             }
 
-            // ✅ Remplace si doublon dans l'input (dernière valeur gagne)
             toSaveMap.put(key, attendance);
         }
 
@@ -134,15 +134,19 @@ public class AttendanceService {
     /**
      * Import XLSX : sauvegarde par batch de 2000 lignes, puis déclenche
      * la création du tracking superviseurs et l'envoi des notifications.
-     *
-     * @param attendanceInputs liste des lignes à importer
-     * @param importedByUserId id de l'utilisateur qui importe (peut être null si non authentifié)
-     * @param fichierNom       nom du fichier importé (peut être null)
      */
     @Transactional
     public void saveAll(List<SaveAttendanceInputDto> attendanceInputs,
                         Long importedByUserId,
                         String fichierNom) {
+        saveAll(attendanceInputs, importedByUserId, fichierNom, null);
+    }
+
+    @Transactional
+    public void saveAll(List<SaveAttendanceInputDto> attendanceInputs,
+                        Long importedByUserId,
+                        String fichierNom,
+                        String ipAddress) {
         if (attendanceInputs.isEmpty()) return;
 
         int batchSize = 2000;
@@ -152,27 +156,37 @@ public class AttendanceService {
             batchSave(batch);
         }
 
-        // Déterminer la date du fichier (date min des lignes importées)
         LocalDate importDate = attendanceInputs.stream()
                 .map(SaveAttendanceInputDto::getDate)
                 .filter(d -> d != null)
                 .min(LocalDate::compareTo)
                 .orElse(LocalDate.now(ZoneId.of("Africa/Tunis")));
 
-        // Déclencher l'enregistrement de l'import + notifications superviseurs
+        // Log d'audit : une entrée agrégée pour l'import XLSX (employeeId=null)
+        if (importedByUserId != null) {
+            final int total = attendanceInputs.size();
+            final String ip = ipAddress;
+            try {
+                auditLogService.logCreation(importedByUserId, null, "PRESENCE_ABSENCE", ip,
+                        "Import XLSX : " + total + " enregistrement(s) importé(s)"
+                        + (fichierNom != null ? " — fichier : " + fichierNom : ""));
+            } catch (Exception e) {
+                log.warn("Audit log write failed for XLSX import: {}", e.getMessage());
+            }
+        }
+
         try {
             supervisorAdvanceTrackingService.onAttendanceImported(
                     importedByUserId, importDate, fichierNom, attendanceInputs.size());
         } catch (Exception e) {
-            // Ne pas faire échouer l'import si le tracking plante
             log.warn("Erreur lors du déclenchement du tracking superviseurs: {}", e.getMessage());
         }
     }
 
-    /** Compatibilité ascendante — délègue vers la surcharge avec paramètres. */
+    /** Compatibilité ascendante */
     @Transactional
     public void saveAll(List<SaveAttendanceInputDto> attendanceInputs) {
-        saveAll(attendanceInputs, null, null);
+        saveAll(attendanceInputs, null, null, null);
     }
 
     @Transactional(readOnly = true)
@@ -237,11 +251,6 @@ public class AttendanceService {
     // MODULE PRÉSENCE / ABSENCES
     // =========================
 
-    /**
-     * Retourne les enregistrements du jour courant (Africa/Tunis).
-     * SUPERVISOR : uniquement ses opérateurs.
-     * Autres rôles : tous les enregistrements.
-     */
     @Transactional(readOnly = true)
     public List<DailyAttendanceDto> findAllByToday(Principal connectedUser) {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
@@ -258,36 +267,80 @@ public class AttendanceService {
     }
 
     /**
-     * Met à jour clockIn, clockOut et absenceReason d'un enregistrement.
-     * null = effacer la valeur.
+     * Met à jour clockIn, clockOut et absenceReason.
+     * Logue les champs qui ont changé (un log par champ modifié).
      */
     @Transactional
-    public void updateAttendance(Long id, UpdateAttendanceInputDto input) {
+    public void updateAttendance(Long id, UpdateAttendanceInputDto input,
+                                 Principal connectedUser, String ipAddress, String module) {
         Attendance attendance = attendanceRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Attendance not found (id=" + id + ")"));
 
+        User performer = resolveUser(connectedUser);
+        Employee employee = attendance.getEmployee();
+        String effectiveModule = (module != null && !module.isBlank()) ? module : "PRESENCE_ABSENCE";
+
+        // Capture old values before mutation
+        String oldClockIn   = formatTime(attendance.getClockIn());
+        String oldClockOut  = formatTime(attendance.getClockOut());
+        String oldMotif     = attendance.getAbsenceReason() != null
+                ? attendance.getAbsenceReason().getReason() : null;
+
+        // Apply changes
         attendance.setClockIn(parseLocalTime(input.getClockIn()));
         attendance.setClockOut(parseLocalTime(input.getClockOut()));
 
+        String newMotif;
         if (input.getAbsenceReason() != null && !input.getAbsenceReason().isBlank()) {
-            attendance.setAbsenceReason(
-                    absenceReasonService.findOrSave(input.getAbsenceReason().trim().toUpperCase()));
+            AbsenceReason ar = absenceReasonService.findOrSave(input.getAbsenceReason().trim().toUpperCase());
+            attendance.setAbsenceReason(ar);
+            newMotif = ar.getReason();
         } else {
             attendance.setAbsenceReason(null);
+            newMotif = null;
         }
 
         attendanceRepository.save(attendance);
+
+        // Audit — log each changed field
+        if (performer != null) {
+            Long performerId = performer.getId();
+            Long employeeId  = employee != null ? employee.getId() : null;
+            String empLabel  = employee != null ? employee.getFullName() + " (" + employee.getMatricule() + ")" : "?";
+
+            String newClockIn  = input.getClockIn();
+            String newClockOut = input.getClockOut();
+
+            try {
+                if (!Objects.equals(oldClockIn, newClockIn)) {
+                    auditLogService.logModification(performerId, employeeId, effectiveModule,
+                            "Heure d'entrée", oldClockIn, newClockIn, ipAddress,
+                            "Heure d'entrée modifiée pour " + empLabel
+                                    + " : " + nvl(oldClockIn) + " → " + nvl(newClockIn));
+                }
+                if (!Objects.equals(oldClockOut, newClockOut)) {
+                    auditLogService.logModification(performerId, employeeId, effectiveModule,
+                            "Heure de sortie", oldClockOut, newClockOut, ipAddress,
+                            "Heure de sortie modifiée pour " + empLabel
+                                    + " : " + nvl(oldClockOut) + " → " + nvl(newClockOut));
+                }
+                if (!Objects.equals(oldMotif, newMotif)) {
+                    auditLogService.logModification(performerId, employeeId, effectiveModule,
+                            "Motif", oldMotif, newMotif, ipAddress,
+                            "Motif modifié pour " + empLabel
+                                    + " : " + nvl(oldMotif) + " → " + nvl(newMotif));
+                }
+            } catch (Exception e) {
+                log.warn("Audit log write failed for attendance {}: {}", id, e.getMessage());
+            }
+        }
     }
 
     // =========================
     // MODULE HISTORIQUE
     // =========================
 
-    /**
-     * Résumé par employé sur une plage de dates (présents / absents) + KPI globaux.
-     * SUPERVISOR : uniquement ses opérateurs.
-     */
     @Transactional(readOnly = true)
     public HistoryResponseDto findHistory(Principal connectedUser, LocalDate dateFrom, LocalDate dateTo) {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
@@ -332,10 +385,6 @@ public class AttendanceService {
                 .build();
     }
 
-    /**
-     * Liste journalière d'un employé sur une plage de dates.
-     * SUPERVISOR : restreint aux employés de son équipe.
-     */
     @Transactional(readOnly = true)
     public List<DailyAttendanceDto> findEmployeeHistory(Principal connectedUser, String matricule, LocalDate dateFrom, LocalDate dateTo) {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
@@ -362,10 +411,6 @@ public class AttendanceService {
     // SAISIE MANUELLE SUPERVISEUR
     // =========================
 
-    /**
-     * Retourne le statut d'import du jour pour l'équipe du superviseur connecté.
-     * Utilisé côté frontend pour décider d'afficher le bouton de saisie manuelle.
-     */
     @Transactional(readOnly = true)
     public TodayImportStatusDto getTodayImportStatus(Principal connectedUser) {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
@@ -382,12 +427,13 @@ public class AttendanceService {
         return TodayImportStatusDto.builder().count(count).source(source).build();
     }
 
-    /**
-     * Saisie manuelle des présences/absences par le superviseur pour le jour courant.
-     * Effectue un UPSERT (clé : employee_id + date) avec source = "MANUAL_SUPERVISOR".
-     */
     @Transactional
     public void saveManualEntry(Principal connectedUser, ManualPresenceInputDto input) {
+        saveManualEntry(connectedUser, input, null);
+    }
+
+    @Transactional
+    public void saveManualEntry(Principal connectedUser, ManualPresenceInputDto input, String ipAddress) {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
         LocalDate today = LocalDate.now(ZoneId.of("Africa/Tunis"));
 
@@ -416,7 +462,6 @@ public class AttendanceService {
         LocalTime debut = parseLocalTime(input.getDebut());
         LocalTime fin = parseLocalTime(input.getFin());
 
-        // Calcul de la durée planifiée (gestion shift de nuit fin < début)
         Duration plannedDuration;
         if (fin != null && debut != null) {
             plannedDuration = fin.isBefore(debut)
@@ -432,9 +477,11 @@ public class AttendanceService {
             Employee employee = employeeMap.get(entry.getEmployeeId());
             if (employee == null) continue;
 
-            Attendance attendance = existingMap.getOrDefault(employee.getMatricule(), new Attendance());
+            Attendance existing = existingMap.get(employee.getMatricule());
+            boolean isNew = (existing == null);
+            Attendance attendance = isNew ? new Attendance() : existing;
 
-            if (attendance.getId() == 0) {
+            if (isNew) {
                 attendance.setEmployee(employee);
             }
 
@@ -463,6 +510,32 @@ public class AttendanceService {
             }
 
             toSave.add(attendance);
+
+            // Audit log per employee
+            String empLabel = employee.getFullName() + " (" + employee.getMatricule() + ")";
+            String statut = entry.isPresent() ? "PRÉSENT" : "ABSENT";
+            String motif  = entry.isPresent() ? null
+                    : (entry.getAbsenceReason() != null && !entry.getAbsenceReason().isBlank()
+                       ? entry.getAbsenceReason().trim().toUpperCase() : DEFAULT_ABSENCE_REASON);
+
+            try {
+                if (isNew) {
+                    auditLogService.logCreation(user.getId(), employee.getId(), "PRESENCE_ABSENCE", ipAddress,
+                            "Saisie manuelle — " + empLabel + " : " + statut
+                                    + (motif != null ? " — motif : " + motif : "")
+                                    + " — shift : " + input.getHoraire()
+                                    + " (" + input.getDebut() + "–" + input.getFin() + ")");
+                } else {
+                    auditLogService.logModification(user.getId(), employee.getId(), "PRESENCE_ABSENCE",
+                            "Statut", null, statut, ipAddress,
+                            "Modification saisie manuelle — " + empLabel + " : " + statut
+                                    + (motif != null ? " — motif : " + motif : "")
+                                    + " — shift : " + input.getHoraire()
+                                    + " (" + input.getDebut() + "–" + input.getFin() + ")");
+                }
+            } catch (Exception e) {
+                log.warn("Audit log write failed for employee {}: {}", employee.getMatricule(), e.getMessage());
+            }
         }
 
         attendanceRepository.saveAll(toSave);
@@ -513,10 +586,6 @@ public class AttendanceService {
                 .build();
     }
 
-    /**
-     * Bascule le statut "appelé" d'un enregistrement.
-     * Accessible uniquement au rôle NURSE (contrôle effectué dans le contrôleur).
-     */
     @Transactional
     public DailyAttendanceDto toggleAppele(Long id, UpdateAppeleInputDto input, Principal connectedUser) {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
@@ -541,4 +610,15 @@ public class AttendanceService {
         return matricule + ":" + date.toString();
     }
 
+    private User resolveUser(Principal principal) {
+        if (principal instanceof UsernamePasswordAuthenticationToken token
+                && token.getPrincipal() instanceof User u) {
+            return u;
+        }
+        return null;
+    }
+
+    private static String nvl(String s) {
+        return s != null ? s : "—";
+    }
 }

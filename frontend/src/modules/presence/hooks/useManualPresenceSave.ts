@@ -37,6 +37,7 @@ export const useManualPresenceSave = () => {
     onSuccess: (meta) => {
       queryClient.invalidateQueries({ queryKey: ["presence", "today"] });
       queryClient.invalidateQueries({ queryKey: ["presence", "today", "status"] });
+      queryClient.invalidateQueries({ queryKey: ["presence-audit-logs"] });
       toast.success(
         `Présences enregistrées pour le ${meta.date}. ${meta.presentCount} présent(s), ${meta.absentCount} absent(s).`,
         { duration: 5000 }

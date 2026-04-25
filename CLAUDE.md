@@ -922,6 +922,235 @@ Identique aux patterns existants dans l'application :
 
 ---
 
+## Module Requests — Actions rapides et bulk update (session 2026-04-24)
+
+### Fonctionnalités ajoutées
+
+Réservées aux rôles **ADMIN** et **SUPER_ADMIN** uniquement. Les SUPERVISOR continuent à voir le tableau sans ces fonctionnalités.
+
+#### Modification 1 — Actions rapides par ligne
+Deux icônes d'action ajoutées dans la colonne Actions de chaque ligne :
+
+| Icône | Action | Statut cible |
+|---|---|---|
+| ✅ `CheckCircle` | Marquer comme traité | **TRAITÉ** |
+| ❌ `XCircle` | Marquer comme annulé | **ANNULÉ** |
+
+- Confirmation Swal avant application
+- Désactivées (opacity 30%) si le statut est déjà **TRAITÉ** ou **ANNULÉ**
+- Endpoint : `PATCH /api/v1/requests/{id}/status` avec body `{ status }`
+
+#### Modification 2 — Traitement en masse (bulk)
+- Case à cocher en début de chaque ligne (ADMIN/SUPER_ADMIN uniquement)
+- Case à cocher globale en en-tête (sélectionne/désélectionne toutes les lignes de `data`)
+- Barre d'actions contextuelle apparaît dès qu'au moins une ligne est sélectionnée :
+  - Affiche le nombre sélectionné
+  - Bouton "Marquer traité" (vert)
+  - Bouton "Marquer annulé" (rouge)
+  - Bouton "Désélectionner"
+- Confirmation Swal avant application
+- Résumé post-mutation : `N mise(s) à jour réussie(s), M ignorée(s)` si certaines étaient déjà finalisées
+- Endpoint : `PATCH /api/v1/requests/bulk-status` avec body `{ ids: string[], status }`
+
+### Nouveaux endpoints backend
+
+| Méthode | URL | Rôles | Description |
+|---|---|---|---|
+| `PATCH` | `/api/v1/requests/{id}/status` | ADMIN, SUPER_ADMIN | Mise à jour individuelle du statut |
+| `PATCH` | `/api/v1/requests/bulk-status` | ADMIN, SUPER_ADMIN | Mise à jour en masse du statut |
+
+### Fichiers créés/modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `request/dto/PatchStatusDto.java` | **NOUVEAU** — `{ status: RequestStatus }` |
+| `request/dto/BulkStatusUpdateDto.java` | **NOUVEAU** — `{ ids: List<Long>, status: RequestStatus }` |
+| `request/dto/BulkStatusResultDto.java` | **NOUVEAU** — `{ updated: int, skipped: int }` |
+| `request/RequestService.java` | `patchStatus` + `bulkPatchStatus` — ADMIN/SUPER_ADMIN uniquement, skip si déjà dans le statut cible |
+| `request/RequestController.java` | `PATCH /{id}/status` + `PATCH /bulk-status` |
+| `config/SecurityConfiguration.java` | `PATCH /api/v1/requests/**` → ADMIN + SUPER_ADMIN uniquement |
+
+### Fichiers créés/modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/request/hooks/useUpdateRequestStatus.ts` | **NOUVEAU** — `PATCH /requests/{id}/status` |
+| `modules/request/hooks/useBulkUpdateRequestStatus.ts` | **NOUVEAU** — `PATCH /requests/bulk-status`, retourne `BulkStatusResult` |
+| `modules/request/components/columns.tsx` | Remplacé `columns` par `getColumns(opts)` — ajoute colonne checkbox + icônes statut dans actions |
+| `modules/request/components/RequestsClient.tsx` | État `selectedIds: Set<string>`, barre bulk, passage de `getColumns` via `useMemo` |
+
+### Architecture — Sélection externe au DataTable
+
+La sélection est gérée **en dehors** de TanStack Table (via `useState<Set<string>>`). Les colonnes sont recalculées via `useMemo` dès que `selectedIds` change. TanStack Table v8 ne réinitialise pas son état interne (filtres, tri) lors d'un changement de définition de colonnes — le comportement est donc préservé.
+
+---
+
+## Traçabilité présences — Audit log (session 2026-04-24)
+
+### Fonctionnalité
+
+Enregistrement et affichage d'un historique complet de toutes les créations et modifications effectuées dans les modules **présences-absences** et **historique-présences**.
+
+### Événements tracés
+
+| Module | Opération | Déclencheur |
+|---|---|---|
+| PRESENCE_ABSENCE | CREATION | `POST /attendances/manual-entry` — saisie manuelle par superviseur (une ligne par employé) |
+| PRESENCE_ABSENCE | CREATION | `POST /attendances/batch-save` — import XLSX (une ligne agrégée, employee=null) |
+| PRESENCE_ABSENCE | MODIFICATION | Ré-soumission de la saisie manuelle sur un enregistrement existant |
+| PRESENCE_ABSENCE | MODIFICATION | `PUT /attendances/{id}` depuis le module présences |
+| HISTORIQUE_PRESENCE | MODIFICATION | `PUT /attendances/{id}?module=HISTORIQUE_PRESENCE` depuis le module historique |
+
+Pour `updateAttendance`, une ligne de log est créée **par champ modifié** (heure d'entrée, heure de sortie, motif) en comparant l'état avant et après.
+
+### Table de base de données
+
+```
+presence_audit_logs
+  - id (BIGSERIAL PK)
+  - action_type       VARCHAR(30) — CREATION / MODIFICATION / SUPPRESSION
+  - module            VARCHAR(40) — PRESENCE_ABSENCE / HISTORIQUE_PRESENCE
+  - performed_by_id   BIGINT FK → _user
+  - performed_at      TIMESTAMP
+  - employee_id       BIGINT FK → employee (nullable — null pour les imports batch)
+  - field_changed     VARCHAR(60) nullable
+  - old_value         VARCHAR(500) nullable
+  - new_value         VARCHAR(500) nullable
+  - ip_address        VARCHAR(50)
+  - detail            VARCHAR(1000)
+```
+
+### Endpoint
+
+`GET /api/v1/presence-audit-logs` — paginé, paramètres optionnels :
+
+| Param | Description |
+|---|---|
+| `module` | PRESENCE_ABSENCE ou HISTORIQUE_PRESENCE |
+| `actionType` | CREATION, MODIFICATION, SUPPRESSION |
+| `performedByMatricule` | Matricule de l'utilisateur (ADMIN uniquement — forcé pour SUPERVISOR/NURSE) |
+| `employeeMatricule` | Matricule de l'employé concerné |
+| `from` / `to` | Plage de dates ISO DateTime |
+| `page` / `size` | Pagination (défaut : 0 / 20) |
+
+**Contrôle d'accès** : ADMIN et SUPER_ADMIN voient tous les logs. SUPERVISOR et NURSE voient uniquement leurs propres actions (filtre `performedByMatricule` forcé côté serveur).
+
+### Architecture — isolation par transaction séparée
+
+Le logging utilise `@Transactional(propagation = Propagation.REQUIRES_NEW)` — chaque appel d'audit s'exécute dans une transaction indépendante et committée séparément. Les callers dans `AttendanceService` entourent les appels d'audit d'un `try-catch` : une erreur d'audit n'impacte pas l'opération principale.
+
+### Fichiers créés/modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `attendance/audit/PresenceAuditLog.java` | **NOUVEAU** — entité `presence_audit_logs` |
+| `attendance/audit/PresenceAuditLogRepository.java` | **NOUVEAU** — requête native filtrée (pattern CAST pour PostgreSQL) |
+| `attendance/audit/PresenceAuditLogService.java` | **NOUVEAU** — `@Async` logCreation / logModification / logDeletion + toDto |
+| `attendance/audit/PresenceAuditLogDto.java` | **NOUVEAU** — DTO réponse |
+| `attendance/controller/PresenceAuditLogController.java` | **NOUVEAU** — `GET /api/v1/presence-audit-logs` |
+| `attendance/service/AttendanceService.java` | Injection `PresenceAuditLogService`, audit dans `saveManualEntry`, `updateAttendance`, `saveAll` — passe des IDs (pas d'entités) |
+| `attendance/controller/AttendanceController.java` | `HttpServletRequest` pour capturer l'IP via `IpUtils` ; `Principal` + `module` param sur `PUT /{id}` |
+| `config/SecurityConfiguration.java` | `GET /api/v1/presence-audit-logs/**` → ADMIN, SUPER_ADMIN, SUPERVISOR, NURSE |
+
+### Fichiers créés/modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/presence/types.ts` | Types `PresenceAuditLog` et `PresenceAuditLogsPage` ajoutés |
+| `modules/presence/hooks/useFetchPresenceAuditLogs.ts` | **NOUVEAU** — query `["presence-audit-logs", filters]` |
+| `modules/presence/components/PresenceAuditLogPanel.tsx` | **NOUVEAU** — tableau de logs avec filtres + pagination |
+| `modules/presence/components/PresenceClient.tsx` | Tab switcher "Présences du jour" / "Historique des modifications" |
+| `modules/presence/hooks/useUpdateAttendance.ts` | Invalide `["presence-audit-logs"]` après mutation |
+| `modules/presence/hooks/useManualPresenceSave.ts` | Invalide `["presence-audit-logs"]` après mutation |
+| `modules/history/components/HistoryClient.tsx` | Tab switcher + onglet "Historique des modifications" avec `module=HISTORIQUE_PRESENCE` |
+| `modules/history/hooks/useUpdateHistoryAttendance.ts` | Passe `?module=HISTORIQUE_PRESENCE` + invalide `["presence-audit-logs"]` |
+
+---
+
+## Correctifs Traçabilité Présences (session 2026-04-25)
+
+### Bug 1 — Logs HISTORIQUE_PRESENCE vides
+
+**Cause racine** : `PresenceAuditLogService` recevait des entités JPA (`User`, `Employee`) issues du contexte de persistance du thread principal. Dans le thread `@Async` (contexte JPA différent), Hibernate 6 levait silencieusement une `DetachedObjectException` lors du `repository.save(entry)`, empêchant la création de tout log issu de `updateAttendance` — donc tous les logs `HISTORIQUE_PRESENCE` (seule source : édition depuis le module Historique).
+
+**Correctif** : Les méthodes `logCreation`, `logModification`, `logDeletion` acceptent désormais des IDs (`Long performedById`, `Long employeeId`) au lieu d'entités. Les entités sont rechargées via `userRepository` et `employeeRepository` dans la propre transaction `@Transactional` du thread async (pattern identique à `UserActivityLogService`).
+
+| Fichier | Changement |
+|---|---|
+| `attendance/audit/PresenceAuditLogService.java` | Signatures → IDs ; injection `UserRepository` + `EmployeeRepository` ; `@Transactional` sur chaque méthode async |
+| `attendance/service/AttendanceService.java` | Appels audit mis à jour (`user.getId()`, `employee.getId()`) ; import `UserRepository` retiré |
+
+### Bug 2 — Adresse IP = `0:0:0:0:0:0:0:1` (loopback IPv6)
+
+**Cause** : Chaque service avait sa propre méthode `resolveClientIp` qui ne lisait que `X-Forwarded-For`, sans lire `X-Real-IP` ni le header `Forwarded` standard.
+
+**Correctif** : Création de `IpUtils.resolveClientIp(request)` (méthode statique utilitaire). Priorité : `X-Forwarded-For` → `X-Real-IP` → `Forwarded` → `request.getRemoteAddr()`.
+
+| Fichier | Changement |
+|---|---|
+| `config/IpUtils.java` | **NOUVEAU** — utilitaire centralisé de résolution d'IP client |
+| `attendance/controller/AttendanceController.java` | `resolveIp` délègue à `IpUtils.resolveClientIp` |
+| `config/JwtAuthenticationFilter.java` | `resolveClientIp` délègue à `IpUtils.resolveClientIp` |
+| `auth/AuthenticationService.java` | `resolveClientIp` délègue à `IpUtils.resolveClientIp` |
+
+### Règle générale
+
+Ne jamais passer d'entités JPA à des méthodes `@Async` : elles deviennent détachées dans le nouveau thread et Hibernate 6 lève une exception lors du `persist`. Toujours passer des IDs et recharger dans la transaction du thread async.
+
+---
+
+## Correctifs Traçabilité Présences — Investigation approfondie (session 2026-04-25)
+
+### Contexte
+
+Les corrections de la session précédente (passer des IDs au lieu d'entités) n'avaient produit **aucun changement observable** : le panneau HISTORIQUE_PRESENCE restait vide et les IPs restaient à `0:0:0:0:0:0:0:1`. Une investigation complète du flux a été menée.
+
+---
+
+### Bug 1 — Cause racine réelle : `@Async` + `@Transactional` — ordre du proxy indéterminé
+
+**Le correctif précédent (IDs au lieu d'entités) était nécessaire mais insuffisant.**
+
+Lorsque `@Async` et `@Transactional` sont tous deux à `Ordered.LOWEST_PRECEDENCE` (valeur par défaut), Spring ne garantit pas quel proxy s'applique en premier. Si `@Transactional` s'applique dans le thread appelant et que `@Async` soumet la tâche à un executor, le thread executor reçoit une `Runnable` qui s'exécute **en dehors de toute transaction active**. Le `repository.save()` échoue alors silencieusement (capturé par le `try-catch` dans `persist()`), sans qu'aucune exception ne remonte.
+
+**Correctif appliqué :**
+
+- `@Async` supprimé de toutes les méthodes de `PresenceAuditLogService`
+- `@Transactional` → `@Transactional(propagation = Propagation.REQUIRES_NEW)` sur `logCreation`, `logModification`, `logDeletion`
+- `try-catch` retiré de `persist()` (les exceptions propagent jusqu'à la limite `REQUIRES_NEW`)
+- `try-catch` ajouté dans **tous les callers** dans `AttendanceService` (`updateAttendance`, `saveManualEntry`, `saveAll`) pour protéger l'opération principale
+
+| Fichier | Changement |
+|---|---|
+| `attendance/audit/PresenceAuditLogService.java` | Suppression `@Async` ; `@Transactional(REQUIRES_NEW)` ; `try-catch` retiré de `persist()` ; `@Slf4j` Lombok |
+| `attendance/service/AttendanceService.java` | `try-catch` autour de chaque appel `auditLogService.log*()` dans les 3 méthodes d'écriture |
+
+---
+
+### Bug 2 — Cause racine réelle : `LogoutService` non corrigé + `::1` = config développeur
+
+**Correctif manqué** : `LogoutService` possédait sa propre implémentation locale de `resolveClientIp` qui lisait uniquement `X-Forwarded-For` puis tombait sur `remoteAddr` — sans déléguer à `IpUtils`. La session 2026-04-25 initiale avait documenté le fix mais ne l'avait pas appliqué à ce fichier.
+
+**`::1` n'est pas un bug d'application** : `::1` est le loopback IPv6. Il n'apparaît que lorsque le navigateur se connecte via `localhost`. Si `VITE_API_BASE_URL=http://localhost:9000/api/v1`, le serveur voit `::1`. **Solution développeur** : remplacer `localhost` par l'IP réelle de la machine dans `.env.development`.
+
+**`server.forward-headers-strategy=NATIVE`** : ajouté pour activer `RemoteIpValve` de Tomcat en production derrière un reverse proxy (Nginx) — permet de lire `X-Forwarded-For` correctement.
+
+**`IpUtils` amélioré** : ajout de `normalize()` qui supprime le préfixe `::ffff:` des adresses IPv4 mappées IPv6 (ex. `::ffff:192.168.9.222` → `192.168.9.222`). Ajout d'un log DEBUG avec l'URI lors du fallback sur `remoteAddr`.
+
+| Fichier | Changement |
+|---|---|
+| `config/LogoutService.java` | `resolveClientIp` délègue à `IpUtils.resolveClientIp(request)` (fix manqué) |
+| `backend/src/main/resources/application.properties` | `server.forward-headers-strategy=NATIVE` ajouté |
+| `config/IpUtils.java` | `normalize()` pour `::ffff:` ; log DEBUG fallback ; Javadoc `::1` |
+
+---
+
+### Règle générale mise à jour
+
+**`@Async` + `@Transactional` ne sont pas sûrs ensemble** sans configuration explicite de l'ordre des advisors. Pour des opérations d'audit isolées, utiliser `@Transactional(propagation = Propagation.REQUIRES_NEW)` seul (synchrone, transaction séparée) et placer le `try-catch` dans l'appelant.
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

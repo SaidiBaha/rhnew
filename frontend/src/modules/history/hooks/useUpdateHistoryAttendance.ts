@@ -11,7 +11,7 @@ export function useUpdateHistoryAttendance() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: UpdateAttendanceRequest }) => {
       const { data: res } = await axios.put(
-        `${import.meta.env.VITE_API_BASE_URL}/attendances/${id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/attendances/${id}?module=HISTORIQUE_PRESENCE`,
         data,
         { headers: { Authorization: `Bearer ${auth.accessToken}` } }
       );
@@ -19,6 +19,7 @@ export function useUpdateHistoryAttendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["history"] });
+      queryClient.invalidateQueries({ queryKey: ["presence-audit-logs"] });
       toast.success("Pointage mis à jour");
     },
     onError: () => {

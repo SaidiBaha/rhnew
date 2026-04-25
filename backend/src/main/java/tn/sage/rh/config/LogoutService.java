@@ -45,10 +45,6 @@ public class LogoutService implements LogoutHandler {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        String xForwarded = request.getHeader("X-Forwarded-For");
-        if (xForwarded != null && !xForwarded.isBlank()) {
-            return xForwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return IpUtils.resolveClientIp(request);
     }
 }

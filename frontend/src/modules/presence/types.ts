@@ -59,3 +59,29 @@ export type ManualPresenceInput = {
   fin: string;
   entries: ManualPresenceEntry[];
 };
+
+export type PresenceAuditLog = {
+  id: number;
+  actionType: "CREATION" | "MODIFICATION" | "SUPPRESSION";
+  module: "PRESENCE_ABSENCE" | "HISTORIQUE_PRESENCE";
+  performedById: number | null;
+  performedByMatricule: string | null;
+  performedByFullName: string | null;
+  performedAt: string; // ISO LocalDateTime
+  employeeId: number | null;
+  employeeMatricule: string | null;
+  employeeFullName: string | null;
+  fieldChanged: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  ipAddress: string | null;
+  detail: string | null;
+};
+
+export type PresenceAuditLogsPage = {
+  content: PresenceAuditLog[];
+  totalElements: number;
+  totalPages: number;
+  number: number; // current page (0-based)
+  size: number;
+};

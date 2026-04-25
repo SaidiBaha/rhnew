@@ -1,5 +1,7 @@
 package tn.sage.rh.attendance.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import tn.sage.rh.config.IpUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.mapstruct.factory.Mappers;
@@ -37,13 +39,14 @@ public class AttendanceController {
     @PostMapping("/batch-save")
     public ResponseEntity<?> batchSave(
             @Valid @RequestBody List<SaveAttendanceInputDto> saveAttendanceInputs,
-            Principal connectedUser) {
+            Principal connectedUser,
+            HttpServletRequest request) {
         Long userId = null;
         if (connectedUser instanceof UsernamePasswordAuthenticationToken token
                 && token.getPrincipal() instanceof User user) {
             userId = user.getId();
         }
-        attendanceService.saveAll(saveAttendanceInputs, userId, null);
+        attendanceService.saveAll(saveAttendanceInputs, userId, null, resolveIp(request));
         return ResponseEntity.accepted().build();
     }
 
@@ -78,18 +81,24 @@ public class AttendanceController {
         return attendanceService.findEmployeeHistory(connectedUser, matricule, dateFrom, dateTo);
     }
 
-    /** Mise à jour manuelle d'un enregistrement (clockIn / clockOut / motif). */
+    /**
+     * Mise à jour manuelle d'un enregistrement (clockIn / clockOut / motif).
+     * Le paramètre optionnel `module` permet de distinguer le contexte d'appel
+     * (PRESENCE_ABSENCE ou HISTORIQUE_PRESENCE) pour le log d'audit.
+     */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateAttendance(
             @PathVariable Long id,
-            @RequestBody UpdateAttendanceInputDto input) {
-        attendanceService.updateAttendance(id, input);
+            @RequestBody UpdateAttendanceInputDto input,
+            @RequestParam(required = false, defaultValue = "PRESENCE_ABSENCE") String module,
+            Principal connectedUser,
+            HttpServletRequest request) {
+        attendanceService.updateAttendance(id, input, connectedUser, resolveIp(request), module);
         return ResponseEntity.ok().build();
     }
 
     /**
      * Statut d'import du jour pour l'équipe du superviseur connecté.
-     * Retourne : { count, source } — source = "XLSX_IMPORT" | "MANUAL_SUPERVISOR" | null
      */
     @GetMapping("/today/status")
     public TodayImportStatusDto getTodayStatus(Principal connectedUser) {
@@ -98,19 +107,18 @@ public class AttendanceController {
 
     /**
      * Saisie manuelle des présences/absences par le superviseur (jour courant uniquement).
-     * UPSERT : si un enregistrement existe déjà pour (employee_id, date) → UPDATE.
      */
     @PostMapping("/manual-entry")
     public ResponseEntity<?> saveManualEntry(
             Principal connectedUser,
-            @Valid @RequestBody ManualPresenceInputDto input) {
-        attendanceService.saveManualEntry(connectedUser, input);
+            @Valid @RequestBody ManualPresenceInputDto input,
+            HttpServletRequest request) {
+        attendanceService.saveManualEntry(connectedUser, input, resolveIp(request));
         return ResponseEntity.accepted().build();
     }
 
     /**
      * Bascule le statut "appelé" d'un enregistrement de présence.
-     * Accessible uniquement au rôle NURSE.
      */
     @PatchMapping("/{id}/appele")
     @PreAuthorize("hasRole('NURSE')")
@@ -119,5 +127,9 @@ public class AttendanceController {
             @RequestBody UpdateAppeleInputDto input,
             Principal connectedUser) {
         return ResponseEntity.ok(attendanceService.toggleAppele(id, input, connectedUser));
+    }
+
+    private String resolveIp(HttpServletRequest request) {
+        return IpUtils.resolveClientIp(request);
     }
 }
