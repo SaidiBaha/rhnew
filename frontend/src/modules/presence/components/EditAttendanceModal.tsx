@@ -1,17 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { computeStatus, STATUS_LABEL, STATUS_STYLE } from "../utils/status";
+import { useUpdateAttendance } from "../hooks/useUpdateAttendance";
+import type { DailyAttendance } from "../types";
+import useAuth from "@/hooks/useAuth";
 
-const ABSENCE_MOTIFS = [
+const COMMON_MOTIFS = [
   "CONGE PAYE",
   "CONGE NON PAYE",
   "AUTORISATION AF-PER",
   "CHÔMAGE TECHNIQUE",
   "MALADIE CD",
   "MALADIE L-D",
+  "ABSENCE-Non-Justifiée",
 ];
-import { computeStatus, STATUS_LABEL, STATUS_STYLE } from "../utils/status";
-import { useUpdateAttendance } from "../hooks/useUpdateAttendance";
-import type { DailyAttendance } from "../types";
+
+const NURSE_MOTIFS = [
+  "INJOIGNABLE-TÉLÉPHONE",
+  "NON-RÉPONSE-APPEL",
+];
 
 interface Props {
   record: DailyAttendance | null;
@@ -24,6 +31,17 @@ export function EditAttendanceModal({ record, onClose }: Props) {
   const [motif, setMotif] = useState("");
 
   const update = useUpdateAttendance();
+  const { auth } = useAuth();
+  const isNurse = auth.user?.role === "NURSE";
+
+  const absenceMotifs = useMemo(() => {
+    const base = isNurse ? [...COMMON_MOTIFS, ...NURSE_MOTIFS] : COMMON_MOTIFS;
+    const existing = record?.absenceReason;
+    if (existing && !base.includes(existing)) {
+      return [...base, existing];
+    }
+    return base;
+  }, [isNurse, record?.absenceReason]);
 
   // Initialise les champs à l'ouverture
   useEffect(() => {
@@ -160,7 +178,7 @@ export function EditAttendanceModal({ record, onClose }: Props) {
               }}
             >
               <option value="">— Aucun motif —</option>
-              {ABSENCE_MOTIFS.map((m) => (
+              {absenceMotifs.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>

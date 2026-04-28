@@ -500,6 +500,41 @@ Liste finale des motifs disponibles : `CONGE PAYE`, `CONGE NON PAYE`, `AUTORISAT
 | `modules/presence/components/ManualPresenceModal.tsx` | "ABSENCE-SAISIE-SUPERVISEUR" retiré de `ABSENCE_MOTIFS`, `DEFAULT_MOTIF` → "CONGE PAYE" |
 | `modules/presence/components/EditAttendanceModal.tsx` | "ABSENCE-SAISIE-SUPERVISEUR" retiré de `ABSENCE_MOTIFS` |
 
+---
+
+## Présences — Motifs filtrés par rôle (session 2026-04-27)
+
+### Fonctionnalité ajoutée
+
+La liste des motifs d'absence dans les deux formulaires est désormais **filtrée dynamiquement selon le rôle de l'utilisateur connecté** (via `useAuth`).
+
+### Règle de visibilité
+
+| Motif | SUPERVISOR | ADMIN | SUPER_ADMIN | NURSE |
+|---|:---:|:---:|:---:|:---:|
+| CONGE PAYE | ✅ | ✅ | ✅ | ✅ |
+| CONGE NON PAYE | ✅ | ✅ | ✅ | ✅ |
+| AUTORISATION AF-PER | ✅ | ✅ | ✅ | ✅ |
+| CHÔMAGE TECHNIQUE | ✅ | ✅ | ✅ | ✅ |
+| MALADIE CD | ✅ | ✅ | ✅ | ✅ |
+| MALADIE L-D | ✅ | ✅ | ✅ | ✅ |
+| ABSENCE-Non-Justifiée | ✅ | ✅ | ✅ | ✅ |
+| INJOIGNABLE-TÉLÉPHONE | ❌ | ❌ | ❌ | ✅ |
+| NON-RÉPONSE-APPEL | ❌ | ❌ | ❌ | ✅ |
+
+### Comportement
+
+- Les constantes `COMMON_MOTIFS` et `NURSE_MOTIFS` remplacent l'ancien `ABSENCE_MOTIFS`.
+- Dans `ManualPresenceModal` : `absenceMotifs` calculé au rendu du composant (`isNurse ? [...COMMON_MOTIFS, ...NURSE_MOTIFS] : COMMON_MOTIFS`). Si un employé absent a un motif existant hors de la liste (ex. motif NURSE vu par un SUPERVISOR en mode édition), ce motif est ajouté dynamiquement à ses options.
+- Dans `EditAttendanceModal` : `absenceMotifs` calculé via `useMemo`. Si `record.absenceReason` contient un motif absent de la liste filtrée, il est ajouté dynamiquement — garantit l'absence d'option manquante.
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `modules/presence/components/ManualPresenceModal.tsx` | `ABSENCE_MOTIFS` → `COMMON_MOTIFS` + `NURSE_MOTIFS` ; `isNurse` depuis `useAuth` ; options dynamiques par employé |
+| `modules/presence/components/EditAttendanceModal.tsx` | `ABSENCE_MOTIFS` → `COMMON_MOTIFS` + `NURSE_MOTIFS` ; `absenceMotifs` via `useMemo` + ajout conditionnel du motif existant |
+
 ### Recherche temps réel dans la liste des employés (session 2026-04-20)
 
 Une barre de recherche a été ajoutée dans le formulaire "Ajouter présences / absences", entre le bandeau "Sélectionner tous" et la liste des employés.

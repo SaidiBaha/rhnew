@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import { useManualPresenceSave } from "../hooks/useManualPresenceSave";
 import type { DailyAttendance } from "../types";
 import type { Employee } from "@/modules/employee/types";
+import useAuth from "@/hooks/useAuth";
 
 // ─── Types internes ───────────────────────────────────────────────────────────
 
@@ -19,13 +20,19 @@ const SHIFTS: ShiftOption[] = [
   { label: "ADM",            debut: "08:00", fin: "17:00" },
 ];
 
-const ABSENCE_MOTIFS = [
+const COMMON_MOTIFS = [
   "CONGE PAYE",
   "CONGE NON PAYE",
   "AUTORISATION AF-PER",
   "CHÔMAGE TECHNIQUE",
   "MALADIE CD",
   "MALADIE L-D",
+  "ABSENCE-Non-Justifiée",
+];
+
+const NURSE_MOTIFS = [
+  "INJOIGNABLE-TÉLÉPHONE",
+  "NON-RÉPONSE-APPEL",
 ];
 
 const DEFAULT_MOTIF = "CONGE PAYE";
@@ -75,6 +82,9 @@ export function ManualPresenceModal({
   existingRecords,
 }: Props) {
   const save = useManualPresenceSave();
+  const { auth } = useAuth();
+  const isNurse = auth.user?.role === "NURSE";
+  const absenceMotifs = isNurse ? [...COMMON_MOTIFS, ...NURSE_MOTIFS] : COMMON_MOTIFS;
 
   const [horaire, setHoraire] = useState<string>(SHIFTS[0].label);
   const [debut, setDebut] = useState<string>(SHIFTS[0].debut);
@@ -468,9 +478,15 @@ export function ManualPresenceModal({
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {ABSENCE_MOTIFS.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
+                        {(() => {
+                          const current = motifs.get(id) ?? DEFAULT_MOTIF;
+                          const opts = absenceMotifs.includes(current)
+                            ? absenceMotifs
+                            : [...absenceMotifs, current];
+                          return opts.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ));
+                        })()}
                       </select>
                     </div>
                   )}
