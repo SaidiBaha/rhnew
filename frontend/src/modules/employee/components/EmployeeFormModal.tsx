@@ -56,17 +56,17 @@ const EmployeeFormSchema = z.object({
     .regex(/^\d+$/, "Chiffres uniquement")
     .optional()
     .or(z.literal("")),
-  hasBankDomiciliation: z.boolean().default(false),
-  free: z.boolean().default(false),
+  hasBankDomiciliation: z.boolean(),
+  free: z.boolean(),
   email: z
     .string()
     .trim()
     .email("Email invalide")
     .optional()
     .or(z.literal("")),
-  hasLeftCompany: z.boolean().nullable().optional().default(null),
+  hasLeftCompany: z.boolean().nullable().optional(),
   departureDate: z.string().optional(),
-  supervisorRole: z.boolean().default(false),
+  supervisorRole: z.boolean(),
 });
 
 type EmployeeFormValues = z.infer<typeof EmployeeFormSchema>;
