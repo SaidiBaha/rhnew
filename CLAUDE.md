@@ -1186,6 +1186,39 @@ Lorsque `@Async` et `@Transactional` sont tous deux à `Ordered.LOWEST_PRECEDENC
 
 ---
 
+## Dashboard OPERATIONAL_MANAGER — Coefficient heures projet (session 2026-05-06)
+
+### Modification appliquée
+
+Les colonnes **"Heures ajoutées"** et **"Heures transférées"** du tableau **"Détails par projet"** (dashboard `OPERATIONAL_MANAGER`) sont désormais multipliées par le coefficient `7.67 / 8` avant affichage.
+
+### Formule
+
+```
+Heures ajoutées    = valeur_brute × 7.67 / 8
+Heures transférées = valeur_brute × 7.67 / 8
+```
+
+`valeur_brute` = `nb_operators × (minutes/60) × days` calculé depuis les permutations acceptées.
+
+### Scope de la modification
+
+Le coefficient est appliqué **côté backend** dans `DashboardService.computeProjectHours()` juste avant la construction du `ProjectHoursRowDTO`. Il se propage automatiquement à :
+- La colonne "Ajoutées" et "Transférées" du tableau "Détails par projet"
+- Les cartes KPI "Heures Ajoutées" / "Heures Transférées"
+- Tous les graphiques (gauge, barres, top projets, analyse par superviseur)
+- Les exports Excel et PDF
+
+Les dashboards des autres rôles (ADMIN, SUPER_ADMIN, SUPERVISOR) ne sont pas affectés.
+
+### Fichier modifié (backend)
+
+| Fichier | Changement |
+|---|---|
+| `dashboard/DashboardService.java` | `.heuresAjoutees(round2(a.getHeuresAjoutees() * 7.67 / 8))` et `.heuresTransferees(round2(a.getHeuresTransferees() * 7.67 / 8))` dans `computeProjectHours()` |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

@@ -607,8 +607,8 @@ public class DashboardService {
                     .idSuperviseur(supervisorId)
                     .nomSuperviseur(sup != null ? safe(sup.getFullName()) : "")
                     .matriculeSuperviseur(sup != null ? sup.getMatricule() : null)
-                    .heuresAjoutees(round2(a.getHeuresAjoutees()))
-                    .heuresTransferees(round2(a.getHeuresTransferees()))
+                    .heuresAjoutees(round2(a.getHeuresAjoutees() * 7.67 / 8))
+                    .heuresTransferees(round2(a.getHeuresTransferees() * 7.67 / 8))
                     .build());
         }
 
