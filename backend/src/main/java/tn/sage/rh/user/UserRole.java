@@ -121,7 +121,9 @@ public enum UserRole {
                     EDI_HISTORY
 
             )
-    );
+    ),
+
+    NURSE(Collections.emptySet());
 
     @Getter
     private final Set<UserPermission> permissions;

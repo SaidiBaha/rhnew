@@ -1,6 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/Badge";
+import useAuth from "@/hooks/useAuth";
 import type { EmployeeColumn } from "@/modules/employee/components/columns";
 import { EditableCell } from "@/modules/salary-advance/components/EditableCell";
 
@@ -11,9 +12,29 @@ export type SalaryAdvanceColumn = {
   employee: EmployeeColumn;
   amount: number;
   comment: string;
+  createdAt: string;
   updatedAt: string;
+  createdBy: string;
   updatedBy: string;
 };
+
+function AbsenceReasonsCell({ row }: { row: SalaryAdvanceColumn }) {
+  const { auth } = useAuth();
+  const isCurrentSupervisor = auth.user?.matricule === row.employee.matricule;
+
+  return (
+    <div className="flex items-center gap-x-2">
+      {row.employee.attendance.absenceReasons.map((absenceReason) => (
+        <Badge
+          variant="outline"
+          className="shadow-xl border-neutral-100"
+          key={absenceReason.absenceReason}
+          style={isCurrentSupervisor ? { color: "#111111", borderColor: "rgba(17,17,17,0.35)" } : undefined}
+        >{`${absenceReason.absenceReason}: ${absenceReason.count}`}</Badge>
+      ))}
+    </div>
+  );
+}
 
 export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
   {
@@ -23,11 +44,11 @@ export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
   {
     id: "employee.fullName",
     accessorKey: "employee.fullName",
-    header: "Nom et Prénom",
+    header: "Nom et Prenom",
   },
   {
     accessorKey: "employee.jobTitle",
-    header: "Poste Occupé",
+    header: "Poste Occupe",
   },
   {
     accessorKey: "employee.supervisor",
@@ -35,24 +56,12 @@ export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
   },
   {
     accessorKey: "employee.attendance.totalAttendance",
-    header: "Heures travaillées",
+    header: "Heures travaillees",
   },
   {
     accessorKey: "employee.attendance.absenceReasons",
     header: "Motif",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-x-2">
-        {row.original.employee.attendance.absenceReasons.map(
-          (absenceReason) => (
-            <Badge
-              variant="outline"
-              className="shadow-xl border-neutral-100"
-              key={absenceReason.absenceReason}
-            >{`${absenceReason.absenceReason}: ${absenceReason.count}`}</Badge>
-          )
-        )}
-      </div>
-    ),
+    cell: ({ row }) => <AbsenceReasonsCell row={row.original} />,
   },
   {
     accessorKey: "employee.hasBankDomiciliation",
@@ -60,7 +69,7 @@ export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Montant à payer",
+    header: "Montant a payer",
     cell: EditableCell,
     meta: {
       type: "number",
@@ -68,19 +77,18 @@ export const columns: ColumnDef<SalaryAdvanceColumn>[] = [
   },
   {
     accessorKey: "comment",
-    header: "commentaire",
+    header: "Commentaire",
     cell: EditableCell,
     meta: {
       type: "text",
     },
-    
   },
   {
     accessorKey: "updatedAt",
-    header: "Mis à jour le",
+    header: "Mis a jour le",
   },
   {
     accessorKey: "updatedBy",
-    header: "Mis à jour par",
+    header: "Mis a jour par",
   },
 ];

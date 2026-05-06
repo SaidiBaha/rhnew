@@ -8,6 +8,12 @@ export type AttendanceRequest = {
   totalAttendance: string;
   overtime: string;
   absenceReason?: string;
+  /** Nom du shift (ex: "Shift matin"). Facultatif. */
+  horaire?: string;
+  /** Heure de début planifiée "HH:MM". Facultatif. */
+  debut?: string;
+  /** Heure de fin planifiée "HH:MM". Facultatif. */
+  fin?: string;
 };
 
 export type Attendance = {

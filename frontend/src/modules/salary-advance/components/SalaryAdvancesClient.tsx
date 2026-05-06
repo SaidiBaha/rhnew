@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Save, Lock, Unlock } from "lucide-react";
 
 import { Heading } from "@/components/Heading";
@@ -17,18 +17,31 @@ import {
 } from "@/lib/data/salary-advance-deadline";
 import useAuth from "@/hooks/useAuth";
 import { DataTable } from "@/components/ui/DataTable";
+import type { Row } from "@tanstack/react-table";
 
 const DEFAULT_ELIGIBLE_AMOUNT = 0;
 
-function applyDefaultAmount(data: SalaryAdvanceColumn[], isAdmin: boolean): SalaryAdvanceColumn[] {
+function applyDefaultAmount(
+  data: SalaryAdvanceColumn[],
+  isAdmin: boolean
+): SalaryAdvanceColumn[] {
   return data.map((row) => {
     if (row.amount !== 0) return row;
     if (isAdmin) return row;
     const emp = row.employee;
     if (emp.hasBankDomiciliation === "oui") return row;
     const absenceReasons = emp.attendance.absenceReasons;
-    if (absenceReasons.some((ar) => ["MALADIE L-D", "MATERNITÉ"].includes(ar.absenceReason))) return row;
-    const { hours } = parseDuration(emp.attendance.totalAttendance) ?? { hours: 0, minutes: 0 };
+    if (
+      absenceReasons.some((ar) =>
+        ["MALADIE L-D", "MATERNITÃ‰"].includes(ar.absenceReason)
+      )
+    ) {
+      return row;
+    }
+    const { hours } = parseDuration(emp.attendance.totalAttendance) ?? {
+      hours: 0,
+      minutes: 0,
+    };
     if (hours < 40) return row;
     return { ...row, amount: DEFAULT_ELIGIBLE_AMOUNT };
   });
@@ -42,8 +55,10 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const { auth } = useAuth();
   const isAdmin = auth.user?.role === "ADMIN";
 
-  const [salaryAdvanceData, setSalaryAdvanceData] =
-    useState<SalaryAdvanceColumn[]>(() => applyDefaultAmount(data, isAdmin));
+
+  const [salaryAdvanceData, setSalaryAdvanceData] = useState<SalaryAdvanceColumn[]>(
+    () => applyDefaultAmount(data, isAdmin)
+  );
 
   const batchUpdateSalaryAdvances = useBatchUpdateSalaryAdvances();
   const fetchSalaryAdvanceDeadline = useFetchSalaryAdvanceDeadline();
@@ -51,7 +66,6 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const deleteSalaryAdvanceDeadline = useDeleteSalaryAdvanceDeadline();
 
   const deadline = fetchSalaryAdvanceDeadline.data?.deadline;
-
   const isLocked = deadline ? new Date(deadline) <= new Date() : false;
 
   const isLoading =
@@ -61,12 +75,18 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
   const isDisabled =
     batchUpdateSalaryAdvances.isPending || (isLocked && !isAdmin);
 
+  const displayedAdvances = useMemo(() => salaryAdvanceData, [salaryAdvanceData]);
+
   const updateData = (rowIndex: number, columnId: string, value: unknown) => {
+    const targetRow = displayedAdvances[rowIndex];
+
+    if (!targetRow) return;
+
     setSalaryAdvanceData((old) =>
-      old.map((row, index) => {
-        if (index === rowIndex) {
+      old.map((row) => {
+        if (row.id === targetRow.id) {
           return {
-            ...old[rowIndex]!,
+            ...row,
             [columnId]: value,
           };
         }
@@ -92,15 +112,24 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
     else createSalaryAdvanceDeadline.mutate();
   };
 
+  const getRowStyle = (row: Row<SalaryAdvanceColumn>) => {
+    const isCurrentSupervisor = row.original.employee.matricule === auth.user?.matricule;
+
+    if (!isCurrentSupervisor) return undefined;
+
+    return {
+      background: "#f8f9fc",
+      boxShadow: "inset 3px 0 0 #f59e0b",
+      color: "#111111",
+    };
+  };
+
   return (
     <>
       <div className="flex items-center justify-between">
-        <Heading
-          title={`Avances (${data.length})`}
-          description={"Gérer les avances."}
-        />
+        <Heading title={`Avances (${data.length})`} description={"Gerer les avances."} />
 
-        <div className="flex gap-x-2 items-center justify-center">
+        <div className="flex items-center justify-center gap-x-2">
           {isAdmin && (
             <Toggle
               size="lg"
@@ -135,14 +164,19 @@ export function SalaryAdvancesClient({ data }: SalaryAdvancesClientProps) {
           </button>
         </div>
       </div>
+
       <Separator />
-      <DataTable
-        columns={columns}
-        data={salaryAdvanceData}
-        globalFilterFn={"includesString"}
-        meta={{ updateData }}
-        showExport
-      />
+
+      <div className="mt-6">
+        <DataTable
+          columns={columns}
+          data={displayedAdvances}
+          globalFilterFn={"includesString"}
+          meta={{ updateData }}
+          showExport
+          getRowStyle={getRowStyle}
+        />
+      </div>
     </>
   );
 }

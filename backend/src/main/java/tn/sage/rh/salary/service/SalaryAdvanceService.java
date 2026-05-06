@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,6 +26,7 @@ import tn.sage.rh.salary.entity.SalaryAdvanceDeadline;
 import tn.sage.rh.salary.mapper.SalaryAdvanceMapper;
 import tn.sage.rh.salary.repository.SalaryAdvanceDeadlineRepository;
 import tn.sage.rh.salary.repository.SalaryAdvanceRepository;
+import tn.sage.rh.salary.service.SupervisorAdvanceTrackingService;
 import tn.sage.rh.salary.validator.SalaryAdvanceValidator;
 import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserService;
@@ -55,6 +57,8 @@ public class SalaryAdvanceService {
     private final SalaryAdvanceDeadlineRepository salaryAdvanceDeadlineRepository;
     private final AttendanceService attendanceService;
     private final SalaryAdvanceValidator salaryAdvanceValidator;
+    @Lazy
+    private final SupervisorAdvanceTrackingService supervisorAdvanceTrackingService;
 
     private final SalaryAdvanceMapper salaryAdvanceMapper = Mappers.getMapper(SalaryAdvanceMapper.class);
 
@@ -115,6 +119,38 @@ public class SalaryAdvanceService {
                     return dto;
                 })
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SalaryAdvanceDto> findAllHistory(Principal connectedUser) {
+        if (connectedUser == null) {
+            throw new InvalidOperationException(
+                    "Utilisateur non authentifié",
+                    ErrorCodes.UNKNOWN_CONTEXT
+            );
+        }
+
+        User user = getUserFromPrincipal(connectedUser);
+
+        if (user.getRole() != ADMIN) {
+            throw new InvalidOperationException(
+                    "Accès non autorisé à l'historique complet des avances",
+                    ErrorCodes.UNKNOWN_CONTEXT
+            );
+        }
+
+        try {
+            return salaryAdvanceRepository.findAllHistoryForAdmin()
+                    .stream()
+                    .map(salaryAdvanceMapper::toDTO)
+                    .toList();
+        } catch (Exception e) {
+            log.error("Erreur lors de la récupération de l'historique des avances", e);
+            throw new InvalidOperationException(
+                    "Erreur lors de la récupération de l'historique des avances",
+                    ErrorCodes.DATABASE_ERROR
+            );
+        }
     }
 
     @Scheduled(cron = "0 0 0 1 * *")
@@ -380,6 +416,15 @@ public class SalaryAdvanceService {
         }
 
         log.info("Mise à jour batch terminée: {} mises à jour, {} ignorées", updatedCount, skippedCount);
+
+        // Mettre à jour le tracking superviseur si des avances ont été modifiées
+        if (updatedCount > 0 && user.getRole() == SUPERVISOR) {
+            try {
+                supervisorAdvanceTrackingService.onAdvancesSaved(user.getId());
+            } catch (Exception e) {
+                log.warn("Erreur lors de la mise à jour du tracking superviseur: {}", e.getMessage());
+            }
+        }
     }
 
     // =========================

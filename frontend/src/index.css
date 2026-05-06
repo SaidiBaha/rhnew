@@ -178,6 +178,8 @@ body {
 .ds-pill-amber::before  { background: var(--amber); }
 .ds-pill-red    { background: var(--red-soft);   color: var(--red);   }
 .ds-pill-red::before    { background: var(--red); }
+.ds-pill-muted  { background: #eef0f5; color: var(--muted); }
+.ds-pill-muted::before  { background: var(--muted); }
 
 /* ===================== CARD ===================== */
 .ds-card {
@@ -251,6 +253,13 @@ body {
 .ds-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.10);
+}
+
+/* ===================== PRESENCE STAT GRID — responsive ===================== */
+@media (max-width: 639px) {
+  .presence-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ===================== SIDEBAR LAYOUT SYNC ===================== */

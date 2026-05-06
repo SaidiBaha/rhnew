@@ -71,6 +71,17 @@ public class FreeOperatorsServiceImpl implements FreeOperatorsService {
             if (!found.contains(id)) throw new NoSuchElementException("Operator not found: " + id);
         }
 
+        List<Long> formerOperatorIds = ops.stream()
+                .filter(this::hasLeftCompany)
+                .map(Employee::getId)
+                .toList();
+
+        if (!formerOperatorIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Impossible de marquer FREE : employé(s) ayant quitté la société : " + formerOperatorIds
+            );
+        }
+
         LocalDate day = dto.getDay();
 
         // ✅ Bloquer ceux déjà en permutation ACCEPTEE sur ce jour + créneau
@@ -184,5 +195,10 @@ public class FreeOperatorsServiceImpl implements FreeOperatorsService {
 //updaaatees
     private boolean isSupervisor(User user) {
         return user.getRole() != null && "SUPERVISOR".equals(user.getRole().name());
+    }
+
+    private boolean hasLeftCompany(Employee employee) {
+        return employee != null
+                && (Boolean.TRUE.equals(employee.getHasLeftCompany()) || employee.getDepartureDate() != null);
     }
 }

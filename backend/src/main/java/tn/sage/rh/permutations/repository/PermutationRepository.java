@@ -11,6 +11,7 @@ import tn.sage.rh.permutations.entity.PermutationStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import org.springframework.data.jpa.repository.Modifying;
 
 public interface PermutationRepository extends JpaRepository<Permutation, Long> {
 
@@ -86,6 +87,64 @@ public interface PermutationRepository extends JpaRepository<Permutation, Long> 
     default List<Permutation> findAcceptedOverlapping(LocalDate from, LocalDate to) {
         return findAcceptedOverlapping(from, to, PermutationStatus.ACCEPTEE);
     }
+
+    /**
+     * Same as findAcceptedOverlapping but includes TERMINEE permutations.
+     * Used by the dashboard so that expired-but-completed permutations
+     * are still counted in project hours for the queried period.
+     */
+    @Query("""
+        select distinct p
+        from Permutation p
+        join fetch p.receiver r
+        left join fetch p.productionLine pl
+        join fetch p.operators op
+        left join fetch op.supervisor sup
+        left join fetch op.productionLine opPl
+        where p.status in (
+            tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE,
+            tn.sage.rh.permutations.entity.PermutationStatus.TERMINEE
+        )
+          and p.startDate <= :to
+          and p.endDate >= :from
+    """)
+    List<Permutation> findAcceptedOrTermineeOverlapping(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to
+    );
+
+    /**
+     * Find all ACCEPTEE permutations whose endDate+endTime is strictly in the past.
+     * Used by PermutationExpirationScheduler to mark them TERMINEE.
+     */
+    @Query("""
+        select p from Permutation p
+        left join fetch p.operators op
+        where p.status = tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+          and (
+              p.endDate < :today
+              or (p.endDate = :today and p.endTime <= :now)
+          )
+    """)
+    List<Permutation> findExpiredAccepted(
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now
+    );
+
+    @Modifying
+    @Query("""
+        update Permutation p
+        set p.status = tn.sage.rh.permutations.entity.PermutationStatus.TERMINEE
+        where p.status = tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+          and (
+              p.endDate < :today
+              or (p.endDate = :today and p.endTime <= :now)
+          )
+    """)
+    int markExpiredAsTerminee(
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now
+    );
     @Query("""
         select count(p)
         from Permutation p

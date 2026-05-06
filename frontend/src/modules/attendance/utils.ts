@@ -20,12 +20,10 @@ export function parseAttendance(row: any, index: number) {
     const normalizedKey = key.toLowerCase().trim();
     const targetKey = COLUMN_MAP[normalizedKey];
 
-    if (!targetKey) {
-      console.warn(`Ligne ${rowIndex}: Colonne "${key}" ignorée (non reconnue)`);
-      return;
-    }
+    if (!targetKey) return;
 
     const value = row[key];
+
     normalizedRow[targetKey] = value;
   });
 
@@ -33,15 +31,10 @@ export function parseAttendance(row: any, index: number) {
 
   if (!result.success) {
     const error = result.error.issues[0];
-    
-    // Construction d'un message d'erreur plus détaillé
-    const fieldName = error.path.join(" > ");
-    const errorMessage = error.message;
-    
+
     throw new Error(
-      `Ligne ${rowIndex}: Erreur sur le champ "${fieldName}" - ${errorMessage}`
+      `Ligne ${rowIndex}: [${error.path.join(" > ")}]: ${error.message} `
     );
   }
-  
   return result.data;
 }

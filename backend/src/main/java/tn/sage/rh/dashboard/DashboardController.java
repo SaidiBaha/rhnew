@@ -4,6 +4,7 @@ package tn.sage.rh.dashboard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import tn.sage.rh.dashboard.dto.AdminDashboardDto;
 import tn.sage.rh.dashboard.dto.PermutationsDailyDTO;
 import tn.sage.rh.dashboard.dto.ProjectHoursRowDTO;
 
@@ -34,5 +35,16 @@ public class DashboardController {
             @RequestParam("to")   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         return dashboardService.getPermutationsDaily(from, to);
+    }
+
+    @GetMapping("/admin")
+    public AdminDashboardDto adminDashboard(
+            @RequestParam(value = "period", defaultValue = "month") String period,
+            @RequestParam(value = "from", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return dashboardService.getAdminDashboard(period, from, to);
     }
 }

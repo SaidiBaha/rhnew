@@ -1,4 +1,4 @@
-export type PermutationStatus = "EN_ATTENTE" | "ACCEPTEE" | "REFUSEE";
+export type PermutationStatus = "EN_ATTENTE" | "ACCEPTEE" | "REFUSEE" | "TERMINEE";
 export type TypePermutation = "ENVOYER" | "RECEVOIR";
 
 export type OperatorMini = {

@@ -16,9 +16,37 @@ import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
+    String SAFE_MATRICULE_ORDER = """
+        order by
+          case
+            when e.matricule is not null
+             and function('translate', e.matricule, '0123456789', '') = ''
+            then 0 else 1
+          end asc,
+          case
+            when e.matricule is not null
+             and function('translate', e.matricule, '0123456789', '') = ''
+            then length(e.matricule) else 0
+          end asc,
+          upper(coalesce(e.matricule, '')) asc
+    """;
+
     Optional<Employee> findByMatricule(String matricule);
 
-    @Query("select e from Employee e where e.deleted = false order by cast(e.matricule as integer) asc")
+    @Query("""
+        select count(e) from Employee e
+        where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
+    """)
+    long countActive();
+
+    @Query("""
+        select e from Employee e
+        where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
+    """ + SAFE_MATRICULE_ORDER)
     @Override
     List<Employee> findAll();
 
@@ -26,11 +54,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             value = """
             select e from Employee e
             where e.deleted = false
-            order by cast(e.matricule as integer) asc
-        """,
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
+        """ + SAFE_MATRICULE_ORDER,
             countQuery = """
             select count(e) from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         """
     )
     Page<Employee> findAllPaged(Pageable pageable);
@@ -39,25 +70,29 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e
         from Employee e
         where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and e.supervisor is not null
           and e.supervisor.matricule = :matricule
           and e.matricule <> :matricule
-        order by cast(e.matricule as integer) asc
-    """)
+    """ + SAFE_MATRICULE_ORDER)
     List<Employee> findAllBySupervisor(@Param("matricule") String matricule);
 
     @Query(
             value = """
             select e from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
               and e.supervisor is not null
               and e.supervisor.matricule = :matricule
               and e.matricule <> :matricule
-            order by cast(e.matricule as integer) asc
-        """,
+        """ + SAFE_MATRICULE_ORDER,
             countQuery = """
             select count(e) from Employee e
             where e.deleted = false
+              and e.departureDate is null
+              and (e.hasLeftCompany = false or e.hasLeftCompany is null)
               and e.supervisor is not null
               and e.supervisor.matricule = :matricule
               and e.matricule <> :matricule
@@ -91,8 +126,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
                     or (:leftCompanyFilter = 'FORMER' and e.hasLeftCompany = true)
                     or (:leftCompanyFilter = 'ALL')
                   )
-            order by cast(e.matricule as integer) asc
-        """,
+        """ + SAFE_MATRICULE_ORDER,
             countQuery = """
             select count(e) from Employee e
             left join e.productionLine pl
@@ -144,10 +178,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         join e.department d
         join e.jobTitle jt
         where e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and exists (
               select 1
               from Employee op
               where op.supervisor = e
+                and (op.deleted = false or op.deleted is null)
+                and op.departureDate is null
+                and (op.hasLeftCompany = false or op.hasLeftCompany is null)
           )
           and d.name not in ('RESSOURCES HUMAINES','IT','MAINTENANCE')
     """)
@@ -159,6 +198,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e
         from Employee e
         where (e.deleted = false or e.deleted is null)
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and (
                :supervisorMatricule is null
                or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule)
@@ -179,6 +220,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select distinct e
         from Employee e
         where e.deleted = false
+        and e.departureDate is null
+        and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         and not exists (
             select p
             from Permutation p
@@ -206,6 +249,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
       select e from Employee e
       where e.free = true
         and e.deleted = false
+        and e.departureDate is null
+        and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         and (e.supervisor is null or e.supervisor.matricule <> :supervisorMatricule)
     """)
     List<Employee> findFreeEmployeesExcludingSupervisorOperators(String supervisorMatricule);
@@ -232,6 +277,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         select e from Employee e
         where e.free = true
           and e.deleted = false
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
         order by e.fullName asc
     """)
     List<Employee> findFreeOperators();
@@ -242,6 +289,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
       left join fetch e.supervisor s
       where e.deleted = false
         and e.free = true
+        and e.departureDate is null
+        and (e.hasLeftCompany = false or e.hasLeftCompany is null)
     """)
     List<Employee> findFreeOperatorsWithSupervisor();
 
@@ -249,10 +298,13 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @Query("update Employee e set e.free = false")
     int resetFreeFalseForAll();
 
+    // ✅ MERGE FIX ICI
     @Query("""
         select e
         from Employee e
         where (e.deleted = false or e.deleted is null)
+          and e.departureDate is null
+          and (e.hasLeftCompany = false or e.hasLeftCompany is null)
           and e.supervisor is not null
           and e.supervisor.matricule = :supervisorMatricule
           and e.matricule <> :supervisorMatricule
@@ -261,12 +313,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
               from Permutation p
               join p.operators o
               where o = e
-                and p.status <> tn.sage.rh.permutations.entity.PermutationStatus.REFUSEE
+                and p.status in (
+                    tn.sage.rh.permutations.entity.PermutationStatus.EN_ATTENTE,
+                    tn.sage.rh.permutations.entity.PermutationStatus.ACCEPTEE
+                )
                 and p.startDate <= :day and p.endDate >= :day
                 and (p.startTime < :endTime and p.endTime > :startTime)
           )
-        order by cast(e.matricule as integer) asc
-    """)
+    """ + SAFE_MATRICULE_ORDER)
     List<Employee> findMyOperatorsAvailableForDay(
             @Param("supervisorMatricule") String supervisorMatricule,
             @Param("day") LocalDate day,
@@ -285,11 +339,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         join op.productionLine pl
         join op.supervisor sup
         where (op.deleted = false or op.deleted is null)
+          and op.departureDate is null
+          and (op.hasLeftCompany = false or op.hasLeftCompany is null)
           and (sup.deleted = false or sup.deleted is null)
+          and sup.departureDate is null
+          and (sup.hasLeftCompany = false or sup.hasLeftCompany is null)
         group by pl.id, sup.id, sup.fullName, sup.matricule
         order by pl.id asc, count(op.id) desc
     """)
     List<ProjectBestSupervisorRow> findSupervisorCountsByProject();
+
     @Query("""
     select count(e)
     from Employee e
@@ -318,4 +377,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
            or (e.supervisor is not null and e.supervisor.matricule = :supervisorMatricule))
 """)
     long countFormerEmployees(@Param("supervisorMatricule") String supervisorMatricule);
+
+    /** Nombre d'employés actifs rattachés à un superviseur (hors lui-même). */
+    @Query("""
+        SELECT COUNT(e) FROM Employee e
+        WHERE e.deleted = false
+          AND e.departureDate IS NULL
+          AND (e.hasLeftCompany = false OR e.hasLeftCompany IS NULL)
+          AND e.supervisor IS NOT NULL
+          AND e.supervisor.matricule = :supervisorMatricule
+          AND e.matricule <> :supervisorMatricule
+    """)
+    long countBySupervisorMatricule(@Param("supervisorMatricule") String supervisorMatricule);
 }

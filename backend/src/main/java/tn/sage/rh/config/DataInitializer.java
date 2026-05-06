@@ -48,6 +48,22 @@ public class DataInitializer implements ApplicationRunner {
         initAccount("1382", "OTHMANI BOULBABA", Civility.MONSIEUR,
                 LocalDate.of(2023, 3, 23), itDept, itJob, cadreType,
                 UserRole.PLANIFICATEUR, "Planif@1382");
+
+        backfillNurseRole();
+    }
+
+    /**
+     * Backfill : met à jour les utilisateurs ayant le rôle SUPERVISOR
+     * dont le poste occupé est "AIDE SOIGNANTE" → NURSE.
+     * Opération idempotente.
+     */
+    private void backfillNurseRole() {
+        var toUpdate = userRepository.findByRoleAndEmployeeJobTitle(UserRole.SUPERVISOR, "AIDE SOIGNANTE");
+        if (toUpdate.isEmpty()) return;
+
+        toUpdate.forEach(u -> u.setRole(UserRole.NURSE));
+        userRepository.saveAll(toUpdate);
+        log.info("[DataInitializer] Backfill NURSE : {} compte(s) mis à jour.", toUpdate.size());
     }
 
     // ── Account bootstrapping ────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 
 import { Heading } from "@/components/Heading";
+import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { FileUploadModal } from "@/components/modals/FileUploadModal";
 import { UploadAttendanceSchema } from "@/modules/attendance/schema";
@@ -17,7 +18,6 @@ import {
 } from "@/modules/attendance/components/columns";
 import { DataTable } from "@/components/ui/DataTable";
 import { parseAttendance } from "../utils";
-import { logError, showErrorToast } from "@/modules/employee/api-error";
 
 interface AttendancesClientProps {
   data: EmployeeAttendanceColumn[];
@@ -50,16 +50,8 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
 
       await batchSaveAttendances.mutateAsync(attendances);
       setIsFileUploadOpen(false);
-      toast.success("Import réussi !", {
-        duration: 4000,
-        icon: '✅',
-      });
     } catch (error) {
-      // Logger l'erreur dans la console avec le contexte
-      logError("Import des pointages", error);
-      
-      // Afficher un toast d'erreur avec les détails
-      showErrorToast(error, "Erreur lors de l'import");
+      toast.error(`${error}`, { duration: 6000 });
     } finally {
       setIsLoading(false);
     }
@@ -70,8 +62,8 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
       <FileUploadModal
         isOpen={isFileUploadOpen}
         onClose={() => setIsFileUploadOpen(false)}
-        title="Importer les pointages"
-        description="Importer le pointage des employés depuis un fichier Excel"
+        title="Importer"
+        description="Importer le pointage des employés"
         onSubmit={onSubmit}
         isLoading={isLoading}
       />
@@ -83,14 +75,14 @@ export function AttendancesClient({ data }: AttendancesClientProps) {
         />
 
         <div className="flex items-center justify-center gap-x-4">
-          <button
-            type="button"
+          <Button
             onClick={() => setIsFileUploadOpen(true)}
-            className="ds-btn-primary"
+            variant="outline"
+            className="bg-[#687818] text-white"
           >
-            <Upload className="size-4" />
+            <Upload className="mr-2 size-4" />
             Importer
-          </button>
+          </Button>
         </div>
       </div>
       <Separator />

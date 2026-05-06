@@ -61,8 +61,16 @@ public class UserService {
         return User.builder()
                 .employee(employee)
                 .password(passwordEncoder.encode(employee.getMatricule()))
-                .role(UserRole.SUPERVISOR)
+                .role(determineRole(employee))
                 .build();
+    }
+
+    private static UserRole determineRole(Employee employee) {
+        if (employee.getJobTitle() != null
+                && "AIDE SOIGNANTE".equalsIgnoreCase(employee.getJobTitle().getTitle())) {
+            return UserRole.NURSE;
+        }
+        return UserRole.SUPERVISOR;
     }
 
     public void validateAuthorization(User user, String matricule) {
