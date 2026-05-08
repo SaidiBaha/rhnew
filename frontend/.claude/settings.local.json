@@ -22,7 +22,8 @@
       "Bash(node -e \"require\\('exceljs'\\)\")",
       "Bash(node \"../gen_backlog.mjs\")",
       "Bash(node gen_backlog.mjs)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(dir \"..\\\\backend\\\\src\\\\main\\\\java\\\\tn\\\\sage\\\\rh\\\\user\\\\\" 2>/dev/null)"
     ],
     "additionalDirectories": [
       "c:\\Users\\w.boujlida\\Desktop\\Baha-dev\\rh-main\\rh\\backend\\src\\main\\java\\tn\\sage\\rh\\employee",

@@ -394,4 +394,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
           AND e.matricule <> :supervisorMatricule
     """)
     long countBySupervisorMatricule(@Param("supervisorMatricule") String supervisorMatricule);
+
+    /** Employés actifs de type CADRE — pour le dropdown "Auditeur assigné" des audits HSE. */
+    @Query("""
+        SELECT e FROM Employee e
+        JOIN e.employmentType et
+        WHERE e.deleted = false
+          AND e.departureDate IS NULL
+          AND (e.hasLeftCompany = false OR e.hasLeftCompany IS NULL)
+          AND UPPER(et.type) = 'CADRE'
+        ORDER BY e.fullName ASC
+    """)
+    List<Employee> findAllCadreEmployees();
 }

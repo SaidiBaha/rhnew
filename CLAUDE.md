@@ -23,6 +23,7 @@ rh/
 │   │   ├── exeption/         # Exceptions metier (typo voulue dans le projet)
 │   │   ├── handlers/         # RestExceptionHandler global
 │   │   ├── notifications/    # Notifications systeme (CRUD + mark-read)
+│   │   ├── hse/              # Module HSE : checklist/ (template+instance) + audit/
 │   │   ├── organization/     # ProductionLine, Department, JobTitle, Shift
 │   │   ├── permutations/     # Permutations d'operateurs + FreeOperators scheduler
 │   │   ├── presence/         # Presences/absences journalieres
@@ -50,7 +51,9 @@ Chaque module suit le pattern : `types.ts` | `schema.ts` (Zod) | `hooks/` (React
 | Module | Roles autorises |
 |---|---|
 | `attendance` | ADMIN, SUPERVISOR |
+| `audit` | INGENIEUR_HSE (lecture+écriture), ADMIN, SUPER_ADMIN (lecture) |
 | `auth` | tous (login, change-password pour NURSE aussi) |
+| `checklist` | INGENIEUR_HSE (lecture+écriture), ADMIN, SUPER_ADMIN (lecture) |
 | `dashboard` | ADMIN, SUPERVISOR, OPERATIONAL_MANAGER |
 | `department` | ADMIN, SUPER_ADMIN — CRUD départements |
 | `edi` | PLANIFICATEUR, SUPER_ADMIN |
@@ -122,7 +125,7 @@ VITE_API_BASE_URL=http://<IP>:9000/api/v1
 - **Auth** : `accessToken` en memoire (state React), `refreshToken` + `user` dans localStorage.
 - **Backend** : Pattern Controller -> Service interface -> ServiceImpl. DTOs separes des entites JPA. MapStruct pour les conversions.
 - **Erreurs backend** : Lancer `InvalidEntityException` ou `EntityNotFoundException` du package `exeption/` (pas `exception`).
-- **Roles** : `ADMIN` | `SUPERVISOR` | `OPERATIONAL_MANAGER` | `PLANIFICATEUR` | `SUPER_ADMIN` | `NURSE`
+- **Roles** : `ADMIN` | `SUPERVISOR` | `OPERATIONAL_MANAGER` | `PLANIFICATEUR` | `SUPER_ADMIN` | `NURSE` | `INGENIEUR_HSE`
 
 ---
 
@@ -1216,6 +1219,470 @@ Les dashboards des autres rôles (ADMIN, SUPER_ADMIN, SUPERVISOR) ne sont pas af
 | Fichier | Changement |
 |---|---|
 | `dashboard/DashboardService.java` | `.heuresAjoutees(round2(a.getHeuresAjoutees() * 7.67 / 8))` et `.heuresTransferees(round2(a.getHeuresTransferees() * 7.67 / 8))` dans `computeProjectHours()` |
+
+---
+
+## Rôle INGENIEUR_HSE + Modules HSE (session 2026-05-06)
+
+### Nouveau rôle
+
+`INGENIEUR_HSE` ajouté à `UserRole` avec un jeu de permissions vide (identique à NURSE). La création de compte suit la même logique que les autres rôles (depuis le module Gestion des utilisateurs). Le rôle est visible dans la sidebar avec le libellé "Ingénieur HSE".
+
+### Structure de données
+
+```
+checklist_templates   — modèles de checklists (titre, description, créateur)
+checklist_categories  — catégories de points (reliées au template)
+checklist_items       — points à vérifier (reliés à une catégorie)
+checklist_instances   — checklists remplies (date, en-tête, statut BROUILLON/COMPLETE)
+checklist_responses   — réponse par point (OK / NOK / NA + description écart)
+checklist_assignments — actions correctives liées à une instance
+audits                — audits (date, ligne/zone, template, employé assigné, statut, notes)
+```
+
+### Endpoints HSE
+
+| Méthode | URL | Rôles |
+|---|---|---|
+| `GET/POST/PUT/DELETE` | `/api/v1/checklist-templates/**` | INGENIEUR_HSE, ADMIN, SUPER_ADMIN |
+| `GET/POST/PUT/DELETE` | `/api/v1/checklist-instances/**` | INGENIEUR_HSE, ADMIN, SUPER_ADMIN |
+| `GET/POST/PUT/PATCH/DELETE` | `/api/v1/audits/**` | INGENIEUR_HSE, ADMIN, SUPER_ADMIN |
+
+### Accès en lecture seule
+
+ADMIN et SUPER_ADMIN voient les deux modules mais l'UI cache les boutons de création/modification/suppression (contrôle via `role === "INGENIEUR_HSE"` dans les composants).
+
+### Modules frontend
+
+| Module | Description |
+|---|---|
+| `modules/checklist/` | Types, hooks (8), TemplateBuilder, ChecklistFillForm, ChecklistClient |
+| `modules/audit/` | Types, hooks (4), AuditFormModal, AuditClient |
+
+### Sidebar — groupe HSE
+
+```
+HSE (visible pour INGENIEUR_HSE, ADMIN, SUPER_ADMIN)
+  ├── Checklists   → /checklists
+  └── Audits       → /audits
+```
+
+### Fichiers créés (backend)
+
+| Package | Fichiers clés |
+|---|---|
+| `hse/checklist/entity/` | ChecklistTemplate, ChecklistCategory, ChecklistItem, ChecklistInstance, ChecklistResponse, ChecklistAssignment |
+| `hse/checklist/dto/` | ChecklistTemplateDto, ChecklistTemplateSummaryDto, ChecklistInstanceDto, SaveTemplateRequest, SaveInstanceRequest, … |
+| `hse/checklist/repository/` | ChecklistTemplateRepository, ChecklistItemRepository, ChecklistInstanceRepository |
+| `hse/checklist/service/` | ChecklistTemplateService, ChecklistInstanceService |
+| `hse/checklist/controller/` | ChecklistTemplateController, ChecklistInstanceController |
+| `hse/audit/entity/` | Audit (statuts : EN_ATTENTE, EN_COURS, TERMINE, ANNULE) |
+| `hse/audit/dto/` | AuditDto, CreateAuditRequest |
+| `hse/audit/repository/` | AuditRepository |
+| `hse/audit/service/` | AuditService |
+| `hse/audit/controller/` | AuditController |
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `user/UserRole.java` | `INGENIEUR_HSE` ajouté (permissions vides) |
+| `config/SecurityConfiguration.java` | Routes `/api/v1/checklist-*/**` et `/api/v1/audits/**` → INGENIEUR_HSE + ADMIN + SUPER_ADMIN ; `/api/v1/users/**` inclut INGENIEUR_HSE |
+
+### Fichiers créés (frontend)
+
+| Fichier | Description |
+|---|---|
+| `modules/checklist/types.ts` | Types ChecklistTemplate, ChecklistInstance, SaveTemplateRequest, … |
+| `modules/checklist/hooks/` | useFetchTemplates, useFetchTemplateById, useCreateTemplate, useUpdateTemplate, useDeleteTemplate, useFetchInstances, useFetchInstanceById, useCreateInstance, useUpdateInstance |
+| `modules/checklist/components/TemplateBuilder.tsx` | Constructeur dynamique de modèles (catégories + points) |
+| `modules/checklist/components/ChecklistFillForm.tsx` | Formulaire de remplissage (réponses OK/NOK/NA + assignations) |
+| `modules/checklist/components/ChecklistClient.tsx` | Page principale avec onglets Modèles / Checklists remplies |
+| `modules/audit/types.ts` | Types Audit, AuditsPage, CreateAuditRequest |
+| `modules/audit/hooks/` | useFetchAudits, useCreateAudit, useUpdateAudit, usePatchAuditStatus |
+| `modules/audit/components/AuditFormModal.tsx` | Formulaire de création/édition d'un audit |
+| `modules/audit/components/AuditClient.tsx` | Page principale des audits avec tableau + détail |
+| `pages/ChecklistPage.tsx` | Page wrapper |
+| `pages/AuditPage.tsx` | Page wrapper |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/auth/types.ts` | `"INGENIEUR_HSE"` ajouté à `UserRole` |
+| `components/Sidebar.tsx` | `HSE_ITEMS` + groupe "HSE" ; `roleLabelMap` ; bouton "Changer mot de passe" inclut INGENIEUR_HSE |
+| `App.tsx` | Routes `/checklists` et `/audits` (INGENIEUR_HSE + ADMIN + SUPER_ADMIN) ; `/change-password` inclut INGENIEUR_HSE |
+
+---
+
+## Correctifs sécurité — INGENIEUR_HSE + SUPER_ADMIN (session 2026-05-07)
+
+### Bug 0 — INGENIEUR_HSE redirigé vers /unauthorized après connexion
+
+**Cause** : Après login réussi, `LoginCard.tsx` redirige tout rôle non-NURSE vers `/`. La route `/` est protégée par `ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "SUPER_ADMIN"]}` qui ne connaît pas `INGENIEUR_HSE` → redirection vers `/unauthorized`.
+
+**Correction** : Ajout d'un cas dédié dans la logique de destination post-login.
+
+| Fichier | Changement |
+|---|---|
+| `modules/auth/components/LoginCard.tsx` | `INGENIEUR_HSE` → `/checklists` (comme `NURSE` → `/presence-absences`) |
+
+**Règle générale** : Tout nouveau rôle sans accès à `/` doit avoir sa propre entrée dans la logique `destination` de `LoginCard.tsx`.
+
+### Bug 1 — INGENIEUR_HSE absent du sélecteur de rôle (User Management)
+
+**Cause** : La constante `ROLES` dans `UserManagementClient.tsx` était une liste statique qui n'avait pas été mise à jour après l'ajout du rôle.
+
+**Correction** : `INGENIEUR_HSE` ajouté à `ROLES` et `ROLE_LABELS` dans le composant.
+
+| Fichier | Changement |
+|---|---|
+| `modules/user-management/components/UserManagementClient.tsx` | `"INGENIEUR_HSE"` ajouté à `ROLES` ; `INGENIEUR_HSE: "Ingénieur HSE"` ajouté à `ROLE_LABELS` |
+
+### Bug 2 — SUPER_ADMIN bloqué sur employees, salary-advances, suivi-superviseurs
+
+**Cause racine** : `SecurityConfiguration.java` contenait un **bloc dupliqué de règles** (lignes 55–65) placé *avant* le `WHITE_LIST_URL`. Ces règles pour `/api/v1/salary-advances/**` et `GET /api/v1/employees/**` n'incluaient pas `SUPER_ADMIN`. Spring Security évalue les règles dans l'ordre (premier match gagne), donc ces règles prématurées bloquaient le `SUPER_ADMIN` avant que les règles correctes (lignes 77+, avec SUPER_ADMIN) soient atteintes.
+
+De plus, `/api/v1/salary-advance-requests/**` n'existait que dans le bloc dupliqué (sans SUPER_ADMIN) — aucune règle dans le second bloc.
+
+**Correction** :
+- Suppression du bloc dupliqué en tête de la config (lignes 55–65)
+- Ajout d'une règle propre pour `/api/v1/salary-advance-requests/**` avec ADMIN + SUPERVISOR + SUPER_ADMIN dans le second bloc
+
+| Fichier | Changement |
+|---|---|
+| `config/SecurityConfiguration.java` | Bloc dupliqué avant whitelist supprimé ; `/api/v1/salary-advance-requests/**` → ADMIN + SUPERVISOR + SUPER_ADMIN dans le bloc principal |
+
+### Règle générale à retenir
+
+Ne jamais dupliquer des règles `requestMatchers` dans `SecurityConfiguration`. Toujours placer `WHITE_LIST_URL` en premier, puis définir chaque endpoint **une seule fois** avec l'ensemble complet des rôles autorisés.
+
+---
+
+## Module Checklist — Vue Détails fidèle à l'Excel (session 2026-05-07)
+
+### Fonctionnalité
+
+Bouton **"Détails"** (icône `FileText`, couleur `accent2`) ajouté sur chaque ligne de la liste "Checklists remplies". Il ouvre une modal plein-écran `ChecklistDetailModal` reproduisant fidèlement la mise en page du document **SAGE-FOR-DRH-62 — Checklist GEMBA WALK HSE**.
+
+### Structure de la modal
+
+1. **En-tête document** — bandeau bleu avec titre + référence/révision/date ; grille 2×3 (Date, Ligne/Unité, Chef d'équipe | Auditeur, Visa auditeur, Responsable Ligne/Unité)
+2. **Tableau des points** — colonnes N° / Catégorie (rowSpan) / Points à vérifier / Critères OK / OK / N'OK / NA / Description de l'écart. Numérotation globale continue. Fond rouge pâle sur les lignes N'OK.
+3. **Bloc score** — décompte OK/N'OK/NA, formule Résultat = (OK / total) × 100, badge de **niveau d'audit** coloré dynamiquement.
+4. **Tableau de suivi des assignations** — N° / Action / Responsable / Délai / Date Réalisation.
+5. Bouton **"Exporter PDF"** (jsPDF + autoTable) — page 1 : en-tête + tableau des points + score ; page 2 (si assignations) : tableau de suivi. Format paysage A4.
+
+### Niveaux d'audit
+
+| Seuil | Niveau | Couleur | Message |
+|---|---|---|---|
+| 0–59% | Niveau 2/3 | Rouge | Arrêter l'activité — Réunion urgente |
+| 60–95% | Niveau 1 | Jaune/Orange | Escalation TOP Five — Actions correctives rapides |
+| 96–100% | Niveau 0 | Vert | Rien à signaler |
+
+### Fichiers créés/modifiés
+
+| Fichier | Changement |
+|---|---|
+| `modules/checklist/components/ChecklistDetailModal.tsx` | **NOUVEAU** — modal de détail + export PDF |
+| `modules/checklist/components/ChecklistClient.tsx` | Import `ChecklistDetailModal` + `FileText` ; état `detailInstanceId` ; bouton Détails séparé du bouton Modifier |
+
+---
+
+## Module Audit — Calendrier de planification (session 2026-05-07)
+
+### Fonctionnalité
+
+Onglet **"Calendrier"** ajouté dans le module Audit, à côté de l'onglet "Liste des audits".
+
+### Vues disponibles
+
+| Vue | Description |
+|---|---|
+| **Mois** (défaut) | Grille mensuelle 7 colonnes — 3 audits max par jour, "+N autre(s)" si dépassement |
+| **Semaine** | 7 colonnes pour la semaine courante avec tous les audits du jour |
+| **Liste** | Table triée chronologiquement — toutes les dates |
+
+### Comportement
+
+- Navigation mois/semaine avec flèches ← →
+- Badge coloré par statut : 🔵 EN_ATTENTE · 🟡 EN_COURS · 🟢 TERMINÉ · 🔴 ANNULÉ
+- Clic sur un événement → popup de détail avec bouton "Modifier l'audit" (INGENIEUR_HSE uniquement)
+- Clic sur une case vide du calendrier → ouvre "Nouvel audit" avec la date pré-remplie (INGENIEUR_HSE uniquement)
+- ADMIN/SUPER_ADMIN : accès lecture seule (pas de bouton "Planifier")
+- Données : `GET /audits?page=0&size=500` — queryKey `["audits", "calendar"]` auto-invalidé par les mutations existantes
+
+### Fichiers créés/modifiés
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/hooks/useFetchAllAuditsForCalendar.ts` | **NOUVEAU** — fetch size=500 ; queryKey `["audits", "calendar"]` |
+| `modules/audit/components/AuditCalendar.tsx` | **NOUVEAU** — vues mois/semaine/liste avec date-fns/fr + popup détail |
+| `modules/audit/components/AuditFormModal.tsx` | Prop `prefilledDate?: string` pour pré-remplir la date depuis le calendrier |
+| `modules/audit/components/AuditClient.tsx` | État `tab: "liste" \| "calendrier"` ; onglet switcher ; `prefilledDate` ; `handleCreate(date?)` |
+
+---
+
+## Module Audit — Améliorations complètes HSE (session 2026-05-08)
+
+### Fonctionnalités ajoutées
+
+1. **Vue employé assigné** (`/my-audits`) — Page dédiée au rôle SUPERVISOR listant ses audits assignés avec bouton "Remplir le checklist" (formulaire `ChecklistFillForm`).
+2. **Traçabilité audit** — Journal d'activité par audit (`audit_activity_logs`) et tableau de bord stats (total/EN_ATTENTE/EN_COURS/TERMINE/ANNULE/taux).
+3. **Système de rappels automatiques** — Scheduler horaire envoyant notifications in-app + emails 24h avant et le jour J.
+4. **Transitions de statut automatiques** — EN_ATTENTE → EN_COURS à l'ouverture du formulaire ; EN_COURS → TERMINE à la validation.
+5. **Filtres avancés** — Filtre par statut, ligne/zone, auditeur (CADRE uniquement), date.
+6. **Avancement + Score** — Colonne barre de progression (`filledCount/totalCount`) et badge score coloré par niveau.
+
+### Nouvelles tables DB
+
+```
+audits (champs ajoutés)
+  - reminder_24h_sent    BOOLEAN default false — dédup rappel 24h
+  - reminder_day_sent    BOOLEAN default false — dédup rappel jour J
+  - started_at           TIMESTAMP nullable — horodatage passage EN_COURS
+  - completed_at         TIMESTAMP nullable — horodatage passage TERMINE
+
+audit_activity_logs
+  - id                   BIGSERIAL PK
+  - audit_id             BIGINT FK → audits
+  - event_type           VARCHAR(50) — PLANIFIE, EN_COURS, TERMINE, ANNULE, MODIFIE
+  - performed_by_id      BIGINT FK → _user (nullable)
+  - performed_at         TIMESTAMP
+  - detail               VARCHAR(500) nullable
+```
+
+### Nouveaux endpoints backend
+
+| Méthode | URL | Rôles | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/audits/stats` | INGENIEUR_HSE, ADMIN, SUPER_ADMIN | Statistiques globales |
+| `GET` | `/api/v1/audits/my-audits` | SUPERVISOR (+ HSE/ADMIN/SUPER_ADMIN) | Audits de l'utilisateur connecté |
+| `GET` | `/api/v1/audits/cadre-employees` | INGENIEUR_HSE, ADMIN, SUPER_ADMIN | Employés de type CADRE |
+| `GET` | `/api/v1/audits/{id}/activity` | INGENIEUR_HSE, ADMIN, SUPER_ADMIN | Journal d'activité d'un audit |
+| `GET` | `/api/v1/audits` | + SUPERVISOR | Filtres : status, lineZone, employeeId, from, to |
+| `PATCH` | `/api/v1/audits/{id}/status` | + SUPERVISOR | Prend `Principal` en paramètre |
+
+### Fichiers créés (backend)
+
+| Fichier | Description |
+|---|---|
+| `hse/audit/entity/AuditActivityLog.java` | Entité `audit_activity_logs` |
+| `hse/audit/dto/AuditActivityLogDto.java` | DTO : id, auditId, eventType, performedByName, performedAt, detail |
+| `hse/audit/dto/AuditStatsDto.java` | DTO : total, enAttente, enCours, termine, annule, tauxCompletion |
+| `hse/audit/repository/AuditActivityLogRepository.java` | `findByAuditIdOrderByPerformedAtAsc(Long)` |
+| `hse/audit/service/AuditActivityLogService.java` | `log()` avec `@Transactional(REQUIRES_NEW)` + try-catch dans callers |
+| `hse/audit/service/AuditReminderScheduler.java` | `@Scheduled(cron="0 0 * * * *")` — rappels 24h et jour J avec dédup flags |
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `hse/audit/entity/Audit.java` | Champs `reminder24hSent`, `reminderDaySent`, `startedAt`, `completedAt` |
+| `hse/audit/dto/AuditDto.java` | Champs ajoutés : `templateItemCount`, `startedAt`, `completedAt`, `filledCount`, `totalCount`, `scorePercent` |
+| `hse/audit/repository/AuditRepository.java` | `findWithFilters(...)`, `findByAssignedEmployeeIdOrderByDateDesc(Long)`, queries rappels avec fenêtre temporelle |
+| `hse/audit/service/AuditService.java` | `findMyAudits(Principal)`, `findWithFilters(...)`, `getStats()`, `getActivityLog(Long)`, `findCadreEmployees()` ; `patchStatus` met à jour `startedAt`/`completedAt` et logue l'événement |
+| `hse/audit/controller/AuditController.java` | Nouveaux endpoints stats/my-audits/cadre-employees/{id}/activity ; filtres sur GET / |
+| `employee/EmployeeRepository.java` | `findAllCadreEmployees()` — JPQL `JOIN e.employmentType et WHERE UPPER(et.type) = 'CADRE'` |
+| `auth/EmailService.java` | `sendAuditAssignmentEmail`, `sendAuditReminderEmail`, `sendAuditStatusChangeEmail` |
+| `config/SecurityConfiguration.java` | `GET /audits/my-audits` → + SUPERVISOR ; `PATCH /audits/*/status` → + SUPERVISOR ; `GET + POST + PUT /checklist-instances/**` → + SUPERVISOR (pour remplir les checklists) |
+
+### Fichiers créés (frontend)
+
+| Fichier | Description |
+|---|---|
+| `modules/audit/hooks/useFetchAuditStats.ts` | Query `["audit-stats"]` → `GET /audits/stats` |
+| `modules/audit/hooks/useFetchMyAudits.ts` | Query `["my-audits"]` → `GET /audits/my-audits` |
+| `modules/audit/hooks/useFetchCadreEmployees.ts` | Query `["cadre-employees"]` → `GET /audits/cadre-employees` |
+| `modules/audit/hooks/useFetchAuditActivity.ts` | Query `["audit-activity", auditId]` → `GET /audits/{id}/activity` |
+| `modules/audit/components/MyAuditsClient.tsx` | Vue SUPERVISOR : tableau audits assignés, transition EN_COURS à l'ouverture, TERMINE à la validation |
+| `pages/MyAuditsPage.tsx` | Page wrapper — `<Layout><MyAuditsClient /></Layout>` |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/types.ts` | Ajout `templateItemCount`, `startedAt`, `completedAt`, `filledCount`, `totalCount`, `scorePercent` sur `Audit` ; nouveaux types `AuditStats`, `AuditActivityLog`, `CadreEmployee` |
+| `modules/audit/components/AuditFormModal.tsx` | `lineZone` → `<select>` via `useFetchProductionLinesAdmin` ; employé assigné → `<select>` via `useFetchCadreEmployees` (filtre CADRE strict) ; template affiche `(N point(s))` |
+| `modules/audit/components/AuditClient.tsx` | 6 cartes stats ; filtres (statut, ligne, auditeur, dates) ; colonne Avancement (barre) + Score (badge coloré) ; bouton journal d'activité (timeline) |
+| `App.tsx` | Route `/my-audits` → `MyAuditsPage` sous `ProtectedRoute allowedRoles=["SUPERVISOR", "INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"]` |
+| `components/Sidebar.tsx` | `HSE_ITEMS` : ajout `{ label: "Mes Audits", icon: "clipboard-check", path: "/my-audits", allowedRoles: ["SUPERVISOR"] }` |
+
+### Comportements clés
+
+- **Transition EN_COURS** : `patchStatus.mutate({ id, status: "EN_COURS" })` appelé non-bloquant à l'ouverture du formulaire si statut était `EN_ATTENTE`. Résultat ignoré (l'audit s'affiche quand même).
+- **Transition TERMINE** : après `createInstance` ou `updateInstance` réussi, `patchStatus.mutate({ id, status: "TERMINE" })` bloquant — succès requis pour fermer le formulaire.
+- **Score** : calculé dans `AuditService.toDto()` = `(okCount / totalResponses) * 100`. Null si aucune instance. Niveaux : ≥96% vert, ≥60% orange, <60% rouge.
+- **ChecklistFillForm** : gère son propre overlay `fixed inset-0 z-50`. Ne pas l'envelopper dans un autre overlay. `MyAuditsClient` affiche un simple loader `fixed inset-0 bg-black/40` pendant le chargement du template.
+- **Rappels** : `AuditReminderScheduler` utilise `@Scheduled` — nécessite `@EnableScheduling` sur `RhApplication` (déjà présent via `FreeOperatorsResetScheduler`). Les emails sont envoyés via `CompletableFuture.runAsync()` (non-bloquant).
+- **Journal d'activité** : `AuditActivityLogService.log()` utilise `@Transactional(propagation = REQUIRES_NEW)` sans `@Async`. Try-catch dans `AuditService` pour protéger l'opération principale.
+
+### Niveaux de score audit
+
+| Seuil | Niveau | Couleur |
+|---|---|---|
+| ≥ 96% | Niveau 0 | Vert (`--accent2`) |
+| 60–95% | Niveau 1 | Orange (`--accent3`) |
+| < 60% | Niveau 2/3 | Rouge (`--accent4`) |
+
+### Sidebar — groupe HSE (mise à jour)
+
+```
+HSE
+  ├── Checklists   → /checklists  (INGENIEUR_HSE, ADMIN, SUPER_ADMIN)
+  ├── Audits       → /audits      (INGENIEUR_HSE, ADMIN, SUPER_ADMIN)
+  └── Mes Audits   → /my-audits   (SUPERVISOR uniquement)
+```
+
+---
+
+## Checklist HSE — Vue détail, export Excel/PDF, pré-remplissage (session 2026-05-08)
+
+### Amélioration 1 — Export Excel dans ChecklistDetailModal
+
+Bouton **"Excel"** ajouté à côté du bouton "PDF" dans la barre d'en-tête de `ChecklistDetailModal`.
+
+#### Structure du fichier Excel (exceljs)
+
+| Section | Contenu |
+|---|---|
+| Ligne titre | Fusionnée A1:G1 — fond bleu accent |
+| En-tête (3 lignes) | Date/Ligne/Chef équipe (gauche) + Auditeur/Visa/Responsable (droite) |
+| En-têtes colonnes | N° / Catégorie / Points à vérifier / OK / N'OK / NA / Description écart |
+| Données | Fond rouge pâle si NOK ; catégorie en bleu clair ; ✓ vert / ✗ rouge |
+| Score | Ligne fusionnée avec couleur dynamique selon niveau d'audit |
+| Assignations | Tableau de suivi si présentes |
+
+#### Nom de fichier
+
+- PDF : `Checklist_HSE_[Ligne]_[Date].pdf`
+- Excel : `Checklist_HSE_[Ligne]_[Date].xlsx`
+
+(La ligne et la date sont extraites de l'instance ; les caractères non alphanumériques sont remplacés par `_`.)
+
+### Amélioration 2 — Pré-remplissage dans ChecklistFillForm depuis l'audit
+
+#### Prop `prefill` ajoutée à `ChecklistFillForm`
+
+```ts
+export type ChecklistPrefill = {
+  date?: string;
+  lineUnit?: string;
+  auditor?: string;
+  auditorVisa?: string;
+};
+```
+
+- Les champs pré-remplis sont initialisés depuis `prefill` si `initial` (instance existante) est absent.
+- Les champs pré-remplis affichent un badge "pré-rempli" et sont `readOnly` — l'auditeur ne peut pas les modifier.
+- Les autres champs (Chef d'équipe, Responsable ligne/unité, réponses) restent éditables.
+
+#### Champs pré-remplis depuis l'audit
+
+| Champ form | Source audit |
+|---|---|
+| Date | `audit.date` (partie date ISO) |
+| Ligne / Unité | `audit.lineZone` |
+| Auditeur | `audit.assignedEmployeeName` |
+| Visa auditeur | `audit.assignedEmployeeMatricule` (nouveau champ) |
+
+#### Backend — `assignedEmployeeMatricule` ajouté
+
+`AuditDto` et `AuditService.toDto()` exposent désormais le matricule de l'employé assigné.
+
+### Amélioration 3 — Accès ChecklistDetailModal depuis MyAuditsClient
+
+Le SUPERVISOR peut maintenant voir le checklist rempli de ses propres audits (lecture seule + export PDF/Excel) via le bouton `FileText` qui apparaît dès que l'audit a un `instanceId`.
+
+Le bouton "Voir le détail" (`Eye`) est conservé pour les infos de l'audit (date, ligne, statut, score, notes).
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `hse/audit/dto/AuditDto.java` | Champ `assignedEmployeeMatricule` ajouté |
+| `hse/audit/service/AuditService.java` | `toDto()` populate `assignedEmployeeMatricule` |
+| `modules/audit/types.ts` | `assignedEmployeeMatricule?: string` sur `Audit` |
+| `modules/checklist/components/ChecklistFillForm.tsx` | Type `ChecklistPrefill` exporté ; prop `prefill` ; champs `readOnly` avec badge "pré-rempli" |
+| `modules/checklist/components/ChecklistDetailModal.tsx` | Export Excel (exceljs) ; nom de fichier `Checklist_HSE_[Ligne]_[Date].*` ; bouton Excel vert |
+| `modules/audit/components/MyAuditsClient.tsx` | Prop `prefill` passée à `ChecklistFillForm` ; bouton `FileText` pour ouvrir `ChecklistDetailModal` quand `instanceId` présent |
+
+---
+
+## Liaison Audit ↔ Checklist + Corrections exports (session 2026-05-08)
+
+### Amélioration 1 — Bouton "Voir le checklist" dans la fiche audit (AuditClient)
+
+La modal "Détail de l'audit" (vue INGÉNIEUR_HSE, ADMIN, SUPER_ADMIN) dispose maintenant d'un bouton "Voir le checklist" dans son pied de page :
+
+- **`instanceId` présent** → bouton vert "Voir le checklist" — ouvre `ChecklistDetailModal` avec les exports PDF/Excel.
+- **`instanceId` absent** → bouton grisé désactivé "Checklist non rempli".
+
+Le bouton fonctionne pour tous les statuts (EN_COURS = vue partielle, TERMINÉ = vue complète avec exports).
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/components/AuditClient.tsx` | Import `ChecklistDetailModal` + `FileText` ; état `detailInstanceId` ; bouton "Voir le checklist" dans la modal détail ; rendu `ChecklistDetailModal` |
+
+### Amélioration 2 — Export Excel corrigé
+
+| Bug | Correction |
+|---|---|
+| Catégorie répétée sur chaque ligne | `fi.isFirstInCategory ? fi.category.name : ""` — catégorie uniquement sur la première ligne du groupe |
+| Pas de logo | Logo SAGE chargé depuis `/logo.webp` via canvas (conversion PNG), placé sur A1:B4 |
+| Hauteur de ligne fixe (contenu tronqué) | Hauteur calculée dynamiquement : `Math.max(18, Math.max(labelLines, ecartLines) * 14)` |
+| En-tête titre seul (pas de structure) | Nouveau layout : logo A1:B4 / titre C1:F2 (grande police) / référence G1:G4 / info-block rows 5-7 / séparateur row 8 |
+
+Helpers ajoutés dans `ChecklistDetailModal.tsx` :
+- `loadLogoAsPngDataUrl()` — charge `/logo.webp`, convertit en PNG via canvas (compatible ExcelJS)
+- `dataUrlToArrayBuffer()` — convertit un data URL en `ArrayBuffer` pour `wb.addImage`
+
+### Amélioration 3 — Export PDF corrigé
+
+| Bug | Correction |
+|---|---|
+| Symboles ✓/✗ → `'` (Helvetica ne les supporte pas) | Remplacés par `"OUI"` / `"NON"` / `"—"` |
+| Pas de couleurs sur les cellules OK/NOK/NA | `didParseCell` : OK → fond vert `[212,237,218]`, NON → fond rouge `[248,215,218]`, — → fond gris `[233,236,239]` |
+| Lignes NOK sans fond coloré | Toutes les cellules d'une ligne NON reçoivent `fillColor: [254,242,242]` avant les overrides par colonne |
+| Pas de logo | Logo SAGE ajouté via `doc.addImage` (PNG, 28×14mm) en haut à gauche ; titre centré en-dessous |
+| `handleExportPdf` synchrone | Rendu `async` pour attendre le chargement du logo |
+
+| Fichier | Changement |
+|---|---|
+| `modules/checklist/components/ChecklistDetailModal.tsx` | Helpers `loadLogoAsPngDataUrl` + `dataUrlToArrayBuffer` ; `handleExportPdf` async + logo + `didParseCell` ; `handleExportExcel` restructuré (catégorie first-row only, logo, dynamic height, explicit row indices) |
+
+---
+
+## Correctif — Bouton "Checklist non rempli" sur audit TERMINÉ (session 2026-05-08)
+
+### Symptôme
+
+Malgré un audit avec statut TERMINÉ et un checklist visiblement rempli, le bouton affichait "Checklist non rempli" (désactivé) dans les deux vues : INGÉNIEUR_HSE et SUPERVISOR.
+
+### Cause racine
+
+Double lacune dans la liaison `Audit` ↔ `ChecklistInstance` :
+
+1. **`SaveInstanceRequest.java`** n'avait pas de champ `auditId` → le JSON envoyé par le frontend contenait bien `auditId`, mais le deserializeur Jackson l'ignorait silencieusement.
+2. **`ChecklistInstanceService.create()`** ne mettait jamais à jour la colonne FK `instance_id` de la table `audits`. La relation `Audit.instance` (`@OneToOne`, FK `instance_id` sur `audits`) restait donc toujours `null`.
+3. **`AuditService.toDto()`** lit `audit.getInstance()` → null → `instanceId = null` → le frontend évalue `detailAudit.instanceId` comme falsy → bouton désactivé.
+
+### Règle invariante
+
+`audits.instance_id` est la colonne FK qui fait foi. Elle doit être mise à jour au moment de la création de l'instance checklist. `checklist_instances.audit_id` est un champ de commodité mais n'est pas lu par `AuditService.toDto()`.
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `hse/checklist/dto/SaveInstanceRequest.java` | Champ `auditId` (Long, nullable) ajouté |
+| `hse/checklist/service/ChecklistInstanceService.java` | Injection `AuditRepository` ; `create()` : `instance.setAuditId()` + MAJ `audit.instance` + save audit ; `update()` : même logique si `audit.getInstance() == null` (réparation données cassées) |
+| `modules/checklist/types.ts` | `auditId?: number \| null` ajouté à `SaveInstanceRequest` (le frontend envoyait déjà la valeur) |
+
+### Données cassées existantes
+
+Les audits créés avant ce correctif ont `instance_id = null` en base. Ils se réparent automatiquement au premier `update()` du checklist (le SUPERVISOR rouvre et re-soumet) grâce à la logique `if (audit.getInstance() == null)` ajoutée dans `update()`.
 
 ---
 

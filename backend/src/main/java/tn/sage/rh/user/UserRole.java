@@ -103,7 +103,9 @@ public enum UserRole {
             )
     ),
 
-    NURSE(Collections.emptySet());
+    NURSE(Collections.emptySet()),
+
+    INGENIEUR_HSE(Collections.emptySet());
 
     @Getter
     private final Set<UserPermission> permissions;

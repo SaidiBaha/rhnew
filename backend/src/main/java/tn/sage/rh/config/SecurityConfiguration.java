@@ -51,19 +51,6 @@ public class SecurityConfiguration {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(req -> req
 
-
-                                .requestMatchers("/api/v1/salary-advances/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-                                .requestMatchers(GET, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_READ.name())
-                                .requestMatchers(POST, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_UPDATE.name())
-                                .requestMatchers(DELETE, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_DELETE.name())
-                                .requestMatchers("/api/v1/salary-advance-requests/**").hasAnyRole(ADMIN.name(), SUPERVISOR.name())
-// ✅ READ (GET) : ADMIN + SUPERVISOR + OPERATIONAL_MANAGER + permission READ
-                                .requestMatchers(GET, "/api/v1/employees/**")
-                                .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/employees/**")
-                                .hasAnyAuthority(EMPLOYEE_READ.name())
-
                 // ── Public ────────────────────────────────────────────────────
                 .requestMatchers(WHITE_LIST_URL).permitAll()
 
@@ -80,6 +67,9 @@ public class SecurityConfiguration {
                 .requestMatchers(POST,   "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_CREATE.name())
                 .requestMatchers(PUT,    "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_UPDATE.name())
                 .requestMatchers(DELETE, "/api/v1/salary-advances/**").hasAnyAuthority(SALARY_ADVANCE_DELETE.name())
+
+                .requestMatchers("/api/v1/salary-advance-requests/**")
+                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
 
                 // ── Employees : lecture (ADMIN + SUPERVISOR + OPERATIONAL_MANAGER + SUPER_ADMIN) ──
                 .requestMatchers(GET, "/api/v1/employees/**")
@@ -128,7 +118,7 @@ public class SecurityConfiguration {
 
                 // ── Users ─────────────────────────────────────────────────────
                 .requestMatchers("/api/v1/users/**")
-                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name(), NURSE.name())
+                    .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), OPERATIONAL_MANAGER.name(), SUPER_ADMIN.name(), NURSE.name(), INGENIEUR_HSE.name())
                 .requestMatchers(PUT, "/api/v1/users/**").authenticated()
 
                 // ── Admin : gestion des utilisateurs ──────────────────────────
@@ -158,6 +148,41 @@ public class SecurityConfiguration {
                 // ── Logs d'audit présences ────────────────────────────────────
                 .requestMatchers(GET, "/api/v1/presence-audit-logs/**")
                     .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name(), NURSE.name())
+
+                // ── HSE : checklists & audits ──────────────────────────────────
+                .requestMatchers(GET, "/api/v1/checklist-templates/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(POST, "/api/v1/checklist-templates/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PUT, "/api/v1/checklist-templates/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(DELETE, "/api/v1/checklist-templates/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(GET, "/api/v1/checklist-instances/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(POST, "/api/v1/checklist-instances/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(PUT, "/api/v1/checklist-instances/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(DELETE, "/api/v1/checklist-instances/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                // my-audits et cadre-employees : accessibles aux auditeurs assignés (SUPERVISOR/CADRE)
+                .requestMatchers(GET, "/api/v1/audits/my-audits")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(GET, "/api/v1/audits/cadre-employees")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PATCH, "/api/v1/audits/*/status")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(GET, "/api/v1/audits/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(POST, "/api/v1/audits/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PUT, "/api/v1/audits/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(PATCH, "/api/v1/audits/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(DELETE, "/api/v1/audits/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
 
                 // ── Catch-all ─────────────────────────────────────────────────
                 .anyRequest().authenticated()

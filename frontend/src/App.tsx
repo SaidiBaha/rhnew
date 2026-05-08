@@ -29,6 +29,9 @@ import DepartmentPage from "@/pages/DepartmentPage";
 import JobTitlePage from "@/pages/JobTitlePage";
 import ProductionLinePage from "@/pages/ProductionLinePage";
 import UserManagementPage from "@/pages/UserManagementPage";
+import ChecklistPage from "@/pages/ChecklistPage";
+import AuditPage from "@/pages/AuditPage";
+import MyAuditsPage from "@/pages/MyAuditsPage";
 
 function App() {
   return (
@@ -123,8 +126,19 @@ function App() {
           <Route path="/user-management" element={<Layout><UserManagementPage /></Layout>} />
         </Route>
 
+        {/* HSE — INGENIEUR_HSE + ADMIN + SUPER_ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"]} />}>
+          <Route path="/checklists" element={<Layout><ChecklistPage /></Layout>} />
+          <Route path="/audits" element={<Layout><AuditPage /></Layout>} />
+        </Route>
+
+        {/* Mes Audits — employés CADRE assignés (SUPERVISOR) */}
+        <Route element={<ProtectedRoute allowedRoles={["SUPERVISOR", "INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"]} />}>
+          <Route path="/my-audits" element={<MyAuditsPage />} />
+        </Route>
+
         {/* Changer mot de passe */}
-        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "SUPER_ADMIN", "NURSE"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "SUPER_ADMIN", "NURSE", "INGENIEUR_HSE"]} />}>
           <Route path="/change-password" element={<Layout><ChangePasswordCard /></Layout>} />
         </Route>
 

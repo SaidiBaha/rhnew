@@ -129,8 +129,14 @@ const GESTION_ITEMS: NavigationItem[] = [
   { label: "EDI DELFOR → CSV",       icon: "file-code",          path: "/edi",              allowedRoles: ["PLANIFICATEUR", "SUPER_ADMIN"] },
 ];
 
+const HSE_ITEMS: NavigationItem[] = [
+  { label: "Checklists",  icon: "clipboard-list",  path: "/checklists", allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
+  { label: "Audits",      icon: "shield-check",    path: "/audits",     allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
+  { label: "Mes Audits",  icon: "clipboard-check", path: "/my-audits",  allowedRoles: ["SUPERVISOR"] },
+];
+
 const ADMIN_ITEMS: NavigationItem[] = [
-  { label: "Gestion Utilisateurs",   icon: "shield-check",       path: "/user-management",  allowedRoles: ["SUPER_ADMIN"] },
+  { label: "Gestion Utilisateurs",   icon: "users-round",        path: "/user-management",  allowedRoles: ["SUPER_ADMIN"] },
 ];
 
 export const Sidebar = () => {
@@ -160,6 +166,7 @@ export const Sidebar = () => {
     PLANIFICATEUR: "Planificateur",
     SUPER_ADMIN: "Super Admin",
     NURSE: "Infirmier(e)",
+    INGENIEUR_HSE: "Ingénieur HSE",
   };
   const roleLabel = user?.role ? (roleLabelMap[user.role] ?? user.role) : "";
 
@@ -346,6 +353,14 @@ export const Sidebar = () => {
             onNavigate={(path) => navigate(path)}
           />
           <NavGroup
+            label="HSE"
+            items={HSE_ITEMS}
+            expanded={expanded}
+            userRole={user?.role}
+            currentPath={location.pathname}
+            onNavigate={(path) => navigate(path)}
+          />
+          <NavGroup
             label="Administration"
             items={ADMIN_ITEMS}
             expanded={expanded}
@@ -361,7 +376,7 @@ export const Sidebar = () => {
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           {/* Change password */}
-          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "NURSE"] as UserRole[]).includes(user.role) && (
+          {user?.role && (["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "NURSE", "INGENIEUR_HSE"] as UserRole[]).includes(user.role) && (
             <button
               onClick={() => navigate("/change-password")}
               title={!expanded ? "Changer mot de passe" : undefined}

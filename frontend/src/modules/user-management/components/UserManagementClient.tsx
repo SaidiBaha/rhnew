@@ -14,7 +14,7 @@ import { useUpdateUser } from "@/modules/user-management/hooks/useUpdateUser";
 import { UserActivityModal } from "@/modules/user-management/components/UserActivityModal";
 import type { UserAdmin, UpdateUserRequest } from "@/modules/user-management/types";
 
-const ROLES = ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "SUPER_ADMIN", "NURSE"];
+const ROLES = ["ADMIN", "SUPERVISOR", "OPERATIONAL_MANAGER", "PLANIFICATEUR", "SUPER_ADMIN", "NURSE", "INGENIEUR_HSE"];
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN:              "Admin",
@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<string, string> = {
   PLANIFICATEUR:      "Planificateur",
   SUPER_ADMIN:        "Super Admin",
   NURSE:              "Infirmier(e)",
+  INGENIEUR_HSE:      "Ingénieur HSE",
 };
 
 function extractErrorMessage(err: unknown): string {
