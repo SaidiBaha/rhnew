@@ -1,13 +1,18 @@
-import { useMemo } from "react";
-import { X, FileDown, Sheet } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X, FileDown, Sheet, ZoomIn } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Workbook } from "exceljs";
 import { saveAs } from "file-saver";
+import axios from "axios";
 import { Loader } from "@/components/Loader";
 import { useFetchInstanceById } from "@/modules/checklist/hooks/useFetchInstanceById";
 import { useFetchTemplateById } from "@/modules/checklist/hooks/useFetchTemplateById";
+import { useFetchResponsePhotos } from "@/modules/checklist/hooks/useFetchResponsePhotos";
+import useAuth from "@/hooks/useAuth";
 import type { ChecklistItemDto, ChecklistCategoryDto } from "@/modules/checklist/types";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 interface Props {
   instanceId: number;
@@ -34,6 +39,114 @@ function buildFilename(prefix: string, lineUnit: string | undefined, date: strin
   const line = (lineUnit || "").replace(/[^a-zA-Z0-9_\-]/g, "_") || "HSE";
   const d = date ? date.split("T")[0] : new Date().toISOString().split("T")[0];
   return `${prefix}_${line}_${d}.${ext}`;
+}
+
+/** Fetches a photo with auth headers and renders it with an optional zoom button. */
+function ReadOnlyPhoto({ photoId, alt, onZoom }: { photoId: number; alt?: string; onZoom: () => void }) {
+  const { auth } = useAuth();
+  const [src, setSrc] = useState<string | null>(null);
+  const urlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const token = (auth as any)?.accessToken || (auth as any)?.token || null;
+    let cancelled = false;
+    axios
+      .get(`${API_BASE_URL}/checklist/photos/${photoId}`, {
+        responseType: "blob",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const url = URL.createObjectURL(data);
+        urlRef.current = url;
+        setSrc(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    };
+  }, [photoId, auth]);
+
+  if (!src)
+    return (
+      <div
+        className="w-16 h-16 rounded-lg animate-pulse"
+        style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+      />
+    );
+
+  return (
+    <div className="relative inline-block group cursor-pointer" onClick={onZoom}>
+      <img src={src} alt={alt ?? "photo"} className="w-16 h-16 object-cover rounded-lg" />
+      <div className="absolute inset-0 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+        <ZoomIn className="h-5 w-5 text-white" />
+      </div>
+    </div>
+  );
+}
+
+function Lightbox({ photoId, onClose }: { photoId: number; onClose: () => void }) {
+  const { auth } = useAuth();
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = (auth as any)?.accessToken || (auth as any)?.token || null;
+    let cancelled = false;
+    axios
+      .get(`${API_BASE_URL}/checklist/photos/${photoId}`, {
+        responseType: "blob",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSrc(URL.createObjectURL(data));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [photoId, auth]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4"
+      onClick={onClose}
+    >
+      {src ? (
+        <img
+          src={src}
+          className="max-w-full max-h-full rounded-xl shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <div className="text-white text-sm animate-pulse">Chargement…</div>
+      )}
+      <button
+        className="absolute top-4 right-4 rounded-full p-2 bg-white/20 hover:bg-white/40 text-white"
+        onClick={onClose}
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+/** Renders photos for a specific NOK response in read-only mode. */
+function ResponsePhotoRow({ responseId }: { responseId: number }) {
+  const { data: photos = [] } = useFetchResponsePhotos(responseId);
+  const [lightboxId, setLightboxId] = useState<number | null>(null);
+
+  if (photos.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      {photos.map((p) => (
+        <ReadOnlyPhoto key={p.id} photoId={p.id} alt={p.fileName} onZoom={() => setLightboxId(p.id)} />
+      ))}
+      {lightboxId !== null && (
+        <Lightbox photoId={lightboxId} onClose={() => setLightboxId(null)} />
+      )}
+    </div>
+  );
 }
 
 async function loadLogoAsPngDataUrl(): Promise<string | null> {
@@ -718,7 +831,13 @@ export function ChecklistDetailModal({ instanceId, onClose }: Props) {
                             background: isNok ? "rgba(240,62,62,0.06)" : "transparent",
                           }}
                         >
-                          {resp.ecartDescription || ""}
+                          <div>{resp.ecartDescription || ""}</div>
+                          {isNok && (() => {
+                            const respDto = instance?.responses?.find((r) => r.itemId === fi.item.id);
+                            return respDto?.id && respDto.photoCount ? (
+                              <ResponsePhotoRow responseId={respDto.id} />
+                            ) : null;
+                          })()}
                         </td>
                       </tr>
                     );

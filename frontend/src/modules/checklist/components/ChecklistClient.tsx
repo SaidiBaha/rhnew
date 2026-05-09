@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Eye, Search, X, ChevronLeft, ChevronRight, Clipbo
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Heading } from "@/components/Heading";
 import { Separator } from "@/components/ui/Separator";
@@ -20,7 +21,8 @@ import { useUpdateInstance } from "@/modules/checklist/hooks/useUpdateInstance";
 import { TemplateBuilder } from "./TemplateBuilder";
 import { ChecklistFillForm } from "./ChecklistFillForm";
 import { ChecklistDetailModal } from "./ChecklistDetailModal";
-import type { ChecklistTemplateSummary, ChecklistInstance } from "@/modules/checklist/types";
+import type { ChecklistInstance, ChecklistTemplateSummary, SaveInstanceRequest } from "@/modules/checklist/types";
+import { uploadPendingPhotos } from "@/modules/checklist/utils/uploadPendingPhotos";
 
 const PAGE_SIZE = 10;
 
@@ -40,6 +42,9 @@ export function ChecklistClient() {
   const { auth } = useAuth();
   const role = auth?.user?.role;
   const canWrite = role === "INGENIEUR_HSE";
+  const token = (auth as any)?.accessToken || (auth as any)?.token || null;
+
+  const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>("templates");
   const [search, setSearch] = useState("");
@@ -474,9 +479,14 @@ export function ChecklistClient() {
       {instanceModal === "create" && fillTemplateId && fillTemplateData && (
         <ChecklistFillForm
           template={fillTemplateData}
-          onSave={(data) => {
+          onSave={(data: SaveInstanceRequest, pendingPhotos: Map<number, File[]>) => {
             createInstanceMutation.mutate(data, {
-              onSuccess: () => { toast.success("Checklist enregistrée"); setInstanceModal(null); setFillTemplateId(null); },
+              onSuccess: (savedInstance) => {
+                uploadPendingPhotos(savedInstance, pendingPhotos, queryClient, token).catch(() => {});
+                toast.success("Checklist enregistrée");
+                setInstanceModal(null);
+                setFillTemplateId(null);
+              },
               onError: (err) => toast.error(extractErrorMessage(err)),
             });
           }}
@@ -529,11 +539,16 @@ export function ChecklistClient() {
         <ChecklistFillForm
           template={editInstanceTemplate}
           initial={editInstanceData}
-          onSave={(data) => {
+          onSave={(data: SaveInstanceRequest, pendingPhotos: Map<number, File[]>) => {
             updateInstanceMutation.mutate(
               { id: editInstanceData.id, data },
               {
-                onSuccess: () => { toast.success("Checklist mise à jour"); setInstanceModal(null); setEditInstanceId(null); },
+                onSuccess: (savedInstance) => {
+                  uploadPendingPhotos(savedInstance, pendingPhotos, queryClient, token).catch(() => {});
+                  toast.success("Checklist mise à jour");
+                  setInstanceModal(null);
+                  setEditInstanceId(null);
+                },
                 onError: (err) => toast.error(extractErrorMessage(err)),
               }
             );

@@ -3,6 +3,9 @@ package tn.sage.rh.hse.checklist.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @Builder
@@ -29,6 +32,10 @@ public class ChecklistResponse {
 
     @Column(length = 1000)
     private String ecartDescription;
+
+    @OneToMany(mappedBy = "response", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ChecklistResponsePhoto> photos = new ArrayList<>();
 
     public enum ResponseType {
         OK, NOK, NA

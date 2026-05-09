@@ -17,6 +17,7 @@ import { ChecklistDetailModal } from "@/modules/checklist/components/ChecklistDe
 import type { Audit, AuditStatus } from "@/modules/audit/types";
 import type { SaveInstanceRequest } from "@/modules/checklist/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { uploadPendingPhotos } from "@/modules/checklist/utils/uploadPendingPhotos";
 
 function extractErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -44,6 +45,7 @@ const STATUS_STYLE: Record<AuditStatus, { bg: string; color: string }> = {
 
 export function MyAuditsClient() {
   const { auth } = useAuth();
+  const token = (auth as any)?.accessToken || (auth as any)?.token || null;
   const queryClient = useQueryClient();
   const { data: audits = [], isLoading } = useFetchMyAudits();
   const patchStatus = usePatchAuditStatus();
@@ -76,7 +78,7 @@ export function MyAuditsClient() {
     }
   };
 
-  const handleSaveChecklist = (data: SaveInstanceRequest) => {
+  const handleSaveChecklist = (data: SaveInstanceRequest, pendingPhotos: Map<number, File[]>) => {
     if (!fillAudit) return;
     const payload: SaveInstanceRequest = {
       ...data,
@@ -84,7 +86,8 @@ export function MyAuditsClient() {
       status: "COMPLETE",
     };
 
-    const afterSave = () => {
+    const afterSave = (savedInstance: Parameters<typeof uploadPendingPhotos>[0]) => {
+      uploadPendingPhotos(savedInstance, pendingPhotos, queryClient, token).catch(() => {});
       patchStatus.mutate(
         { id: fillAudit.id, status: "TERMINE" },
         {

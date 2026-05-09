@@ -16,4 +16,5 @@ public class ChecklistResponseDto {
     private String itemLabel;
     private ChecklistResponse.ResponseType response;
     private String ecartDescription;
+    private int photoCount;
 }

@@ -149,6 +149,16 @@ public class SecurityConfiguration {
                 .requestMatchers(GET, "/api/v1/presence-audit-logs/**")
                     .hasAnyRole(ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name(), NURSE.name())
 
+                // ── HSE : photos de réponses checklist ────────────────────────
+                .requestMatchers(POST, "/api/v1/checklist/responses/*/photos")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(GET, "/api/v1/checklist/responses/*/photos")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(GET, "/api/v1/checklist/photos/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+                .requestMatchers(DELETE, "/api/v1/checklist/photos/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
+
                 // ── HSE : checklists & audits ──────────────────────────────────
                 .requestMatchers(GET, "/api/v1/checklist-templates/**")
                     .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())

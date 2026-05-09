@@ -23,7 +23,12 @@
       "Bash(node \"../gen_backlog.mjs\")",
       "Bash(node gen_backlog.mjs)",
       "Bash(npm run *)",
-      "Bash(dir \"..\\\\backend\\\\src\\\\main\\\\java\\\\tn\\\\sage\\\\rh\\\\user\\\\\" 2>/dev/null)"
+      "Bash(dir \"..\\\\backend\\\\src\\\\main\\\\java\\\\tn\\\\sage\\\\rh\\\\user\\\\\" 2>/dev/null)",
+      "Bash(./mvnw compile *)",
+      "Bash(cmd /c \"cd \\\\\"c:/Users/b.saidi/OneDrive - SAGE TUNISIA/Bureau/Applications/rh/rhnew/backend\\\\\" && mvnw.cmd compile -q 2>&1\")",
+      "PowerShell($env:JAVA_HOME = \"C:\\\\Program Files\\\\Java\\\\jdk-17\"; Set-Location \"c:\\\\Users\\\\b.saidi\\\\OneDrive - SAGE TUNISIA\\\\Bureau\\\\Applications\\\\rh\\\\rhnew\\\\backend\"; $result = & cmd /c \"mvnw.cmd compile -q 2>&1\"; Write-Output $result | Select-Object -Last 40)",
+      "PowerShell($backendDir = \"c:\\\\Users\\\\b.saidi\\\\OneDrive - SAGE TUNISIA\\\\Bureau\\\\Applications\\\\rh\\\\rhnew\\\\backend\"; $result = & cmd /c \"cd `\"$backendDir`\" && mvnw.cmd compile -q 2>&1\"; $LASTEXITCODE; $result | Select-Object -Last 50)",
+      "PowerShell($mvnw = \"c:\\\\Users\\\\b.saidi\\\\OneDrive - SAGE TUNISIA\\\\Bureau\\\\Applications\\\\rh\\\\rhnew\\\\backend\\\\mvnw.cmd\"; $backendDir = \"c:\\\\Users\\\\b.saidi\\\\OneDrive - SAGE TUNISIA\\\\Bureau\\\\Applications\\\\rh\\\\rhnew\\\\backend\"; $result = & cmd /c \"`\"$mvnw`\" -f `\"$backendDir\\\\pom.xml`\" compile -q 2>&1\"; $LASTEXITCODE; $result | Select-Object -Last 50)"
     ],
     "additionalDirectories": [
       "c:\\Users\\w.boujlida\\Desktop\\Baha-dev\\rh-main\\rh\\backend\\src\\main\\java\\tn\\sage\\rh\\employee",

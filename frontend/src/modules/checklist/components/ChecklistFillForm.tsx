@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
+import Swal from "sweetalert2";
 import type {
   ChecklistTemplate,
   ChecklistInstance,
@@ -7,6 +8,7 @@ import type {
   ResponseType,
   ChecklistAssignmentDto,
 } from "@/modules/checklist/types";
+import { ResponsePhotoUploader } from "./ResponsePhotoUploader";
 
 export type ChecklistPrefill = {
   date?: string;
@@ -19,7 +21,7 @@ interface Props {
   template: ChecklistTemplate;
   initial?: ChecklistInstance;
   prefill?: ChecklistPrefill;
-  onSave: (data: SaveInstanceRequest) => void;
+  onSave: (data: SaveInstanceRequest, pendingPhotos: Map<number, File[]>) => void;
   onClose: () => void;
   loading: boolean;
 }
@@ -47,7 +49,66 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
     initial?.assignments ?? []
   );
 
-  const setResponse = (itemId: number, field: "response" | "ecartDescription", value: string) => {
+  // Pending photos per itemId (queued, uploaded after instance save)
+  const [pendingPhotos, setPendingPhotos] = useState<Map<number, File[]>>(new Map());
+
+  // Build a lookup: itemId → responseId (only in edit mode where initial.responses has IDs)
+  const responseIdByItemId = useCallback((): Map<number, number> => {
+    const map = new Map<number, number>();
+    if (initial?.responses) {
+      initial.responses.forEach((r) => {
+        if (r.id) map.set(r.itemId, r.id);
+      });
+    }
+    return map;
+  }, [initial?.responses]);
+
+  const getExistingPhotoCount = (itemId: number): number =>
+    initial?.responses?.find((r) => r.itemId === itemId)?.photoCount ?? 0;
+
+  const setResponse = async (
+    itemId: number,
+    field: "response" | "ecartDescription",
+    value: string
+  ) => {
+    if (field === "response") {
+      const current = responses[itemId]?.response;
+      const next = (value as ResponseType) || undefined;
+
+      // Warn if switching away from NOK while photos exist
+      if (current === "NOK" && next !== "NOK") {
+        const existingCount = getExistingPhotoCount(itemId);
+        const pendingCount = pendingPhotos.get(itemId)?.length ?? 0;
+        const total = existingCount + pendingCount;
+
+        if (total > 0) {
+          const result = await Swal.fire({
+            title: "Photos associées",
+            text: `Ce point a ${total} photo(s). Changer la réponse supprimera ces photos.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Changer quand même",
+            cancelButtonText: "Annuler",
+            confirmButtonColor: "#f03e3e",
+          });
+          if (!result.isConfirmed) return;
+
+          // Clear pending photos for this item
+          setPendingPhotos((prev) => {
+            const next = new Map(prev);
+            next.delete(itemId);
+            return next;
+          });
+        }
+      }
+
+      setResponses((prev) => ({
+        ...prev,
+        [itemId]: { ...prev[itemId], response: next },
+      }));
+      return;
+    }
+
     setResponses((prev) => ({
       ...prev,
       [itemId]: { ...prev[itemId], [field]: value || undefined },
@@ -60,31 +121,55 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
   const updateAssignment = (i: number, key: keyof ChecklistAssignmentDto, val: string) =>
     setAssignments((prev) => prev.map((a, j) => (j === i ? { ...a, [key]: val || undefined } : a)));
 
+  const handleAddFiles = (itemId: number, files: File[]) => {
+    setPendingPhotos((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(itemId) ?? [];
+      next.set(itemId, [...existing, ...files]);
+      return next;
+    });
+  };
+
+  const handleRemovePending = (itemId: number, index: number) => {
+    setPendingPhotos((prev) => {
+      const next = new Map(prev);
+      const arr = (next.get(itemId) ?? []).filter((_, i) => i !== index);
+      if (arr.length === 0) next.delete(itemId);
+      else next.set(itemId, arr);
+      return next;
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const allItems = template.categories.flatMap((c) => c.items);
-    onSave({
-      templateId: template.id,
-      date: date || undefined,
-      lineUnit: lineUnit || undefined,
-      teamLeader: teamLeader || undefined,
-      auditor: auditor || undefined,
-      auditorVisa: auditorVisa || undefined,
-      lineResponsible: lineResponsible || undefined,
-      status: "COMPLETE",
-      responses: allItems.map((item) => ({
-        itemId: item.id,
-        response: responses[item.id]?.response,
-        ecartDescription: responses[item.id]?.ecartDescription,
-      })),
-      assignments: assignments.map((a) => ({
-        action: a.action,
-        responsable: a.responsable,
-        delai: a.delai || undefined,
-        dateRealisation: a.dateRealisation || undefined,
-      })),
-    });
+    onSave(
+      {
+        templateId: template.id,
+        date: date || undefined,
+        lineUnit: lineUnit || undefined,
+        teamLeader: teamLeader || undefined,
+        auditor: auditor || undefined,
+        auditorVisa: auditorVisa || undefined,
+        lineResponsible: lineResponsible || undefined,
+        status: "COMPLETE",
+        responses: allItems.map((item) => ({
+          itemId: item.id,
+          response: responses[item.id]?.response,
+          ecartDescription: responses[item.id]?.ecartDescription,
+        })),
+        assignments: assignments.map((a) => ({
+          action: a.action,
+          responsable: a.responsable,
+          delai: a.delai || undefined,
+          dateRealisation: a.dateRealisation || undefined,
+        })),
+      },
+      pendingPhotos
+    );
   };
+
+  const responseIdMap = responseIdByItemId();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -138,7 +223,7 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                       style={{
                         border: "1px solid var(--border)",
                         color: "var(--text)",
-                        background: readOnly ? "var(--bg)" : "var(--bg)",
+                        background: "var(--bg)",
                         opacity: readOnly ? 0.75 : 1,
                         cursor: readOnly ? "not-allowed" : "text",
                       }}
@@ -160,6 +245,10 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                     <div className="divide-y" style={{ borderColor: "var(--border)" }}>
                       {cat.items.map((item, ii) => {
                         const resp = responses[item.id] ?? {};
+                        const isNok = resp.response === "NOK";
+                        const responseId = responseIdMap.get(item.id);
+                        const pendingForItem = pendingPhotos.get(item.id) ?? [];
+
                         return (
                           <div key={item.id} className="px-4 py-3 space-y-2" style={{ background: "var(--white)" }}>
                             <div className="flex items-start justify-between gap-4">
@@ -189,15 +278,25 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                                 ))}
                               </div>
                             </div>
-                            {resp.response === "NOK" && (
-                              <input
-                                type="text"
-                                value={resp.ecartDescription ?? ""}
-                                onChange={(e) => setResponse(item.id, "ecartDescription", e.target.value)}
-                                placeholder="Description de l'écart observé…"
-                                className="w-full rounded-lg border px-3 py-1.5 text-sm outline-none"
-                                style={{ border: "1px solid var(--accent4)", color: "var(--text)", background: "var(--bg)" }}
-                              />
+
+                            {isNok && (
+                              <>
+                                <input
+                                  type="text"
+                                  value={resp.ecartDescription ?? ""}
+                                  onChange={(e) => setResponse(item.id, "ecartDescription", e.target.value)}
+                                  placeholder="Description de l'écart observé…"
+                                  className="w-full rounded-lg border px-3 py-1.5 text-sm outline-none"
+                                  style={{ border: "1px solid var(--accent4)", color: "var(--text)", background: "var(--bg)" }}
+                                />
+                                <ResponsePhotoUploader
+                                  itemId={item.id}
+                                  responseId={responseId}
+                                  pendingFiles={pendingForItem}
+                                  onAddFiles={(files) => handleAddFiles(item.id, files)}
+                                  onRemovePending={(index) => handleRemovePending(item.id, index)}
+                                />
+                              </>
                             )}
                           </div>
                         );

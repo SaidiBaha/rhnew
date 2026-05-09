@@ -38,6 +38,17 @@ export type ChecklistResponseDto = {
   itemLabel?: string;
   response?: ResponseType;
   ecartDescription?: string;
+  photoCount?: number;
+};
+
+export type ChecklistResponsePhotoMeta = {
+  id: number;
+  responseId: number;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  uploadedAt?: string;
+  uploadedByName?: string;
 };
 
 export type ChecklistAssignmentDto = {

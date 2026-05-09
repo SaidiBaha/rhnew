@@ -1686,6 +1686,110 @@ Les audits créés avant ce correctif ont `instance_id = null` en base. Ils se r
 
 ---
 
+## Photos sur points N'OK — Module Checklist HSE (session 2026-05-09)
+
+### Fonctionnalité
+
+Les auditeurs peuvent attacher des photos (JPEG, PNG, WebP) à chaque point marqué **N'OK** lors du remplissage d'un checklist.
+
+### Contraintes
+
+- Types acceptés : `image/jpeg`, `image/png`, `image/webp`
+- Taille maximale par image : **5 Mo**
+- Maximum **5 photos par point N'OK**
+- Upload uniquement si la réponse est N'OK et le checklist non terminé (≠ COMPLETE)
+- Accès : INGENIEUR_HSE, SUPERVISOR, ADMIN, SUPER_ADMIN
+
+### Table `checklist_response_photos`
+
+```sql
+checklist_response_photos
+  - id            BIGSERIAL PK
+  - response_id   BIGINT FK → checklist_responses(id) ON DELETE CASCADE
+  - file_name     VARCHAR(255)
+  - file_type     VARCHAR(100)   -- image/jpeg | image/png | image/webp
+  - file_size     BIGINT         -- octets
+  - data          BYTEA          -- binaire de l'image
+  - uploaded_at   TIMESTAMP
+  - uploaded_by   BIGINT FK → _user(id)
+```
+
+**Index** : `idx_crp_response_id` sur `response_id`.
+
+### Endpoints backend
+
+| Méthode | URL | Description |
+|---|---|---|
+| `POST` | `/api/v1/checklist/responses/{responseId}/photos` | Upload multipart (champ `file`) |
+| `GET` | `/api/v1/checklist/responses/{responseId}/photos` | Métadonnées (sans binaire) |
+| `GET` | `/api/v1/checklist/photos/{photoId}` | Binaire avec `Content-Type` correct pour affichage inline |
+| `DELETE` | `/api/v1/checklist/photos/{photoId}` | Suppression (checklist non terminé uniquement) |
+
+### Correctif `ChecklistInstanceService.update()` — Smart merge
+
+**Avant** : `instance.getResponses().clear()` → `applyResponses()` — recréait toutes les réponses, supprimant les photos via CASCADE.
+
+**Après** : `mergeResponses()` met à jour les réponses **en place** pour préserver leurs IDs (et les photos attachées). Si une réponse passe de N'OK à OK/NA, ses photos sont supprimées via `orphanRemoval`.
+
+### `photoCount` dans `ChecklistResponseDto`
+
+Champ `int photoCount` ajouté. Calculé en bulk dans `ChecklistInstanceService.toDto()` via `ChecklistResponsePhotoService.countByResponseIds()` pour éviter le N+1.
+
+### Flux d'upload frontend
+
+1. Dans le formulaire, les photos sont **en attente** (`pendingPhotos: Map<itemId, File[]>`) jusqu'à la soumission.
+2. Après enregistrement réussi de l'instance, `uploadPendingPhotos()` utilise les `responseId` retournés par le backend pour uploader chaque fichier.
+3. En mode édition, les photos existantes sont chargées paresseusement via `useFetchResponsePhotos(responseId)`.
+4. Le changement de réponse N'OK → OK/NA affiche une confirmation Swal avant suppression.
+
+### Fichiers créés (backend)
+
+| Fichier | Description |
+|---|---|
+| `hse/checklist/entity/ChecklistResponsePhoto.java` | Entité `checklist_response_photos` |
+| `hse/checklist/repository/ChecklistResponseRepository.java` | JpaRepository pour `ChecklistResponse` (lookup par ID) |
+| `hse/checklist/repository/ChecklistResponsePhotoRepository.java` | Queries : liste par responseId, count bulk |
+| `hse/checklist/dto/ChecklistResponsePhotoDto.java` | DTO métadonnées (sans `data`) |
+| `hse/checklist/service/ChecklistResponsePhotoService.java` | Upload / liste / binaire / suppression |
+| `hse/checklist/controller/ChecklistPhotoController.java` | Endpoints `/api/v1/checklist/responses/*/photos` et `/api/v1/checklist/photos/*` |
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `hse/checklist/entity/ChecklistResponse.java` | `@OneToMany photos` avec `orphanRemoval = true` |
+| `hse/checklist/dto/ChecklistResponseDto.java` | Champ `photoCount` ajouté |
+| `hse/checklist/service/ChecklistInstanceService.java` | `mergeResponses()` (smart merge) + bulk `photoCount` dans `toDto()` |
+| `config/SecurityConfiguration.java` | Routes photo ajoutées (INGENIEUR_HSE + ADMIN + SUPER_ADMIN + SUPERVISOR) |
+| `application.properties` | `max-request-size` → 20MB |
+
+### Fichiers créés (frontend)
+
+| Fichier | Description |
+|---|---|
+| `modules/checklist/hooks/useUploadResponsePhoto.ts` | POST multipart |
+| `modules/checklist/hooks/useFetchResponsePhotos.ts` | GET métadonnées (lazy) |
+| `modules/checklist/hooks/useDeleteResponsePhoto.ts` | DELETE |
+| `modules/checklist/components/ResponsePhotoUploader.tsx` | Composant : miniatures, drag-drop, lightbox, compteur |
+| `modules/checklist/utils/uploadPendingPhotos.ts` | Utilitaire post-save pour uploader les photos en attente |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/checklist/types.ts` | `ChecklistResponsePhotoMeta` ; `photoCount?` sur `ChecklistResponseDto` |
+| `modules/checklist/components/ChecklistFillForm.tsx` | `pendingPhotos` state ; `onSave(data, pendingPhotos)` ; `ResponsePhotoUploader` sur les lignes N'OK |
+| `modules/checklist/components/ChecklistDetailModal.tsx` | `ResponsePhotoRow` (photos en lecture seule + lightbox) sur les lignes N'OK |
+| `modules/checklist/components/ChecklistClient.tsx` | `uploadPendingPhotos` appelé dans `onSuccess` de create/update |
+| `modules/audit/components/MyAuditsClient.tsx` | `uploadPendingPhotos` appelé dans `afterSave` |
+
+### Images dans les exports
+
+- **PDF** : les images binaires ne sont pas encore incluses (contrainte jsPDF avec BYTEA — à implémenter si besoin).
+- **Excel** : idem.
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

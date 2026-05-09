@@ -17,9 +17,7 @@ import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserRepository;
 
 import java.security.Principal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +29,7 @@ public class ChecklistInstanceService {
     private final ChecklistItemRepository itemRepository;
     private final UserRepository userRepository;
     private final AuditRepository auditRepository;
+    private final ChecklistResponsePhotoService photoService;
 
     public Page<ChecklistInstanceDto> findAll(int page, int size) {
         return instanceRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size))
@@ -90,9 +89,9 @@ public class ChecklistInstanceService {
         instance.setLineResponsible(request.getLineResponsible());
         if (request.getStatus() != null) instance.setStatus(request.getStatus());
 
-        instance.getResponses().clear();
+        // Smart merge: preserve response IDs so photos survive updates
+        mergeResponses(instance, request.getResponses());
         instance.getAssignments().clear();
-        applyResponses(instance, request.getResponses());
         applyAssignments(instance, request.getAssignments());
 
         ChecklistInstance saved = instanceRepository.save(instance);
@@ -130,7 +129,6 @@ public class ChecklistInstanceService {
 
     private void applyResponses(ChecklistInstance instance, List<SaveInstanceRequest.ResponseRequest> reqs) {
         if (reqs == null) return;
-        // build item id → item map from the template for validation
         Map<Long, ChecklistItem> itemMap = instance.getTemplate().getCategories().stream()
                 .flatMap(c -> c.getItems().stream())
                 .collect(Collectors.toMap(ChecklistItem::getId, i -> i));
@@ -148,6 +146,51 @@ public class ChecklistInstanceService {
         }
     }
 
+    /**
+     * Smart merge: update existing responses in-place to preserve their IDs (and attached photos).
+     * If a response changes from NOK to OK/NA, its photos are deleted via orphanRemoval.
+     */
+    private void mergeResponses(ChecklistInstance instance, List<SaveInstanceRequest.ResponseRequest> reqs) {
+        if (reqs == null) {
+            instance.getResponses().clear();
+            return;
+        }
+
+        // Build map of existing responses by itemId
+        Map<Long, ChecklistResponse> existingByItemId = instance.getResponses().stream()
+                .collect(Collectors.toMap(r -> r.getItem().getId(), r -> r, (a, b) -> a));
+
+        Set<Long> requestedItemIds = reqs.stream()
+                .map(SaveInstanceRequest.ResponseRequest::getItemId)
+                .collect(Collectors.toSet());
+
+        // Remove responses no longer in the request
+        instance.getResponses().removeIf(r -> !requestedItemIds.contains(r.getItem().getId()));
+
+        for (SaveInstanceRequest.ResponseRequest req : reqs) {
+            ChecklistResponse existing = existingByItemId.get(req.getItemId());
+            if (existing != null) {
+                // If response switches away from NOK, clear photos (cascade via orphanRemoval)
+                if (existing.getResponse() == ChecklistResponse.ResponseType.NOK
+                        && req.getResponse() != ChecklistResponse.ResponseType.NOK) {
+                    existing.getPhotos().clear();
+                }
+                existing.setResponse(req.getResponse());
+                existing.setEcartDescription(req.getEcartDescription());
+            } else {
+                // New response item — find the item entity
+                ChecklistItem item = itemRepository.findById(req.getItemId()).orElse(null);
+                if (item == null) continue;
+                instance.getResponses().add(ChecklistResponse.builder()
+                        .instance(instance)
+                        .item(item)
+                        .response(req.getResponse())
+                        .ecartDescription(req.getEcartDescription())
+                        .build());
+            }
+        }
+    }
+
     private void applyAssignments(ChecklistInstance instance, List<SaveInstanceRequest.AssignmentRequest> reqs) {
         if (reqs == null) return;
         for (SaveInstanceRequest.AssignmentRequest req : reqs) {
@@ -162,14 +205,25 @@ public class ChecklistInstanceService {
     }
 
     public ChecklistInstanceDto toDto(ChecklistInstance inst) {
-        List<ChecklistResponseDto> responses = inst.getResponses() == null ? List.of() :
-                inst.getResponses().stream().map(r -> ChecklistResponseDto.builder()
+        List<ChecklistResponse> rawResponses = inst.getResponses() == null ? List.of() : inst.getResponses();
+
+        // Bulk-fetch photo counts to avoid N+1
+        List<Long> responseIds = rawResponses.stream()
+                .map(ChecklistResponse::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, Integer> photoCounts = photoService.countByResponseIds(responseIds);
+
+        List<ChecklistResponseDto> responses = rawResponses.stream()
+                .map(r -> ChecklistResponseDto.builder()
                         .id(r.getId())
                         .itemId(r.getItem().getId())
                         .itemLabel(r.getItem().getLabel())
                         .response(r.getResponse())
                         .ecartDescription(r.getEcartDescription())
-                        .build()).toList();
+                        .photoCount(photoCounts.getOrDefault(r.getId(), 0))
+                        .build())
+                .toList();
 
         List<ChecklistAssignmentDto> assignments = inst.getAssignments() == null ? List.of() :
                 inst.getAssignments().stream().map(a -> ChecklistAssignmentDto.builder()
