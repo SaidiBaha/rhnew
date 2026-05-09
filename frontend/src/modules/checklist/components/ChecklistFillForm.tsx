@@ -9,6 +9,7 @@ import type {
   ChecklistAssignmentDto,
 } from "@/modules/checklist/types";
 import { ResponsePhotoUploader } from "./ResponsePhotoUploader";
+import { PhotoGalleryModal, PhotoIndicator } from "./PhotoGalleryModal";
 
 export type ChecklistPrefill = {
   date?: string;
@@ -51,6 +52,9 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
 
   // Pending photos per itemId (queued, uploaded after instance save)
   const [pendingPhotos, setPendingPhotos] = useState<Map<number, File[]>>(new Map());
+
+  type GalleryData = { responseId: number; itemLabel: string; categoryName: string };
+  const [galleryData, setGalleryData] = useState<GalleryData | null>(null);
 
   // Build a lookup: itemId → responseId (only in edit mode where initial.responses has IDs)
   const responseIdByItemId = useCallback((): Map<number, number> => {
@@ -172,6 +176,7 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
   const responseIdMap = responseIdByItemId();
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
         className="w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col"
@@ -248,6 +253,8 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                         const isNok = resp.response === "NOK";
                         const responseId = responseIdMap.get(item.id);
                         const pendingForItem = pendingPhotos.get(item.id) ?? [];
+                        const existingPhotoCount = getExistingPhotoCount(item.id);
+                        const totalPhotoCount = existingPhotoCount + (pendingPhotos.get(item.id)?.length ?? 0);
 
                         return (
                           <div key={item.id} className="px-4 py-3 space-y-2" style={{ background: "var(--white)" }}>
@@ -258,7 +265,20 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                                 </span>
                                 {item.label}
                               </span>
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {responseId && (
+                                  <PhotoIndicator
+                                    count={totalPhotoCount}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setGalleryData({
+                                        responseId,
+                                        itemLabel: item.label,
+                                        categoryName: cat.name,
+                                      });
+                                    }}
+                                  />
+                                )}
                                 {(["OK", "NOK", "NA"] as ResponseType[]).map((rt) => (
                                   <button
                                     key={rt}
@@ -412,5 +432,17 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
         </form>
       </div>
     </div>
+
+    {/* ── Photo Gallery (edit mode: delete allowed) ── */}
+    {galleryData && (
+      <PhotoGalleryModal
+        responseId={galleryData.responseId}
+        itemLabel={galleryData.itemLabel}
+        categoryName={galleryData.categoryName}
+        readOnly={false}
+        onClose={() => setGalleryData(null)}
+      />
+    )}
+    </>
   );
 }

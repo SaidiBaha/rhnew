@@ -1697,7 +1697,7 @@ Les auditeurs peuvent attacher des photos (JPEG, PNG, WebP) à chaque point marq
 - Types acceptés : `image/jpeg`, `image/png`, `image/webp`
 - Taille maximale par image : **5 Mo**
 - Maximum **5 photos par point N'OK**
-- Upload uniquement si la réponse est N'OK et le checklist non terminé (≠ COMPLETE)
+- Upload uniquement si la réponse est N'OK (la restriction statut ≠ COMPLETE a été retirée — voir correctif session 2026-05-09)
 - Accès : INGENIEUR_HSE, SUPERVISOR, ADMIN, SUPER_ADMIN
 
 ### Table `checklist_response_photos`
@@ -1787,6 +1787,109 @@ Champ `int photoCount` ajouté. Calculé en bulk dans `ChecklistInstanceService.
 
 - **PDF** : les images binaires ne sont pas encore incluses (contrainte jsPDF avec BYTEA — à implémenter si besoin).
 - **Excel** : idem.
+
+---
+
+## Indicateur photos + Exports avec photos N'OK (session 2026-05-09)
+
+### Fonctionnalités ajoutées
+
+1. **Indicateur visuel 📷** sur chaque ligne de point N'OK ayant des photos, dans le formulaire de remplissage ET dans la vue détail.
+2. **Galerie plein-écran** avec navigation (flèches + clavier) au clic sur l'indicateur.
+3. **Photos intégrées dans les exports PDF et Excel** dans une section "ANNEXE PHOTOS — POINTS N'OK" après le tableau principal.
+
+### Indicateur et galerie
+
+| Contexte | Comportement |
+|---|---|
+| Vue détail (`ChecklistDetailModal`) | Indicateur 📷 + count dans la colonne "Description de l'écart" pour chaque ligne N'OK avec photos. Clic → galerie lecture seule. |
+| Formulaire remplissage (`ChecklistFillForm`) | Indicateur 📷 + count dans l'en-tête de ligne (à côté des boutons OK/NOK/NA). Clic → galerie avec suppression. Visible uniquement si `responseId` existe (photos déjà enregistrées). |
+
+**`PhotoGalleryModal`** :
+- Header : icône caméra + catégorie / point à vérifier + compteur X/Y
+- Navigation gauche/droite + clavier (← →, Escape pour fermer)
+- Bande de miniatures (strip) en bas si > 1 photo
+- Bouton "Supprimer" (rouge) en mode édition uniquement
+- z-index `[100]` — au-dessus des modals z-50
+
+**`PhotoIndicator`** :
+- Badge pill (fond `accent-light`, bordure `border`, texte `accent`)
+- Ne s'affiche pas si count = 0
+- Exporté depuis `PhotoGalleryModal.tsx` (réutilisable)
+
+### Exports PDF — ANNEXE PHOTOS
+
+- Nouvelle page ajoutée uniquement si au moins un point N'OK a des photos.
+- Pour chaque point N'OK avec photos : tableau d'en-tête (N°, Catégorie, Point, Écart) + photos alignées horizontalement (3 max par ligne, 83×62mm chacune).
+- Légende sous chaque photo : `Photo X/Y — N°[num] [Catégorie]`.
+- Gestion des sauts de page automatique si le contenu dépasse la hauteur utile.
+- Photos converties en data URL via `FileReader` (format original préservé : JPEG/PNG/WEBP).
+
+### Exports Excel — ANNEXE PHOTOS
+
+- Section ajoutée après le tableau d'assignations (ou après le score si absent).
+- Titre fusionné A:G en bleu, puis pour chaque point N'OK avec photos :
+  - Ligne titre : `N°X — [Catégorie] — [Point]` (fond `LIGHT_BLUE`, gras)
+  - Ligne écart : `Écart : [texte]` (fond `LIGHT_RED`, rouge)
+  - Rangées de photos : 3 par rangée (colonnes A-B, C-D, E-F), 150×115px chacune, hauteur de ligne 88pt
+  - Rangée de légendes : `Photo X/Y` (fusion A:B, C:D, E:F)
+  - Ligne vide de séparation entre les blocs
+- Photos insérées via `wb.addImage` avec `ext: { width, height }` en pixels.
+
+### Helpers ajoutés dans `ChecklistDetailModal.tsx`
+
+| Fonction | Description |
+|---|---|
+| `fetchPhotosMeta(responseId, token)` | GET `/checklist/responses/{id}/photos` — retourne la liste des métadonnées |
+| `fetchPhotoForPdf(photoId, token)` | GET blob + conversion FileReader → `{ dataUrl, format }` |
+| `fetchPhotoForExcel(photoId, token)` | GET blob → `{ buffer: ArrayBuffer, extension }` |
+
+### Fichiers créés/modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/checklist/components/PhotoGalleryModal.tsx` | **NOUVEAU** — galerie plein-écran + `PhotoIndicator` (badge exporté) |
+| `modules/checklist/components/ChecklistDetailModal.tsx` | Suppression `ResponsePhotoRow`/`ReadOnlyPhoto`/`Lightbox` ; `PhotoIndicator` sur lignes N'OK ; galerie `readOnly=true` ; annexe photos dans PDF + Excel |
+| `modules/checklist/components/ChecklistFillForm.tsx` | `PhotoIndicator` dans en-tête de ligne ; galerie `readOnly=false` (delete) |
+
+---
+
+## Correctif Photos Checklist — Indicateur et exports (session 2026-05-09)
+
+### Symptômes
+
+- Indicateur 📷 absent sur les points N'OK malgré des photos uploadées dans le formulaire.
+- Section "ANNEXE PHOTOS" absente des exports PDF et Excel.
+
+### Cause racine
+
+`ChecklistResponsePhotoService.upload()` rejetait toute tentative d'upload si l'instance était en statut `COMPLETE` :
+
+```java
+if (response.getInstance().getStatus() == ChecklistInstance.InstanceStatus.COMPLETE) {
+    throw new InvalidOperationException(...);
+}
+```
+
+Or le flux de sauvegarde dans `ChecklistFillForm` envoie `status: "COMPLETE"` avant d'appeler `uploadPendingPhotos`. L'instance est donc COMPLETE au moment de l'upload → toutes les photos rejetées. L'erreur était silencieusement avalée par `.catch(() => {})` dans `uploadPendingPhotos.ts`.
+
+Conséquence : `photoCount = 0` partout → indicateur masqué (condition `count > 0`) → `nokWithPhotos` vide → ANNEXE PHOTOS absente des exports.
+
+### Correctif appliqué
+
+Retrait du guard `COMPLETE` dans `upload()` ET dans `delete()` de `ChecklistResponsePhotoService`. La restriction n'était pas compatible avec :
+1. Le flux de sauvegarde (photos uploadées après que l'instance passe en COMPLETE).
+2. Le flux d'édition (INGENIEUR_HSE peut ré-éditer une checklist COMPLETE depuis ChecklistClient).
+
+### Fichier modifié (backend)
+
+| Fichier | Changement |
+|---|---|
+| `hse/checklist/service/ChecklistResponsePhotoService.java` | Guard `status == COMPLETE` retiré de `upload()` et `delete()` ; import `ChecklistInstance` supprimé |
+
+### Règle invariante conservée
+
+Upload refusé si la réponse n'est pas N'OK (`ChecklistResponse.ResponseType.NOK`). Cette vérification est maintenue.
 
 ---
 

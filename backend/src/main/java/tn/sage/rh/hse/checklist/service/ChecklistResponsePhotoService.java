@@ -8,7 +8,6 @@ import tn.sage.rh.exeption.EntityNotFoundException;
 import tn.sage.rh.exeption.InvalidEntityException;
 import tn.sage.rh.exeption.InvalidOperationException;
 import tn.sage.rh.hse.checklist.dto.ChecklistResponsePhotoDto;
-import tn.sage.rh.hse.checklist.entity.ChecklistInstance;
 import tn.sage.rh.hse.checklist.entity.ChecklistResponse;
 import tn.sage.rh.hse.checklist.entity.ChecklistResponsePhoto;
 import tn.sage.rh.hse.checklist.repository.ChecklistResponsePhotoRepository;
@@ -42,10 +41,6 @@ public class ChecklistResponsePhotoService {
 
         if (response.getResponse() != ChecklistResponse.ResponseType.NOK) {
             throw new InvalidOperationException("Les photos ne sont autorisées que pour les réponses N'OK");
-        }
-
-        if (response.getInstance().getStatus() == ChecklistInstance.InstanceStatus.COMPLETE) {
-            throw new InvalidOperationException("Impossible d'ajouter des photos à un checklist terminé");
         }
 
         long count = photoRepository.countByResponseId(responseId);
@@ -91,13 +86,8 @@ public class ChecklistResponsePhotoService {
 
     @Transactional
     public void delete(Long photoId) {
-        ChecklistResponsePhoto photo = photoRepository.findById(photoId)
+        photoRepository.findById(photoId)
                 .orElseThrow(() -> new EntityNotFoundException("Photo introuvable"));
-
-        if (photo.getResponse().getInstance().getStatus() == ChecklistInstance.InstanceStatus.COMPLETE) {
-            throw new InvalidOperationException("Impossible de supprimer des photos d'un checklist terminé");
-        }
-
         photoRepository.deleteById(photoId);
     }
 
