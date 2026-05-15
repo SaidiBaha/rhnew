@@ -1,6 +1,6 @@
 import type { ChecklistInstance } from "@/modules/checklist/types";
 
-export type AuditStatus = "EN_ATTENTE" | "EN_COURS" | "TERMINE" | "ANNULE";
+export type AuditStatus = "EN_ATTENTE" | "EN_COURS" | "TERMINE" | "ANNULE" | "EN_RETARD";
 
 export type Audit = {
   id: number;
@@ -22,6 +22,7 @@ export type Audit = {
   completedAt?: string;
   reminder24hSent?: boolean;
   reminderDaySent?: boolean;
+  retardNotifSent?: boolean;
   filledCount?: number;
   totalCount?: number;
   scorePercent?: number;
@@ -53,6 +54,7 @@ export type AuditStats = {
   enCours: number;
   termine: number;
   annule: number;
+  enRetard: number;
   tauxCompletion: number;
 };
 

@@ -246,6 +246,88 @@ public class EmailService {
         }
     }
 
+    public void sendAuditOverdueEmail(String to, String name, String auditTitle,
+                                       String dateStr, String lineZone) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "SAGE TUNISIA – Sage RH");
+            helper.setTo(to);
+            helper.setSubject("Audit HSE en retard – " + dateStr);
+            helper.setText(buildAuditEmailTemplate(
+                    name,
+                    "Audit HSE en retard",
+                    "Votre audit HSE prévu le " + dateStr + " n'a pas été commencé dans les délais.",
+                    "Titre : <strong>" + auditTitle + "</strong><br>"
+                    + "Date prévue : <strong>" + dateStr + "</strong><br>"
+                    + "Ligne / Zone : <strong>" + lineZone + "</strong><br><br>"
+                    + "Veuillez vous connecter à <strong>Sage RH</strong> et contacter votre responsable HSE dès que possible.",
+                    "#f03e3e", "&#9888;"
+            ), true);
+            mailSender.send(message);
+            log.info("Email retard audit envoyé à {}", to);
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            log.error("Erreur envoi email retard audit à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de retard audit", e);
+        }
+    }
+
+    public void sendAuditOverdueHseEmail(String to, String hseName, String auditeeName,
+                                          String auditTitle, String dateStr, String lineZone) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "SAGE TUNISIA – Sage RH");
+            helper.setTo(to);
+            helper.setSubject("Audit HSE en retard – " + auditTitle + " – " + dateStr);
+            helper.setText(buildAuditEmailTemplate(
+                    hseName,
+                    "Audit HSE en retard",
+                    "Un audit HSE sous votre responsabilité est en retard.",
+                    "Titre : <strong>" + auditTitle + "</strong><br>"
+                    + "Auditeur assigné : <strong>" + auditeeName + "</strong><br>"
+                    + "Date prévue : <strong>" + dateStr + "</strong><br>"
+                    + "Ligne / Zone : <strong>" + lineZone + "</strong><br><br>"
+                    + "Veuillez prendre contact avec l'auditeur pour régulariser la situation.",
+                    "#f03e3e", "&#9888;"
+            ), true);
+            mailSender.send(message);
+            log.info("Email retard audit HSE envoyé à {}", to);
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            log.error("Erreur envoi email retard audit HSE à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de retard audit HSE", e);
+        }
+    }
+
+    public void sendAuditUpdateEmail(String to, String name, String auditTitle,
+                                      String dateStr, String lineZone, String notes) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "SAGE TUNISIA – Sage RH");
+            helper.setTo(to);
+            helper.setSubject("Mise à jour de votre audit HSE – " + lineZone + " – " + dateStr);
+            String notesPart = (notes != null && !notes.isBlank())
+                    ? "<br>Notes : <em>" + notes + "</em>" : "";
+            helper.setText(buildAuditEmailTemplate(
+                    name,
+                    "Mise à jour de votre audit HSE",
+                    "Votre audit HSE a été mis à jour par le responsable HSE.",
+                    "Titre : <strong>" + auditTitle + "</strong><br>"
+                    + "Nouvelle date : <strong>" + dateStr + "</strong><br>"
+                    + "Ligne / Zone : <strong>" + lineZone + "</strong>"
+                    + notesPart + "<br><br>"
+                    + "Veuillez vous connecter à <strong>Sage RH</strong> section <em>Mes Audits</em> pour consulter les détails.",
+                    "#2f6bff", "&#9999;"
+            ), true);
+            mailSender.send(message);
+            log.info("Email modification audit envoyé à {}", to);
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            log.error("Erreur envoi email modification audit à {} : {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de modification audit", e);
+        }
+    }
+
     private String buildAuditEmailTemplate(String recipientName, String title, String intro,
                                              String details, String accentColor, String icon) {
         return buildAdvanceEmailTemplate(recipientName, title, intro, details, accentColor, icon);

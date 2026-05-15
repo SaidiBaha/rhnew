@@ -11,5 +11,6 @@ public class AuditStatsDto {
     private long enCours;
     private long termine;
     private long annule;
+    private long enRetard;
     private double tauxCompletion;
 }

@@ -41,6 +41,7 @@ const STATUS_LABELS: Record<AuditStatus, string> = {
   EN_COURS: "En cours",
   TERMINE: "Terminé",
   ANNULE: "Annulé",
+  EN_RETARD: "En retard",
 };
 
 const STATUS_STYLE: Record<AuditStatus, { bg: string; color: string }> = {
@@ -48,6 +49,7 @@ const STATUS_STYLE: Record<AuditStatus, { bg: string; color: string }> = {
   EN_COURS: { bg: "rgba(47,107,255,0.12)", color: "var(--accent)" },
   TERMINE: { bg: "rgba(0,196,140,0.12)", color: "var(--accent2)" },
   ANNULE: { bg: "rgba(240,62,62,0.12)", color: "var(--accent4)" },
+  EN_RETARD: { bg: "rgba(220,80,0,0.12)", color: "#dc5000" },
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -58,6 +60,8 @@ const EVENT_LABELS: Record<string, string> = {
   COMMENCE: "Remplissage commencé",
   TERMINE: "Checklist validé et enregistré",
   ANNULE: "Audit annulé",
+  MODIFIE: "Audit modifié",
+  EN_RETARD: "Audit passé en retard",
 };
 
 function scoreColor(score: number) {
@@ -185,13 +189,14 @@ export function AuditClient() {
 
       {/* ── Dashboard stats ── */}
       {stats && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
           {[
             { label: "Total", value: stats.total, color: "var(--text)" },
             { label: "En attente", value: stats.enAttente, color: "var(--accent3)" },
             { label: "En cours", value: stats.enCours, color: "var(--accent)" },
             { label: "Terminés", value: stats.termine, color: "var(--accent2)" },
             { label: "Annulés", value: stats.annule, color: "var(--accent4)" },
+            { label: "En retard", value: stats.enRetard, color: "#dc5000" },
             { label: "Taux complétion", value: `${stats.tauxCompletion}%`, color: "var(--accent2)" },
           ].map((card) => (
             <div

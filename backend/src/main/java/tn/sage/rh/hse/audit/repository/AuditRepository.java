@@ -51,6 +51,14 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
         """)
     List<Audit> findAuditsNeedingReminderDayOf(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
+    @Query("""
+        SELECT a FROM Audit a
+        WHERE a.status = tn.sage.rh.hse.audit.entity.Audit.AuditStatus.EN_ATTENTE
+          AND a.date < :now
+          AND a.retardNotifSent = false
+        """)
+    List<Audit> findOverdueAuditsNotYetNotified(@Param("now") LocalDateTime now);
+
     @Query("SELECT COUNT(a) FROM Audit a WHERE a.status = :status")
     long countByStatus(@Param("status") Audit.AuditStatus status);
 }

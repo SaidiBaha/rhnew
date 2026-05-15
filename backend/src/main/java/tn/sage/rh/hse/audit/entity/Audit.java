@@ -65,11 +65,15 @@ public class Audit {
     @Builder.Default
     private boolean reminderDaySent = false;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean retardNotifSent = false;
+
     private LocalDateTime startedAt;
 
     private LocalDateTime completedAt;
 
     public enum AuditStatus {
-        EN_ATTENTE, EN_COURS, TERMINE, ANNULE
+        EN_ATTENTE, EN_COURS, TERMINE, ANNULE, EN_RETARD
     }
 }

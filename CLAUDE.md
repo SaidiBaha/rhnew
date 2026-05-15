@@ -1893,6 +1893,62 @@ Upload refusé si la réponse n'est pas N'OK (`ChecklistResponse.ResponseType.NO
 
 ---
 
+## Module Audit — Statut EN_RETARD + Notification de modification (session 2026-05-12)
+
+### Fonctionnalité 1 — Statut EN_RETARD
+
+Un audit passe automatiquement au statut **EN_RETARD** si son statut est `EN_ATTENTE` et que sa date est dépassée. Le scheduler tourne toutes les heures (`detectOverdueAudits()` dans `AuditReminderScheduler`).
+
+#### Champ anti-doublon
+
+`retardNotifSent` (BOOLEAN DEFAULT FALSE) sur la table `audits` garantit qu'un seul passage EN_RETARD est notifié par audit.
+
+#### Tableau des transitions
+
+| Statut actuel | Condition | Nouveau statut |
+|---|---|---|
+| EN_ATTENTE | date < maintenant | **EN_RETARD** (cron) |
+| EN_RETARD | Audit modifié + nouvelle date > maintenant | **EN_ATTENTE** (reset via `update()`) |
+| EN_COURS / TERMINÉ / ANNULÉ | (toujours) | Inchangé |
+
+#### Notifications EN_RETARD
+
+- Notification in-app + email à l'auditeur assigné
+- Notification in-app + email à l'INGÉNIEUR_HSE (créateur)
+- Log `EN_RETARD` dans `audit_activity_logs`
+
+#### Reset EN_RETARD → EN_ATTENTE
+
+Dans `AuditService.update()` : si `oldStatus == EN_RETARD` ET `newDate > now` → `status = EN_ATTENTE`, `retardNotifSent = false`.
+
+### Fonctionnalité 2 — Notification de modification
+
+À chaque modification d'un audit (`PUT /api/v1/audits/{id}`) :
+- Les champs changés sont comparés (date, ligne, notes) et loggés dans `audit_activity_logs` avec `event_type = 'MODIFIE'`
+- Si l'auditeur est **le même** qu'avant → notification in-app "Votre audit a été mis à jour" + email `sendAuditUpdateEmail`
+- Si l'auditeur **a changé** → notification d'affectation au nouvel auditeur (comportement existant, inchangé)
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `hse/audit/entity/Audit.java` | `EN_RETARD` ajouté à `AuditStatus` ; champ `retardNotifSent` |
+| `hse/audit/repository/AuditRepository.java` | `findOverdueAuditsNotYetNotified(now)` |
+| `hse/audit/dto/AuditStatsDto.java` | Champ `enRetard` ajouté |
+| `hse/audit/service/AuditService.java` | `getStats()` inclut `enRetard` ; `update()` reset EN_RETARD + log MODIFIE + `notifyAssigneeOnUpdate()` |
+| `hse/audit/service/AuditReminderScheduler.java` | `detectOverdueAudits()` appelé dans le cron hourly |
+| `auth/EmailService.java` | `sendAuditOverdueEmail`, `sendAuditOverdueHseEmail`, `sendAuditUpdateEmail` |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/types.ts` | `EN_RETARD` dans `AuditStatus` ; `retardNotifSent` dans `Audit` ; `enRetard` dans `AuditStats` |
+| `modules/audit/components/AuditClient.tsx` | `STATUS_LABELS/STYLE` + `EVENT_LABELS` (MODIFIE, EN_RETARD) ; carte "En retard" (couleur `#dc5000`) dans les stats (grille 7 colonnes) |
+| `modules/audit/components/AuditCalendar.tsx` | `STATUS_COLORS/LABELS` incluent `EN_RETARD` (couleur orange-foncé `#dc5000`) |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

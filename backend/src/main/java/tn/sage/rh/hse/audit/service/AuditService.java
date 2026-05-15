@@ -84,10 +84,11 @@ public class AuditService {
         long enCours = auditRepository.countByStatus(Audit.AuditStatus.EN_COURS);
         long termine = auditRepository.countByStatus(Audit.AuditStatus.TERMINE);
         long annule = auditRepository.countByStatus(Audit.AuditStatus.ANNULE);
+        long enRetard = auditRepository.countByStatus(Audit.AuditStatus.EN_RETARD);
         double taux = total > 0 ? Math.round((double) termine / total * 100 * 10.0) / 10.0 : 0;
         return AuditStatsDto.builder()
                 .total(total).enAttente(enAttente).enCours(enCours).termine(termine).annule(annule)
-                .tauxCompletion(taux).build();
+                .enRetard(enRetard).tauxCompletion(taux).build();
     }
 
     public List<AuditActivityLogDto> getActivityLog(Long auditId) {
@@ -124,14 +125,51 @@ public class AuditService {
     @Transactional
     public AuditDto update(Long id, CreateAuditRequest request) {
         Audit audit = findAudit(id);
+
+        // Capture old values for change log and EN_RETARD reset
         Employee oldAssignee = audit.getAssignedEmployee();
+        LocalDateTime oldDate = audit.getDate();
+        String oldLineZone = audit.getLineZone();
+        String oldNotes = audit.getNotes();
+        Audit.AuditStatus oldStatus = audit.getStatus();
+
         applyRequest(audit, request);
+
+        // Reset EN_RETARD → EN_ATTENTE if date moved back to the future
+        if (oldStatus == Audit.AuditStatus.EN_RETARD
+                && audit.getDate() != null
+                && audit.getDate().isAfter(LocalDateTime.now())) {
+            audit.setStatus(Audit.AuditStatus.EN_ATTENTE);
+            audit.setRetardNotifSent(false);
+        }
+
         audit = auditRepository.save(audit);
 
-        // Si l'auditeur a changé, notifier le nouvel auditeur
+        // Build change detail for log
+        StringBuilder changes = new StringBuilder();
+        if (oldDate != null && !oldDate.equals(audit.getDate())) {
+            changes.append("Date : ").append(oldDate.format(DATE_FMT))
+                   .append(" → ").append(audit.getDate() != null ? audit.getDate().format(DATE_FMT) : "—").append("; ");
+        }
+        if (!java.util.Objects.equals(oldLineZone, audit.getLineZone())) {
+            changes.append("Ligne : ").append(oldLineZone != null ? oldLineZone : "—")
+                   .append(" → ").append(audit.getLineZone() != null ? audit.getLineZone() : "—").append("; ");
+        }
+        if (!java.util.Objects.equals(oldNotes, audit.getNotes())) {
+            changes.append("Notes modifiées; ");
+        }
+        String changeDetail = changes.length() > 0
+                ? "Audit modifié — " + changes.toString().replaceAll("; $", "")
+                : "Audit modifié";
+        logActivity(audit.getId(), "MODIFIE", null, changeDetail);
+
+        // Notification : if assignee changed → assignment notification to new assignee
         Employee newAssignee = audit.getAssignedEmployee();
         if (newAssignee != null && (oldAssignee == null || oldAssignee.getId() != newAssignee.getId())) {
             notifyAssigneeOnCreation(audit);
+        } else if (newAssignee != null) {
+            // Same assignee — notify of modification
+            notifyAssigneeOnUpdate(audit);
         }
 
         return toDto(audit);
@@ -201,6 +239,37 @@ public class AuditService {
                     emailService.sendAuditAssignmentEmail(finalEmail, finalName, auditTitle, finalDateStr, finalLine);
                 } catch (Exception e) {
                     log.error("Email affectation audit non envoyé à {} : {}", finalEmail, e.getMessage());
+                }
+            });
+        }
+    }
+
+    private void notifyAssigneeOnUpdate(Audit audit) {
+        Employee assignee = audit.getAssignedEmployee();
+        if (assignee == null || assignee.getUser() == null) return;
+        Long assigneeUserId = assignee.getUser().getId();
+        String dateStr = audit.getDate() != null ? audit.getDate().format(DATE_FMT) : "—";
+        String line = audit.getLineZone() != null ? audit.getLineZone() : "—";
+        String title = "Votre audit HSE a été mis à jour";
+        String msg = "Votre audit a été mis à jour. Nouvelle date : " + dateStr
+                + ". Ligne/Zone : " + line + ". Consultez les détails pour plus d'informations.";
+
+        notificationService.create(assigneeUserId, title, msg, "/my-audits");
+
+        if (assignee.getEmail() != null && !assignee.getEmail().isBlank()) {
+            String auditTitle = audit.getTemplate() != null ? audit.getTemplate().getTitle() : "Audit HSE";
+            String notes = audit.getNotes();
+            String finalEmail = assignee.getEmail();
+            String finalName = assignee.getFullName();
+            String finalDateStr = dateStr;
+            String finalLine = line;
+            String finalTitle = auditTitle;
+            String finalNotes = notes;
+            CompletableFuture.runAsync(() -> {
+                try {
+                    emailService.sendAuditUpdateEmail(finalEmail, finalName, finalTitle, finalDateStr, finalLine, finalNotes);
+                } catch (Exception e) {
+                    log.error("Email modification audit non envoyé à {} : {}", finalEmail, e.getMessage());
                 }
             });
         }

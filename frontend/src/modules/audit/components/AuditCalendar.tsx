@@ -26,6 +26,7 @@ const STATUS_COLORS: Record<AuditStatus, { bg: string; text: string; dot: string
   EN_COURS:   { bg: "rgba(47,107,255,0.15)", text: "#1a4acc", dot: "#2f6bff" },
   TERMINE:    { bg: "rgba(0,196,140,0.15)", text: "#007a58", dot: "#00c48c" },
   ANNULE:     { bg: "rgba(240,62,62,0.15)", text: "#c0392b", dot: "#f03e3e" },
+  EN_RETARD:  { bg: "rgba(220,80,0,0.15)", text: "#a03000", dot: "#dc5000" },
 };
 
 const STATUS_LABELS: Record<AuditStatus, string> = {
@@ -33,6 +34,7 @@ const STATUS_LABELS: Record<AuditStatus, string> = {
   EN_COURS:   "En cours",
   TERMINE:    "Terminé",
   ANNULE:     "Annulé",
+  EN_RETARD:  "En retard",
 };
 
 const DAY_NAMES = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
