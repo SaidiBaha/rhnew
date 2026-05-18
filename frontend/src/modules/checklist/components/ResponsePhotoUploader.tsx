@@ -152,7 +152,7 @@ function Lightbox({ photoId, onClose }: { photoId: number; onClose: () => void }
 }
 
 export function ResponsePhotoUploader({
-  itemId,
+  itemId: _itemId,
   responseId,
   pendingFiles,
   onAddFiles,

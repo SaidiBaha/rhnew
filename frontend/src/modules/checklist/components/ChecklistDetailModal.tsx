@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { X, FileDown, Sheet, Camera } from "lucide-react";
+import { X, FileDown, Sheet } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Workbook } from "exceljs";
@@ -155,7 +155,7 @@ async function fetchPhotoForPdf(
 async function fetchPhotoForExcel(
   photoId: number,
   token: string | null
-): Promise<{ buffer: ArrayBuffer; extension: "jpeg" | "png" | "webp" } | null> {
+): Promise<{ buffer: ArrayBuffer; extension: "jpeg" | "png" } | null> {
   try {
     const resp = await axios.get<Blob>(
       `${API_BASE_URL}/checklist/photos/${photoId}`,
@@ -165,12 +165,8 @@ async function fetchPhotoForExcel(
       }
     );
     const blob = resp.data;
-    const extension: "jpeg" | "png" | "webp" =
-      blob.type === "image/png"
-        ? "png"
-        : blob.type === "image/webp"
-        ? "webp"
-        : "jpeg";
+    const extension: "jpeg" | "png" =
+      blob.type === "image/png" ? "png" : "jpeg";
     const buffer = await blob.arrayBuffer();
     return { buffer, extension };
   } catch {
@@ -643,8 +639,8 @@ export function ChecklistDetailModal({ instanceId, onClose }: Props) {
       const imgBuffer = dataUrlToArrayBuffer(logoDataUrl);
       const imageId = wb.addImage({ buffer: imgBuffer, extension: "png" });
       ws.addImage(imageId, {
-        tl: { col: 0, row: 0 },
-        br: { col: 2, row: 4 },
+        tl: { col: 0, row: 0 } as any,
+        br: { col: 2, row: 4 } as any,
         editAs: "oneCell",
       });
     }

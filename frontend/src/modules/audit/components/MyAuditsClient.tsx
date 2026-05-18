@@ -34,6 +34,7 @@ const STATUS_LABELS: Record<AuditStatus, string> = {
   EN_COURS: "En cours",
   TERMINE: "Terminé",
   ANNULE: "Annulé",
+  EN_RETARD: "En retard",
 };
 
 const STATUS_STYLE: Record<AuditStatus, { bg: string; color: string }> = {
@@ -41,6 +42,7 @@ const STATUS_STYLE: Record<AuditStatus, { bg: string; color: string }> = {
   EN_COURS: { bg: "rgba(47,107,255,0.12)", color: "var(--accent)" },
   TERMINE: { bg: "rgba(0,196,140,0.12)", color: "var(--accent2)" },
   ANNULE: { bg: "rgba(240,62,62,0.12)", color: "var(--accent4)" },
+  EN_RETARD: { bg: "rgba(220,80,0,0.12)", color: "#dc5000" },
 };
 
 export function MyAuditsClient() {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import type { Audit, AuditStatus, CreateAuditRequest } from "@/modules/audit/types";
+import type { Audit, CreateAuditRequest } from "@/modules/audit/types";
 import type { ChecklistTemplateSummary } from "@/modules/checklist/types";
 import { useFetchCadreEmployees } from "@/modules/audit/hooks/useFetchCadreEmployees";
 import { useFetchProductionLinesAdmin } from "@/modules/production-line/hooks/useFetchProductionLinesAdmin";
