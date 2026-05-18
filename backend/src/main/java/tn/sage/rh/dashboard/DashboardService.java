@@ -530,10 +530,9 @@ public class DashboardService {
             String recvKey = destProjectId + "|" + (recvId != null ? recvId : "null");
             ProjectHoursAggDTO destAgg = aggByCompositeKey.computeIfAbsent(recvKey, k -> new ProjectHoursAggDTO());
 
-            // (A) Heures ajoutées (IN) : projet destination, superviseur = receiver de la permutation
-            destAgg.addAjoutees(ops.size() * hoursPerOperator);
-
-            // (B) Heures transférées (OUT) : projet source de chaque opérateur, superviseur = superviseur de l'opérateur
+            // (A+B) Heures ajoutées et transférées calculées ensemble par opérateur pour garantir l'équilibre.
+            // Un opérateur n'est compté que s'il vient d'un projet différent (source ≠ destination).
+            // Les opérateurs sans productionLine ou appartenant déjà au projet destination sont ignorés.
             for (var op : ops) {
                 if (op == null) continue;
 
@@ -543,6 +542,10 @@ public class DashboardService {
                 Long sourceProjectId = sourcePl.getId();
 
                 if (!Objects.equals(sourceProjectId, destProjectId)) {
+                    // (A) Projet destination gagne ces heures
+                    destAgg.addAjoutees(hoursPerOperator);
+
+                    // (B) Projet source perd ces heures
                     projectNameById.putIfAbsent(sourceProjectId, resolveProjectName(sourcePl));
 
                     tn.sage.rh.employee.Employee opSup = op.getSupervisor();

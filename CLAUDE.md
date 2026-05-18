@@ -1222,6 +1222,34 @@ Les dashboards des autres rôles (ADMIN, SUPER_ADMIN, SUPERVISOR) ne sont pas af
 
 ---
 
+## Dashboard OPERATIONAL_MANAGER — Correctif équilibre heures (session 2026-05-15)
+
+### Problème corrigé
+
+Les colonnes **"Ajoutées"** et **"Transférées"** du tableau "Détails par projet" étaient déséquilibrées : le total des ajoutées différait du total des transférées.
+
+### Cause racine
+
+Dans `computeProjectHours()`, les heures ajoutées étaient calculées pour **tous** les opérateurs de la permutation (`ops.size() * hoursPerOperator`), mais les heures transférées n'étaient calculées que pour les opérateurs dont le projet source (`op.productionLine`) était **différent** du projet destination. Les opérateurs avec `productionLine = null` ou avec la même ligne de production que la destination étaient comptés en "ajoutées" mais pas en "transférées" → déséquilibre.
+
+### Correctif
+
+Les calculs (A) ajoutées et (B) transférées sont fusionnés en **une seule boucle par opérateur**. Un opérateur est compté uniquement si son projet source (`op.productionLine`) est non-null et différent du projet destination. Ainsi, chaque heure ajoutée a exactement une heure transférée correspondante.
+
+### Invariant garanti
+
+```
+Σ heuresAjoutees = Σ heuresTransferees  (au niveau du total)
+```
+
+### Fichier modifié (backend)
+
+| Fichier | Changement |
+|---|---|
+| `dashboard/DashboardService.java` | Étapes (A) et (B) fusionnées en une seule boucle par opérateur dans `computeProjectHours()` |
+
+---
+
 ## Rôle INGENIEUR_HSE + Modules HSE (session 2026-05-06)
 
 ### Nouveau rôle
