@@ -1977,6 +1977,62 @@ Dans `AuditService.update()` : si `oldStatus == EN_RETARD` ET `newDate > now` �
 
 ---
 
+## Module Audit — Champs avec recherche filtrée (session 2026-05-24)
+
+### Fonctionnalité
+
+Les trois champs du formulaire **"Planifier un audit"** (`AuditFormModal`) ont été convertis de `<select>` simples en champs avec **recherche filtrée en temps réel**, en réutilisant exactement le même composant et la même logique que les champs "Destinataire (superviseur)" et "Projet / ligne de production" du formulaire **Nouvelle permutation**.
+
+### Pattern réutilisé (PermutationForm)
+
+Chaque champ utilise :
+- Un `input[type=text]` qui affiche la valeur sélectionnée quand fermé, et le texte de recherche quand ouvert
+- États `xxxSearch` (texte) + `xxxOpen` (boolean)
+- `onFocus` → ouvre le dropdown et vide la recherche
+- `onChange` → met à jour la recherche
+- `onBlur` → ferme avec `setTimeout(180ms)` (pour laisser le temps au `onMouseDown` du bouton de s'exécuter)
+- Bouton ✕ pour effacer la sélection (via `onMouseDown` pour éviter le blur avant le clic)
+- Dropdown `absolute z-50` avec liste filtrée via `useMemo`
+- Bordure rouge (`#fca5a5`) si vide, bordure `var(--accent)` si sélection valide
+
+### Champs modifiés
+
+| Champ | Filtre | Affichage option | Affichage valeur sélectionnée |
+|---|---|---|---|
+| **Ligne / Zone auditée** | Par nom de ligne | Nom seul | Nom de la ligne |
+| **Modèle de checklist** | Par titre | Titre (gras) + nb points (en-dessous) | `Titre (N points)` |
+| **Auditeur assigné (CADRE)** | Par nom complet + matricule | Nom (gras) + `Matricule : XXX` (en-dessous) | `Nom — Matricule` |
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/components/AuditFormModal.tsx` | `useState` → `useMemo` pour les 3 champs ; 3 paires d'états `search`/`open` ; dropdowns filtrés ; logique identique à `PermutationForm` |
+
+---
+
+## Correctif sécurité — GET checklist-templates accessible aux SUPERVISOR (session 2026-05-24)
+
+### Problème corrigé
+
+`GET /api/v1/checklist-templates/**` retournait **403 Forbidden** pour tout rôle autre que `INGENIEUR_HSE`, `ADMIN` et `SUPER_ADMIN`. Les auditeurs assignés (typiquement `SUPERVISOR` / CADRE) ne pouvaient donc pas charger le modèle de checklist via `useFetchTemplateById` et étaient bloqués à l'ouverture du formulaire "Remplir le checklist".
+
+### Correctif appliqué
+
+Ajout de `SUPERVISOR` dans la règle `GET /api/v1/checklist-templates/**` de `SecurityConfiguration`. Les autres règles (POST, PUT, DELETE) restent réservées à `INGENIEUR_HSE`, `ADMIN` et `SUPER_ADMIN`.
+
+### Fichier modifié
+
+| Fichier | Changement |
+|---|---|
+| `config/SecurityConfiguration.java` | `GET /api/v1/checklist-templates/**` → + `SUPERVISOR` |
+
+### Règle à retenir
+
+Tout rôle ayant accès à `GET /api/v1/audits/my-audits` (auditeurs assignés) doit aussi avoir `GET /api/v1/checklist-templates/**` pour pouvoir charger le modèle et remplir son checklist. Les opérations d'écriture sur les templates restent réservées à `INGENIEUR_HSE`/`ADMIN`/`SUPER_ADMIN`.
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

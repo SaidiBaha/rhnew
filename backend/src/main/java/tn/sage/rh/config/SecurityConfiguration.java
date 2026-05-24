@@ -161,7 +161,7 @@ public class SecurityConfiguration {
 
                 // ── HSE : checklists & audits ──────────────────────────────────
                 .requestMatchers(GET, "/api/v1/checklist-templates/**")
-                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name(), SUPERVISOR.name())
                 .requestMatchers(POST, "/api/v1/checklist-templates/**")
                     .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
                 .requestMatchers(PUT, "/api/v1/checklist-templates/**")

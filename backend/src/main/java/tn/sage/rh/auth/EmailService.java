@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private static final String APP_URL = "http://192.168.8.32:5173/login";
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -178,10 +179,21 @@ public class EmailService {
                     "Nouvel audit HSE assigné",
                     "Vous avez été désigné(e) auditeur(rice) pour un audit HSE.",
                     "Titre : <strong>" + auditTitle + "</strong><br>"
-                    + "Date et heure : <strong>" + dateStr + "</strong><br>"
-                    + "Ligne / Zone : <strong>" + lineZone + "</strong><br><br>"
-                    + "Veuillez vous connecter à la plateforme <strong>Sage RH</strong> et accéder à la section "
-                    + "<em>Mes Audits</em> pour consulter les détails.",
+                            + "Date et heure : <strong>" + dateStr + "</strong><br>"
+                            + "Ligne / Zone : <strong>" + lineZone + "</strong><br><br>"
+
+                            + "<div style='margin:25px 0;text-align:center;'>"
+                            + "<a href='" + APP_URL + "' "
+                            + "style='background:#2f6bff;color:#ffffff;text-decoration:none;"
+                            + "padding:12px 24px;border-radius:8px;font-weight:bold;"
+                            + "display:inline-block;'>"
+                            + "Accéder à Sage RH"
+                            + "</a>"
+                            + "</div>"
+
+                            + "Veuillez vous connecter à la plateforme <strong>Sage RH</strong> et accéder à la section "
+                            + "<em>Mes Audits</em> pour consulter les détails.",
+
                     "#2f6bff", "&#128203;"
             ), true);
             mailSender.send(message);

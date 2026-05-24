@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { X } from "lucide-react";
 import type { Audit, CreateAuditRequest } from "@/modules/audit/types";
 import type { ChecklistTemplateSummary } from "@/modules/checklist/types";
@@ -32,6 +32,56 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
+  // ── Recherche ligne / zone ──
+  const [lineSearch, setLineSearch] = useState("");
+  const [lineOpen, setLineOpen] = useState(false);
+
+  // ── Recherche modèle de checklist ──
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templateOpen, setTemplateOpen] = useState(false);
+
+  // ── Recherche auditeur (CADRE) ──
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeOpen, setEmployeeOpen] = useState(false);
+
+  // ── Listes filtrées ──
+  const filteredLines = useMemo(() => {
+    const term = lineSearch.trim().toLowerCase();
+    if (!term) return productionLines;
+    return productionLines.filter((pl) => pl.name.toLowerCase().includes(term));
+  }, [productionLines, lineSearch]);
+
+  const selectedLine = useMemo(
+    () => productionLines.find((pl) => pl.name === lineZone) ?? null,
+    [productionLines, lineZone]
+  );
+
+  const filteredTemplates = useMemo(() => {
+    const term = templateSearch.trim().toLowerCase();
+    if (!term) return templates;
+    return templates.filter((t) => t.title.toLowerCase().includes(term));
+  }, [templates, templateSearch]);
+
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === templateId) ?? null,
+    [templates, templateId]
+  );
+
+  const filteredEmployees = useMemo(() => {
+    const term = employeeSearch.trim().toLowerCase();
+    if (!term) return cadreEmployees;
+    return cadreEmployees.filter(
+      (emp) =>
+        emp.fullName.toLowerCase().includes(term) ||
+        emp.matricule.toLowerCase().includes(term)
+    );
+  }, [cadreEmployees, employeeSearch]);
+
+  const selectedEmployee = useMemo(
+    () => cadreEmployees.find((emp) => emp.id === assignedEmployeeId) ?? null,
+    [cadreEmployees, assignedEmployeeId]
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -42,6 +92,9 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
       notes: notes || undefined,
     });
   };
+
+  const inputCls = "w-full rounded-lg border px-3 py-2 text-sm outline-none";
+  const inputStyle = { border: "1px solid var(--border)", color: "var(--text)", background: "var(--bg)" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -74,80 +127,198 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                style={{ border: "1px solid var(--border)", color: "var(--text)", background: "var(--bg)" }}
+                className={inputCls}
+                style={inputStyle}
               />
             </div>
 
-            {/* Ligne / Zone — select depuis production_lines */}
+            {/* Ligne / Zone — recherche filtrée par nom */}
             <div>
               <label className="mb-1 block text-sm font-medium" style={{ color: "var(--text)" }}>
                 Ligne / Zone auditée <span style={{ color: "var(--accent4)" }}>*</span>
               </label>
-              <select
-                required
-                value={lineZone}
-                onChange={(e) => setLineZone(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                style={{ border: "1px solid var(--border)", color: "var(--text)", background: "var(--bg)" }}
-              >
-                <option value="">— Sélectionner une ligne —</option>
-                {productionLines.map((pl) => (
-                  <option key={pl.id} value={pl.name}>
-                    {pl.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  className={`${inputCls} pr-8`}
+                  style={!lineZone
+                    ? { ...inputStyle, borderColor: "#fca5a5" }
+                    : { ...inputStyle, borderColor: "var(--accent)" }}
+                  placeholder="Rechercher par nom de ligne…"
+                  value={lineOpen ? lineSearch : (selectedLine ? selectedLine.name : lineZone)}
+                  onFocus={() => { setLineOpen(true); setLineSearch(""); }}
+                  onChange={(e) => setLineSearch(e.target.value)}
+                  onBlur={() => setTimeout(() => setLineOpen(false), 180)}
+                  autoComplete="off"
+                />
+                {lineZone && (
+                  <button
+                    type="button"
+                    onMouseDown={() => { setLineZone(""); setLineSearch(""); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    tabIndex={-1}
+                  >
+                    ✕
+                  </button>
+                )}
+                {lineOpen && (
+                  <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                    {filteredLines.length === 0 ? (
+                      <p className="px-3 py-3 text-xs text-slate-400">Aucune ligne trouvée.</p>
+                    ) : (
+                      filteredLines.map((pl) => (
+                        <button
+                          key={pl.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setLineZone(pl.name);
+                            setLineOpen(false);
+                            setLineSearch("");
+                          }}
+                          className="flex w-full items-center px-3 py-2.5 text-left text-sm transition-colors hover:bg-slate-50"
+                          style={lineZone === pl.name
+                            ? { background: "var(--accent-soft)", fontWeight: 600, color: "var(--accent)" }
+                            : { color: "var(--text)" }}
+                        >
+                          {pl.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Modèle de checklist */}
+            {/* Modèle de checklist — recherche filtrée par titre */}
             <div>
               <label className="mb-1 block text-sm font-medium" style={{ color: "var(--text)" }}>
                 Modèle de checklist <span style={{ color: "var(--accent4)" }}>*</span>
               </label>
-              <select
-                required
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value !== "" ? Number(e.target.value) : "")}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                style={{ border: "1px solid var(--border)", color: "var(--text)", background: "var(--bg)" }}
-              >
-                <option value="">— Sélectionner un modèle —</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title} ({t.itemCount} point{t.itemCount !== 1 ? "s" : ""})
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  className={`${inputCls} pr-8`}
+                  style={!templateId
+                    ? { ...inputStyle, borderColor: "#fca5a5" }
+                    : { ...inputStyle, borderColor: "var(--accent)" }}
+                  placeholder="Rechercher par titre…"
+                  value={templateOpen
+                    ? templateSearch
+                    : (selectedTemplate
+                        ? `${selectedTemplate.title} (${selectedTemplate.itemCount} point${selectedTemplate.itemCount !== 1 ? "s" : ""})`
+                        : "")}
+                  onFocus={() => { setTemplateOpen(true); setTemplateSearch(""); }}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  onBlur={() => setTimeout(() => setTemplateOpen(false), 180)}
+                  autoComplete="off"
+                />
+                {templateId !== "" && (
+                  <button
+                    type="button"
+                    onMouseDown={() => { setTemplateId(""); setTemplateSearch(""); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    tabIndex={-1}
+                  >
+                    ✕
+                  </button>
+                )}
+                {templateOpen && (
+                  <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                    {filteredTemplates.length === 0 ? (
+                      <p className="px-3 py-3 text-xs text-slate-400">Aucun modèle trouvé.</p>
+                    ) : (
+                      filteredTemplates.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setTemplateId(t.id);
+                            setTemplateOpen(false);
+                            setTemplateSearch("");
+                          }}
+                          className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50"
+                          style={templateId === t.id ? { background: "var(--accent-soft)" } : {}}
+                        >
+                          <span
+                            className="text-sm font-semibold"
+                            style={templateId === t.id ? { color: "var(--accent)" } : { color: "var(--text)" }}
+                          >
+                            {t.title}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {t.itemCount} point{t.itemCount !== 1 ? "s" : ""}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Employé assigné — CADRE uniquement */}
+            {/* Auditeur assigné — recherche filtrée par nom / matricule (CADRE) */}
             <div>
               <label className="mb-1 block text-sm font-medium" style={{ color: "var(--text)" }}>
-                Auditeur assigné <span style={{ color: "var(--text2)", fontSize: 11 }}>(CADRE)</span>{" "}
+                Auditeur assigné{" "}
+                <span style={{ color: "var(--text2)", fontSize: 11 }}>(CADRE)</span>{" "}
                 <span style={{ color: "var(--accent4)" }}>*</span>
               </label>
-              <select
-                required
-                value={assignedEmployeeId}
-                onChange={(e) =>
-                  setAssignedEmployeeId(e.target.value !== "" ? Number(e.target.value) : "")
-                }
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                style={{ border: "1px solid var(--border)", color: "var(--text)", background: "var(--bg)" }}
-              >
-                <option value="">— Sélectionner un auditeur —</option>
-                {cadreEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.fullName} ({emp.matricule})
-                  </option>
-                ))}
-              </select>
-              {cadreEmployees.length === 0 && (
-                <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                  Aucun employé CADRE disponible.
-                </p>
-              )}
+              <div className="relative">
+                <input
+                  type="text"
+                  className={`${inputCls} pr-8`}
+                  style={!assignedEmployeeId
+                    ? { ...inputStyle, borderColor: "#fca5a5" }
+                    : { ...inputStyle, borderColor: "var(--accent)" }}
+                  placeholder="Rechercher par nom ou matricule…"
+                  value={employeeOpen
+                    ? employeeSearch
+                    : (selectedEmployee ? `${selectedEmployee.fullName} — ${selectedEmployee.matricule}` : "")}
+                  onFocus={() => { setEmployeeOpen(true); setEmployeeSearch(""); }}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  onBlur={() => setTimeout(() => setEmployeeOpen(false), 180)}
+                  autoComplete="off"
+                />
+                {assignedEmployeeId !== "" && (
+                  <button
+                    type="button"
+                    onMouseDown={() => { setAssignedEmployeeId(""); setEmployeeSearch(""); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    tabIndex={-1}
+                  >
+                    ✕
+                  </button>
+                )}
+                {employeeOpen && (
+                  <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                    {filteredEmployees.length === 0 ? (
+                      <p className="px-3 py-3 text-xs text-slate-400">Aucun auditeur CADRE trouvé.</p>
+                    ) : (
+                      filteredEmployees.map((emp) => (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setAssignedEmployeeId(emp.id);
+                            setEmployeeOpen(false);
+                            setEmployeeSearch("");
+                          }}
+                          className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50"
+                          style={assignedEmployeeId === emp.id ? { background: "var(--accent-soft)" } : {}}
+                        >
+                          <span className="text-sm font-semibold text-slate-900">{emp.fullName}</span>
+                          <span className="text-xs text-slate-500">Matricule : {emp.matricule}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {cadreEmployees.length === 0 && (
+                  <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                    Aucun employé CADRE disponible.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Notes */}
@@ -161,7 +332,7 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
                 rows={3}
                 placeholder="Observations, contexte…"
                 className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none"
-                style={{ border: "1px solid var(--border)", color: "var(--text)", background: "var(--bg)" }}
+                style={inputStyle}
               />
             </div>
           </div>

@@ -71,7 +71,7 @@ public class RhApplication {
                 System.out.println("ADMIN existe déjà (Basma déjà créée).");
             }
 
-            // ⭐ Assurer que Basma est toujours ADMIN même si elle existait déjà
+            //  Assurer que Basma est toujours ADMIN même si elle existait déjà
             userRepository.findByEmployee_Matricule("1179")
                     .ifPresent(user -> {
                         if (user.getRole() != ADMIN) {
