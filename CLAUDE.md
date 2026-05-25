@@ -63,7 +63,7 @@ Chaque module suit le pattern : `types.ts` | `schema.ts` (Zod) | `hooks/` (React
 | `notifications` | tous — polling 30s, mark-read |
 | `permutation` | SUPERVISOR, OPERATIONAL_MANAGER |
 | `presence` | ADMIN, SUPERVISOR, NURSE |
-| `production-line` | ADMIN, SUPER_ADMIN — CRUD lignes de production |
+| `production-line` | ADMIN, SUPER_ADMIN — CRUD complet ; INGENIEUR_HSE — lecture + création uniquement (pas de modification ni suppression) |
 | `request` | ADMIN, SUPERVISOR |
 | `salary-advance` | ADMIN, SUPERVISOR |
 | `user-management` | SUPER_ADMIN — tableau de bord, blocage, rôles, historique activité |
@@ -692,7 +692,7 @@ Accès limité aux rôles **ADMIN** et **SUPER_ADMIN** pour les opérations d'é
 | `DELETE` | `/api/v1/job-titles/{id}` | ADMIN, SUPER_ADMIN |
 | `GET` | `/api/v1/production-lines` | Authentifié (exclut FORMATRICE, MAINTENANCE, FORMATION) |
 | `GET` | `/api/v1/production-lines/admin` | Authentifié (toutes les lignes, pour le CRUD admin) |
-| `POST` | `/api/v1/production-lines` | ADMIN, SUPER_ADMIN |
+| `POST` | `/api/v1/production-lines` | ADMIN, SUPER_ADMIN, **INGENIEUR_HSE** |
 | `PUT` | `/api/v1/production-lines/{id}` | ADMIN, SUPER_ADMIN |
 | `DELETE` | `/api/v1/production-lines/{id}` | ADMIN, SUPER_ADMIN |
 
@@ -744,7 +744,7 @@ Accès limité aux rôles **ADMIN** et **SUPER_ADMIN** pour les opérations d'é
 
 | Fichier | Changement |
 |---|---|
-| `App.tsx` | 3 nouvelles routes `/departments`, `/job-titles`, `/production-lines` (ADMIN + SUPER_ADMIN) |
+| `App.tsx` | 3 nouvelles routes `/departments`, `/job-titles` (ADMIN + SUPER_ADMIN) ; `/production-lines` (ADMIN + SUPER_ADMIN + INGENIEUR_HSE) |
 | `components/Sidebar.tsx` | Réorganisation en 5 groupes : Accueil / Gestion RH / Présences & Absences / Avances / Gestion. Les 3 nouveaux modules apparaissent dans "Gestion RH". |
 
 ### Structure Sidebar (nouvelle organisation)
@@ -2145,6 +2145,33 @@ ALTER TABLE audits ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE
 | `modules/audit/components/AuditClient.tsx` | Badge "⚠ Fait en retard" dans tableau ; bandeau dans fiche détail ; `completedLate` passé à `ChecklistDetailModal` |
 | `modules/audit/components/MyAuditsClient.tsx` | Badge "⚠ Fait en retard" dans tableau ; bandeau dans fiche détail ; `completedLate` passé à `ChecklistDetailModal` |
 | `modules/checklist/components/ChecklistDetailModal.tsx` | Prop `completedLate?: boolean` ; indicateur visuel dans la modal ; mention dans export PDF et Excel |
+
+---
+
+## Lignes de Production — Accès INGENIEUR_HSE (session 2026-05-25)
+
+### Permissions accordées
+
+| Opération | INGENIEUR_HSE | ADMIN / SUPER_ADMIN |
+|---|:---:|:---:|
+| Consulter la liste | ✅ | ✅ |
+| Ajouter une ligne | ✅ | ✅ |
+| Modifier une ligne | ❌ | ✅ |
+| Supprimer une ligne | ❌ | ✅ |
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `config/SecurityConfiguration.java` | `POST /api/v1/production-lines/**` → ajout `INGENIEUR_HSE` |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `App.tsx` | Route `/production-lines` séparée des autres référentiels — `allowedRoles` inclut `INGENIEUR_HSE` |
+| `components/Sidebar.tsx` | `RH_ITEMS` : `allowedRoles` de "Lignes de Production" inclut `INGENIEUR_HSE` |
+| `modules/production-line/components/ProductionLineClient.tsx` | `canEdit` calculé via `useAuth` ; boutons Modifier et Supprimer enveloppés dans `{canEdit && ...}` |
 
 ---
 

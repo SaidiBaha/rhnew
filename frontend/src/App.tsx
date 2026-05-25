@@ -118,6 +118,10 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPER_ADMIN"]} />}>
           <Route path="/departments" element={<Layout><DepartmentPage /></Layout>} />
           <Route path="/job-titles" element={<Layout><JobTitlePage /></Layout>} />
+        </Route>
+
+        {/* Lignes de production — ADMIN + SUPER_ADMIN + INGENIEUR_HSE */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN", "SUPER_ADMIN", "INGENIEUR_HSE"]} />}>
           <Route path="/production-lines" element={<Layout><ProductionLinePage /></Layout>} />
         </Route>
 

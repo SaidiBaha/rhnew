@@ -135,7 +135,7 @@ public class SecurityConfiguration {
                 .requestMatchers(GET, "/api/v1/production-lines/**").authenticated()
                 .requestMatchers(GET, "/api/v1/job-titles/**").authenticated()
                 .requestMatchers(GET, "/api/v1/departments/**").authenticated()
-                .requestMatchers(POST,   "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
+                .requestMatchers(POST,   "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name(), INGENIEUR_HSE.name())
                 .requestMatchers(PUT,    "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
                 .requestMatchers(DELETE, "/api/v1/production-lines/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())
                 .requestMatchers(POST,   "/api/v1/job-titles/**").hasAnyRole(ADMIN.name(), SUPER_ADMIN.name())

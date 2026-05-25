@@ -108,7 +108,7 @@ const RH_ITEMS: NavigationItem[] = [
   { label: "Employés",            icon: "users",           path: "/employees",       allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Départements",        icon: "building-2",      path: "/departments",     allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
   { label: "Postes Occupés",      icon: "briefcase",       path: "/job-titles",      allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { label: "Lignes de Production",icon: "factory",         path: "/production-lines",allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { label: "Lignes de Production",icon: "factory",         path: "/production-lines",allowedRoles: ["ADMIN", "SUPER_ADMIN", "INGENIEUR_HSE"] },
 ];
 
 const PRESENCES_ITEMS: NavigationItem[] = [

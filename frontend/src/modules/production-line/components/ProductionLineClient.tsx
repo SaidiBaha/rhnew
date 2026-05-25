@@ -12,6 +12,7 @@ import { useCreateProductionLine } from "@/modules/production-line/hooks/useCrea
 import { useUpdateProductionLine } from "@/modules/production-line/hooks/useUpdateProductionLine";
 import { useDeleteProductionLine } from "@/modules/production-line/hooks/useDeleteProductionLine";
 import type { ProductionLine } from "@/modules/production-line/types";
+import useAuth from "@/hooks/useAuth";
 
 const PAGE_SIZE = 10;
 
@@ -103,6 +104,9 @@ function FormModal({ initial, onClose, onSave, loading }: FormModalProps) {
 
 /* ─── Main Client ─────────────────────────────────────────── */
 export function ProductionLineClient() {
+  const { auth } = useAuth();
+  const canEdit = auth.user?.role !== "INGENIEUR_HSE";
+
   const { data: lines, isLoading } = useFetchProductionLinesAdmin();
   const createMutation = useCreateProductionLine();
   const updateMutation = useUpdateProductionLine();
@@ -254,22 +258,26 @@ export function ProductionLineClient() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openEdit(line)}
-                            title="Modifier"
-                            className="rounded-lg p-1.5 transition-colors hover:bg-[var(--accent-light)]"
-                            style={{ color: "var(--accent)" }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(line)}
-                            title="Supprimer"
-                            className="rounded-lg p-1.5 transition-colors hover:bg-red-50"
-                            style={{ color: "var(--accent4)" }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                onClick={() => openEdit(line)}
+                                title="Modifier"
+                                className="rounded-lg p-1.5 transition-colors hover:bg-[var(--accent-light)]"
+                                style={{ color: "var(--accent)" }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(line)}
+                                title="Supprimer"
+                                className="rounded-lg p-1.5 transition-colors hover:bg-red-50"
+                                style={{ color: "var(--accent4)" }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
