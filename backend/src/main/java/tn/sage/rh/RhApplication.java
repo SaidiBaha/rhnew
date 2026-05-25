@@ -86,7 +86,6 @@ public class RhApplication {
                 // 1) créer l'employé 12 s'il n'existe pas
                 var employeeHedi = EmployeeRequestDto.builder()
                         .matricule("12")
-
                         .fullName("HEDI")                     // 🔧 nom complet réel
                         .department("OPERATIONS")             // 🔧 département réel
                         .jobTitle("OPERATIONAL MANAGER")

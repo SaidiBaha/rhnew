@@ -11,7 +11,7 @@ import tn.sage.rh.hse.audit.repository.AuditActivityLogRepository;
 import tn.sage.rh.hse.audit.repository.AuditRepository;
 import tn.sage.rh.notification.service.NotificationService;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +26,7 @@ public class AuditReminderScheduler {
     private final NotificationService notificationService;
     private final EmailService emailService;
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /** Tourne toutes les heures. Vérifie les audits à J-24h, les audits du jour J, et les audits en retard. */
     @Scheduled(cron = "0 0 * * * *")
@@ -37,10 +37,9 @@ public class AuditReminderScheduler {
     }
 
     private void sendReminders24h() {
-        LocalDateTime from = LocalDateTime.now().plusHours(23);
-        LocalDateTime to = LocalDateTime.now().plusHours(25);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
 
-        List<Audit> audits = auditRepository.findAuditsNeedingReminder24h(from, to);
+        List<Audit> audits = auditRepository.findAuditsNeedingReminder24h(tomorrow);
         for (Audit audit : audits) {
             try {
                 sendReminderNotifications(audit, "24H");
@@ -54,10 +53,9 @@ public class AuditReminderScheduler {
     }
 
     private void sendRemindersDayOf() {
-        LocalDateTime from = LocalDateTime.now().minusMinutes(30);
-        LocalDateTime to = LocalDateTime.now().plusMinutes(30);
+        LocalDate today = LocalDate.now();
 
-        List<Audit> audits = auditRepository.findAuditsNeedingReminderDayOf(from, to);
+        List<Audit> audits = auditRepository.findAuditsNeedingReminderDayOf(today);
         for (Audit audit : audits) {
             try {
                 sendReminderNotifications(audit, "JOUR_J");
@@ -127,7 +125,7 @@ public class AuditReminderScheduler {
     }
 
     private void detectOverdueAudits() {
-        List<Audit> overdueAudits = auditRepository.findOverdueAuditsNotYetNotified(LocalDateTime.now());
+        List<Audit> overdueAudits = auditRepository.findOverdueAuditsNotYetNotified(LocalDate.now());
         for (Audit audit : overdueAudits) {
             try {
                 audit.setStatus(Audit.AuditStatus.EN_RETARD);

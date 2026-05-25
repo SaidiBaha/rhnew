@@ -23,6 +23,7 @@ export type Audit = {
   reminder24hSent?: boolean;
   reminderDaySent?: boolean;
   retardNotifSent?: boolean;
+  completedLate?: boolean;
   filledCount?: number;
   totalCount?: number;
   scorePercent?: number;

@@ -20,10 +20,10 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
 
   const [date, setDate] = useState(
     initial?.date
-      ? initial.date.substring(0, 16)
+      ? initial.date.substring(0, 10)
       : prefilledDate
-      ? prefilledDate.substring(0, 16)
-      : new Date().toISOString().substring(0, 16)
+      ? prefilledDate.substring(0, 10)
+      : new Date().toISOString().substring(0, 10)
   );
   const [lineZone, setLineZone] = useState(initial?.lineZone ?? "");
   const [templateId, setTemplateId] = useState<number | "">(initial?.templateId ?? "");
@@ -85,7 +85,7 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      date: date ? new Date(date).toISOString() : undefined,
+      date: date || undefined,
       lineZone: lineZone || undefined,
       templateId: templateId !== "" ? Number(templateId) : null,
       assignedEmployeeId: assignedEmployeeId !== "" ? Number(assignedEmployeeId) : null,
@@ -120,10 +120,10 @@ export function AuditFormModal({ initial, prefilledDate, templates, onSave, onCl
             {/* Date */}
             <div>
               <label className="mb-1 block text-sm font-medium" style={{ color: "var(--text)" }}>
-                Date et heure de l'audit <span style={{ color: "var(--accent4)" }}>*</span>
+                Date de l'audit <span style={{ color: "var(--accent4)" }}>*</span>
               </label>
               <input
-                type="datetime-local"
+                type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}

@@ -112,7 +112,7 @@ export function AuditCalendar({ canWrite, onCreateAudit, onEditAudit }: Props) {
   }, [currentDate, view]);
 
   // ── Chip affiché dans la grille ──────────────────────────
-  const AuditChip = ({ audit, compact = false }: { audit: Audit; compact?: boolean }) => {
+  const AuditChip = ({ audit }: { audit: Audit }) => {
     const s = STATUS_COLORS[audit.status];
     return (
       <button
@@ -124,10 +124,7 @@ export function AuditCalendar({ canWrite, onCreateAudit, onEditAudit }: Props) {
         <span className="flex items-center gap-1 min-w-0">
           <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.dot }} />
           <span className="truncate">
-            {compact
-              ? (audit.lineZone || "Audit #" + audit.id)
-              : `${audit.lineZone || "Audit #" + audit.id}${audit.date ? " · " + format(parseISO(audit.date), "HH:mm") : ""}`
-            }
+            {audit.lineZone || "Audit #" + audit.id}
           </span>
         </span>
       </button>
@@ -269,7 +266,7 @@ export function AuditCalendar({ canWrite, onCreateAudit, onEditAudit }: Props) {
                     </div>
                     <div className="flex flex-col gap-0.5">
                       {dayAudits.slice(0, 3).map((audit) => (
-                        <AuditChip key={audit.id} audit={audit} compact />
+                        <AuditChip key={audit.id} audit={audit} />
                       ))}
                       {dayAudits.length > 3 && (
                         <span className="px-1 text-xs" style={{ color: "var(--muted)" }}>
@@ -374,7 +371,7 @@ export function AuditCalendar({ canWrite, onCreateAudit, onEditAudit }: Props) {
                     >
                       <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>
                         {audit.date
-                          ? format(parseISO(audit.date), "EEE d MMM yyyy · HH:mm", { locale: fr })
+                          ? format(parseISO(audit.date), "EEE d MMM yyyy", { locale: fr })
                           : "—"}
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text)" }}>
@@ -434,7 +431,7 @@ export function AuditCalendar({ canWrite, onCreateAudit, onEditAudit }: Props) {
                 label="Date"
                 value={
                   selectedAudit.date
-                    ? format(parseISO(selectedAudit.date), "EEEE d MMMM yyyy · HH:mm", { locale: fr })
+                    ? format(parseISO(selectedAudit.date), "EEEE d MMMM yyyy", { locale: fr })
                     : "—"
                 }
               />

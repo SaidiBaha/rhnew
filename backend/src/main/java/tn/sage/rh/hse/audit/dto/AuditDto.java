@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import tn.sage.rh.hse.audit.entity.Audit;
 import tn.sage.rh.hse.checklist.dto.ChecklistInstanceDto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class AuditDto {
     private Long id;
-    private LocalDateTime date;
+    private LocalDate date;
     private String lineZone;
     private Long templateId;
     private String templateTitle;
@@ -33,6 +34,7 @@ public class AuditDto {
     private LocalDateTime completedAt;
     private boolean reminder24hSent;
     private boolean reminderDaySent;
+    private boolean completedLate;
     private Integer filledCount;
     private Integer totalCount;
     private Integer scorePercent;

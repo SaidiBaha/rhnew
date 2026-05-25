@@ -2033,6 +2033,121 @@ Tout rôle ayant accès à `GET /api/v1/audits/my-audits` (auditeurs assignés) 
 
 ---
 
+## Module Audit — Champ date passé à LocalDate (session 2026-05-25)
+
+### Modification appliquée
+
+Le champ `date` de la table `audits` a été converti de `TIMESTAMP` → `DATE` et le type Java de `LocalDateTime` → `LocalDate`. L'heure n'est plus stockée ni saisie.
+
+### Migration SQL obligatoire
+
+Avant le premier démarrage du backend après cette modification, exécuter sur la base de données :
+
+```sql
+ALTER TABLE audits ALTER COLUMN date TYPE DATE USING date::DATE;
+```
+
+Script disponible : `backend/src/main/resources/migrate_audit_date_to_date.sql`
+
+### Impact sur la logique EN_RETARD et rappels cron
+
+| Rappel / Détection | Avant | Après |
+|---|---|---|
+| **EN_RETARD** | `a.date < LocalDateTime.now()` | `a.date < :today (LocalDate)` |
+| **Rappel 24h** | `a.date BETWEEN now+23h AND now+25h` | `a.date = :tomorrow (LocalDate+1)` |
+| **Rappel jour J** | `a.date BETWEEN now-30min AND now+30min` | `a.date = :today (LocalDate)` |
+
+### Format d'affichage
+
+Le format `dd/MM/yyyy à HH:mm` dans les notifications et logs est remplacé par `dd/MM/yyyy`.
+
+### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `hse/audit/entity/Audit.java` | `LocalDateTime date` → `LocalDate date`, `@Column(columnDefinition = "DATE")` |
+| `hse/audit/dto/AuditDto.java` | `LocalDateTime date` → `LocalDate date` |
+| `hse/audit/dto/CreateAuditRequest.java` | `LocalDateTime date` → `LocalDate date` |
+| `hse/audit/repository/AuditRepository.java` | 4 requêtes adaptées à `LocalDate` ; rappels 24h/jour J passent de BETWEEN à `= :tomorrow`/`= :today` |
+| `hse/audit/service/AuditService.java` | `DATE_FMT` → `dd/MM/yyyy` ; signature `findWithFilters` → `LocalDate` ; comparaison EN_RETARD → `isAfter(LocalDate.now())` |
+| `hse/audit/service/AuditReminderScheduler.java` | `DATE_FMT` → `dd/MM/yyyy` ; cron 24h → `LocalDate.now().plusDays(1)` ; jour J → `LocalDate.now()` |
+| `hse/audit/controller/AuditController.java` | Params `from`/`to` → `LocalDate` |
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/components/AuditFormModal.tsx` | Input `datetime-local` → `date` ; label "Date et heure" → "Date" ; envoi direct `YYYY-MM-DD` sans conversion ISO |
+| `modules/audit/components/AuditClient.tsx` | `toLocaleString` → `toLocaleDateString` dans tableau et modal détail |
+| `modules/audit/components/AuditCalendar.tsx` | Chips : heure supprimée ; vue liste : format `"EEE d MMM yyyy"` ; popup : format `"EEEE d MMMM yyyy"` |
+| `modules/audit/components/MyAuditsClient.tsx` | `toLocaleString` → `toLocaleDateString` ; prefill date : `.split("T")[0]` supprimé (date déjà en `YYYY-MM-DD`) |
+
+---
+
+## Module Audit — EN_RETARD remplissable + indicateur "Fait en retard" (session 2026-05-25)
+
+### Modification 1 — Remplissage du checklist pour un audit EN_RETARD
+
+Un auditeur peut désormais remplir le checklist d'un audit dont le statut est **EN_RETARD**, exactement comme pour EN_ATTENTE.
+
+#### Tableau des transitions de statut
+
+| Statut initial | Action | Nouveau statut |
+|---|---|---|
+| EN_ATTENTE | Ouverture du formulaire (1er point) | EN_COURS |
+| **EN_RETARD** | **Ouverture du formulaire (1er point)** | **EN_COURS** |
+| EN_COURS | Valide et enregistre | TERMINÉ |
+| TERMINÉ / ANNULÉ | — | Inchangé |
+
+#### Fichiers modifiés (frontend uniquement — pas de restriction backend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/components/MyAuditsClient.tsx` | `canFill()` : ajout `EN_RETARD` ; `handleOpenFill()` : transition EN_COURS déclenchée aussi pour `EN_RETARD` |
+
+### Modification 2 — Indicateur visuel "Fait en retard"
+
+Lorsqu'un audit a été complété (TERMINÉ) depuis le statut EN_RETARD, le champ `completedLate = true` est stocké et des indicateurs visuels sont affichés.
+
+#### Règle de calcul `completedLate`
+
+Dans `patchStatus()` : si `status == TERMINE && oldStatus == EN_RETARD` → `completedLate = true`. Sinon reste `false`.
+
+#### SQL (migration)
+
+```sql
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE;
+```
+
+#### Indicateurs affichés
+
+| Emplacement | Indicateur |
+|---|---|
+| Tableau des audits (AuditClient, MyAuditsClient) | Badge orange **"⚠ Fait en retard"** à côté du badge TERMINÉ |
+| Fiche détail de l'audit (AuditClient, MyAuditsClient) | Bandeau orange **"⚠ Cet audit a été complété en retard"** en haut du contenu |
+| Vue checklist rempli (ChecklistDetailModal) | Alerte orange **"⚠ Complété en retard"** au-dessus du bloc document |
+| Export PDF | Ligne orange **"⚠ Audit complété en retard"** centrée entre le titre et le tableau d'en-tête |
+| Export Excel | Ligne fusionnée sous le score : **"⚠ Audit complété en retard"** (fond orange pâle, texte `#DC5000`) |
+
+#### Fichiers modifiés (backend)
+
+| Fichier | Changement |
+|---|---|
+| `hse/audit/entity/Audit.java` | Champ `completedLate` (boolean, default false) |
+| `hse/audit/dto/AuditDto.java` | Champ `completedLate` |
+| `hse/audit/service/AuditService.java` | `patchStatus()` : `completedLate = true` si TERMINE depuis EN_RETARD ; `toDto()` expose le champ |
+
+#### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/audit/types.ts` | `completedLate?: boolean` ajouté sur `Audit` |
+| `modules/audit/components/AuditClient.tsx` | Badge "⚠ Fait en retard" dans tableau ; bandeau dans fiche détail ; `completedLate` passé à `ChecklistDetailModal` |
+| `modules/audit/components/MyAuditsClient.tsx` | Badge "⚠ Fait en retard" dans tableau ; bandeau dans fiche détail ; `completedLate` passé à `ChecklistDetailModal` |
+| `modules/checklist/components/ChecklistDetailModal.tsx` | Prop `completedLate?: boolean` ; indicateur visuel dans la modal ; mention dans export PDF et Excel |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

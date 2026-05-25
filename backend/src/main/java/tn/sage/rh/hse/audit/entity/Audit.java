@@ -9,6 +9,7 @@ import tn.sage.rh.hse.checklist.entity.ChecklistInstance;
 import tn.sage.rh.hse.checklist.entity.ChecklistTemplate;
 import tn.sage.rh.user.User;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -25,8 +26,8 @@ public class Audit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private LocalDateTime date;
+    @Column(nullable = false, columnDefinition = "DATE")
+    private LocalDate date;
 
     private String lineZone;
 
@@ -72,6 +73,10 @@ public class Audit {
     private LocalDateTime startedAt;
 
     private LocalDateTime completedAt;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean completedLate = false;
 
     public enum AuditStatus {
         EN_ATTENTE, EN_COURS, TERMINE, ANNULE, EN_RETARD

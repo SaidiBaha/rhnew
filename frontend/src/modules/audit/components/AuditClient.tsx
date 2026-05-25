@@ -115,6 +115,7 @@ export function AuditClient() {
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>();
   const [detailAudit, setDetailAudit] = useState<Audit | null>(null);
   const [detailInstanceId, setDetailInstanceId] = useState<number | null>(null);
+  const [detailInstanceCompletedLate, setDetailInstanceCompletedLate] = useState(false);
   const [activityAuditId, setActivityAuditId] = useState<number | null>(null);
   const { data: activityLogs = [], isLoading: activityLoading } = useFetchAuditActivity(activityAuditId);
 
@@ -327,7 +328,7 @@ export function AuditClient() {
                           className="transition-colors hover:bg-[var(--bg)]"
                         >
                           <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)", whiteSpace: "nowrap" }}>
-                            {audit.date ? new Date(audit.date).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                            {audit.date ? new Date(audit.date).toLocaleDateString("fr-FR") : "—"}
                           </td>
                           <td className="px-4 py-3" style={{ color: "var(--text)" }}>{audit.lineZone || "—"}</td>
                           <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -336,7 +337,19 @@ export function AuditClient() {
                           <td className="px-4 py-3 text-xs" style={{ color: "var(--text2)" }}>
                             {audit.assignedEmployeeName || "—"}
                           </td>
-                          <td className="px-4 py-3">{statusBadge(audit.status)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {statusBadge(audit.status)}
+                              {audit.completedLate && audit.status === "TERMINE" && (
+                                <span
+                                  className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                                  style={{ background: "rgba(220,80,0,0.12)", color: "#dc5000" }}
+                                >
+                                  ⚠ Fait en retard
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <ProgressBar filled={audit.filledCount} total={audit.totalCount ?? audit.templateItemCount} />
                           </td>
@@ -469,7 +482,15 @@ export function AuditClient() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-              <Row label="Date" value={detailAudit.date ? new Date(detailAudit.date).toLocaleString("fr-FR") : "—"} />
+              {detailAudit.completedLate && (
+                <div
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
+                  style={{ background: "rgba(220,80,0,0.1)", color: "#dc5000", border: "1px solid rgba(220,80,0,0.25)" }}
+                >
+                  ⚠ Cet audit a été complété en retard
+                </div>
+              )}
+              <Row label="Date" value={detailAudit.date ? new Date(detailAudit.date).toLocaleDateString("fr-FR") : "—"} />
               <Row label="Ligne / Zone" value={detailAudit.lineZone || "—"} />
               <Row label="Modèle checklist" value={detailAudit.templateTitle || "—"} />
               <Row label="Auditeur assigné" value={detailAudit.assignedEmployeeName || "—"} />
@@ -497,6 +518,7 @@ export function AuditClient() {
                 <button
                   onClick={() => {
                     setDetailInstanceId(detailAudit.instanceId!);
+                    setDetailInstanceCompletedLate(!!detailAudit.completedLate);
                     setDetailAudit(null);
                   }}
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-white"
@@ -531,7 +553,8 @@ export function AuditClient() {
       {detailInstanceId !== null && (
         <ChecklistDetailModal
           instanceId={detailInstanceId}
-          onClose={() => setDetailInstanceId(null)}
+          completedLate={detailInstanceCompletedLate}
+          onClose={() => { setDetailInstanceId(null); setDetailInstanceCompletedLate(false); }}
         />
       )}
 

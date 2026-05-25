@@ -30,6 +30,7 @@ import tn.sage.rh.user.User;
 import tn.sage.rh.user.UserRepository;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -50,7 +51,7 @@ public class AuditService {
     private final NotificationService notificationService;
     private final EmailService emailService;
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /* ── Lecture ── */
 
@@ -60,7 +61,7 @@ public class AuditService {
     }
 
     public Page<AuditDto> findWithFilters(Audit.AuditStatus status, String lineZone, Long employeeId,
-                                          LocalDateTime from, LocalDateTime to, int page, int size) {
+                                          LocalDate from, LocalDate to, int page, int size) {
         return auditRepository.findWithFilters(status, lineZone, employeeId, from, to, PageRequest.of(page, size))
                 .map(this::toDto);
     }
@@ -128,7 +129,7 @@ public class AuditService {
 
         // Capture old values for change log and EN_RETARD reset
         Employee oldAssignee = audit.getAssignedEmployee();
-        LocalDateTime oldDate = audit.getDate();
+        LocalDate oldDate = audit.getDate();
         String oldLineZone = audit.getLineZone();
         String oldNotes = audit.getNotes();
         Audit.AuditStatus oldStatus = audit.getStatus();
@@ -138,7 +139,7 @@ public class AuditService {
         // Reset EN_RETARD → EN_ATTENTE if date moved back to the future
         if (oldStatus == Audit.AuditStatus.EN_RETARD
                 && audit.getDate() != null
-                && audit.getDate().isAfter(LocalDateTime.now())) {
+                && audit.getDate().isAfter(LocalDate.now())) {
             audit.setStatus(Audit.AuditStatus.EN_ATTENTE);
             audit.setRetardNotifSent(false);
         }
@@ -186,6 +187,9 @@ public class AuditService {
         }
         if (status == Audit.AuditStatus.TERMINE && oldStatus != Audit.AuditStatus.TERMINE) {
             audit.setCompletedAt(LocalDateTime.now());
+            if (oldStatus == Audit.AuditStatus.EN_RETARD) {
+                audit.setCompletedLate(true);
+            }
         }
 
         audit = auditRepository.save(audit);
@@ -419,6 +423,7 @@ public class AuditService {
                 .completedAt(audit.getCompletedAt())
                 .reminder24hSent(audit.isReminder24hSent())
                 .reminderDaySent(audit.isReminderDaySent())
+                .completedLate(audit.isCompletedLate())
                 .filledCount(filledCount)
                 .totalCount(totalCount)
                 .scorePercent(scorePercent)

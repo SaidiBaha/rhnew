@@ -3,11 +3,11 @@ package tn.sage.rh.hse.audit.dto;
 import lombok.Data;
 import tn.sage.rh.hse.audit.entity.Audit;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 public class CreateAuditRequest {
-    private LocalDateTime date;
+    private LocalDate date;
     private String lineZone;
     private Long templateId;
     private Long assignedEmployeeId;

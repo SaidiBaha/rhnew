@@ -21,6 +21,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 interface Props {
   instanceId: number;
   onClose: () => void;
+  completedLate?: boolean;
 }
 
 function getAuditLevel(pct: number) {
@@ -176,7 +177,7 @@ async function fetchPhotoForExcel(
 
 /* ─────────────────────────────────────────────────────── */
 
-export function ChecklistDetailModal({ instanceId, onClose }: Props) {
+export function ChecklistDetailModal({ instanceId, onClose, completedLate = false }: Props) {
   const { auth } = useAuth();
   const { data: instance, isLoading: loadingInst } =
     useFetchInstanceById(instanceId);
@@ -267,8 +268,17 @@ export function ChecklistDetailModal({ instanceId, onClose }: Props) {
       { align: "right" }
     );
 
+    if (completedLate) {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(220, 80, 0);
+      doc.text("⚠ Audit complété en retard", pageW / 2, 18, { align: "center" });
+      doc.setTextColor(0);
+      doc.setFont("helvetica", "normal");
+    }
+
     autoTable(doc, {
-      startY: 20,
+      startY: completedLate ? 23 : 20,
       margin: { left, right },
       tableWidth: usableW,
       theme: "grid",
@@ -818,6 +828,19 @@ export function ChecklistDetailModal({ instanceId, onClose }: Props) {
 
     let lastWrittenRow = scoreRowNum;
 
+    if (completedLate) {
+      const lateRowNum = scoreRowNum + 1;
+      ws.mergeCells(`A${lateRowNum}:G${lateRowNum}`);
+      const lateRow = ws.getRow(lateRowNum);
+      lateRow.getCell(1).value = "⚠ Audit complété en retard — Ce checklist a été rempli après la date d'échéance de l'audit";
+      lateRow.getCell(1).font = { bold: true, size: 9, color: { argb: "FFDC5000" } };
+      lateRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3E8" } };
+      lateRow.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
+      lateRow.getCell(1).border = border;
+      lateRow.height = 18;
+      lastWrittenRow = lateRowNum;
+    }
+
     if (instance.assignments && instance.assignments.length > 0) {
       const assignTitleRowNum = scoreRowNum + 2;
 
@@ -1149,6 +1172,15 @@ export function ChecklistDetailModal({ instanceId, onClose }: Props) {
             </div>
           ) : (
             <div className="px-6 py-6 space-y-8">
+              {/* ── Indicateur "Complété en retard" ── */}
+              {completedLate && (
+                <div
+                  className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold"
+                  style={{ background: "rgba(220,80,0,0.1)", color: "#dc5000", border: "1px solid rgba(220,80,0,0.25)" }}
+                >
+                  ⚠ Complété en retard — Ce checklist a été rempli après la date d'échéance de l'audit
+                </div>
+              )}
               {/* ── Bloc en-tête document ── */}
               <div
                 className="rounded-xl overflow-hidden"

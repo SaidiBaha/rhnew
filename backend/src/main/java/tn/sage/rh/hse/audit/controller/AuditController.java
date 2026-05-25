@@ -15,7 +15,7 @@ import tn.sage.rh.hse.audit.entity.Audit;
 import tn.sage.rh.hse.audit.service.AuditService;
 
 import java.security.Principal;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -32,8 +32,8 @@ public class AuditController {
             @RequestParam(required = false) Audit.AuditStatus status,
             @RequestParam(required = false) String lineZone,
             @RequestParam(required = false) Long employeeId,
-            @RequestParam(required = false) LocalDateTime from,
-            @RequestParam(required = false) LocalDateTime to
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to
     ) {
         if (status != null || lineZone != null || employeeId != null || from != null || to != null) {
             return auditService.findWithFilters(status, lineZone, employeeId, from, to, page, size);
