@@ -305,6 +305,7 @@ export function MyAuditsClient() {
             onSave={handleSaveChecklist}
             onClose={() => setFillAudit(null)}
             loading={isSaving}
+            enforceValidation
           />
         ) : null
       )}

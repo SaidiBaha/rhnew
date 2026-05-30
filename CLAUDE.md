@@ -2175,6 +2175,42 @@ ALTER TABLE audits ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE
 
 ---
 
+## Validation formulaire ChecklistFillForm — module My-Audits (session 2026-05-29)
+
+### Fonctionnalité ajoutée
+
+Validation côté client avant soumission du formulaire "Remplir la checklist" dans le module **my-audits** (`MyAuditsClient`). La validation est désactivée dans les autres usages du formulaire (ex. `ChecklistClient` côté INGÉNIEUR_HSE).
+
+### Contrôles implémentés
+
+| Champ / Zone | Condition | Message d'erreur |
+|---|---|---|
+| **Chef d'équipe** | Vide à la soumission | "Le champ Chef d'équipe est obligatoire." |
+| **Responsable ligne/unité** | Vide à la soumission | "Le champ Responsable Ligne/Unité est obligatoire." |
+| **Points à vérifier** | Au moins un point sans réponse | Bannière globale + surbrillance rouge de chaque ligne sans réponse |
+| **Description de l'écart** | Point N'OK sans description | "Veuillez décrire l'écart observé." |
+
+### Comportement
+
+- Validation déclenchée au clic sur "Enregistrer" uniquement (pas de validation à l'ouverture).
+- Tous les champs invalides sont mis en évidence simultanément.
+- Validation en temps réel : l'erreur disparaît dès que le champ est rempli / la réponse sélectionnée.
+- Scroll automatique vers la première erreur (priorité : Chef d'équipe → Responsable → premier point invalide).
+- La soumission est bloquée tant qu'il reste des erreurs.
+
+### Prop `enforceValidation`
+
+`ChecklistFillForm` accepte une prop optionnelle `enforceValidation?: boolean`. Quand `true`, la validation est activée. Sans cette prop (ou `false`), le comportement existant est conservé — aucun impact sur `ChecklistClient`.
+
+### Fichiers modifiés (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/checklist/components/ChecklistFillForm.tsx` | Prop `enforceValidation` ; états `teamLeaderError`, `lineResponsibleError`, `unansweredItemIds`, `nokMissingDescIds`, `hasGlobalPointsError` ; refs scroll ; logique de validation dans `handleSubmit` ; surbrillance rouge des lignes sans réponse |
+| `modules/audit/components/MyAuditsClient.tsx` | Prop `enforceValidation` passée à `ChecklistFillForm` |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis

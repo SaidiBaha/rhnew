@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import Swal from "sweetalert2";
 import type {
@@ -25,15 +25,29 @@ interface Props {
   onSave: (data: SaveInstanceRequest, pendingPhotos: Map<number, File[]>) => void;
   onClose: () => void;
   loading: boolean;
+  /** Quand true, bloque la soumission si Chef d'équipe / Responsable / points sont incomplets */
+  enforceValidation?: boolean;
 }
 
-export function ChecklistFillForm({ template, initial, prefill, onSave, onClose, loading }: Props) {
+export function ChecklistFillForm({ template, initial, prefill, onSave, onClose, loading, enforceValidation }: Props) {
   const [date, setDate] = useState(initial?.date ?? prefill?.date ?? new Date().toISOString().split("T")[0]);
   const [lineUnit, setLineUnit] = useState(initial?.lineUnit ?? prefill?.lineUnit ?? "");
   const [teamLeader, setTeamLeader] = useState(initial?.teamLeader ?? "");
   const [auditor, setAuditor] = useState(initial?.auditor ?? prefill?.auditor ?? "");
   const [auditorVisa, setAuditorVisa] = useState(initial?.auditorVisa ?? prefill?.auditorVisa ?? "");
   const [lineResponsible, setLineResponsible] = useState(initial?.lineResponsible ?? "");
+
+  // ── Validation errors ──────────────────────────────────────────────────────
+  const [teamLeaderError, setTeamLeaderError] = useState<string | undefined>();
+  const [lineResponsibleError, setLineResponsibleError] = useState<string | undefined>();
+  const [unansweredItemIds, setUnansweredItemIds] = useState<Set<number>>(new Set());
+  const [nokMissingDescIds, setNokMissingDescIds] = useState<Set<number>>(new Set());
+  const [hasGlobalPointsError, setHasGlobalPointsError] = useState(false);
+
+  // ── Refs for scroll-to-first-error ────────────────────────────────────────
+  const teamLeaderRef = useRef<HTMLInputElement>(null);
+  const lineResponsibleRef = useRef<HTMLInputElement>(null);
+  const itemErrRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   type ResponseMap = Record<number, { response?: ResponseType; ecartDescription?: string }>;
   const [responses, setResponses] = useState<ResponseMap>(() => {
@@ -110,6 +124,25 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
         ...prev,
         [itemId]: { ...prev[itemId], response: next },
       }));
+
+      // Clear unanswered error for this item (real-time)
+      setUnansweredItemIds((prev) => {
+        if (!prev.has(itemId)) return prev;
+        const updated = new Set(prev);
+        updated.delete(itemId);
+        if (updated.size === 0) setHasGlobalPointsError(false);
+        return updated;
+      });
+
+      // Clear NOK-missing-description error if switching away from NOK
+      if (next !== "NOK") {
+        setNokMissingDescIds((prev) => {
+          if (!prev.has(itemId)) return prev;
+          const updated = new Set(prev);
+          updated.delete(itemId);
+          return updated;
+        });
+      }
       return;
     }
 
@@ -117,6 +150,16 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
       ...prev,
       [itemId]: { ...prev[itemId], [field]: value || undefined },
     }));
+
+    // Clear NOK-missing-description error when user types a description (real-time)
+    if (field === "ecartDescription" && value.trim()) {
+      setNokMissingDescIds((prev) => {
+        if (!prev.has(itemId)) return prev;
+        const updated = new Set(prev);
+        updated.delete(itemId);
+        return updated;
+      });
+    }
   };
 
   const addAssignment = () =>
@@ -146,6 +189,62 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (enforceValidation) {
+      // 1. Chef d'équipe
+      const tlError = !teamLeader.trim()
+        ? "Le champ Chef d'équipe est obligatoire."
+        : undefined;
+      setTeamLeaderError(tlError);
+
+      // 2. Responsable ligne/unité
+      const lrError = !lineResponsible.trim()
+        ? "Le champ Responsable Ligne/Unité est obligatoire."
+        : undefined;
+      setLineResponsibleError(lrError);
+
+      // 3. Tous les points doivent avoir une réponse
+      const allItems = template.categories.flatMap((c) => c.items);
+      const unanswered = new Set<number>(
+        allItems.filter((item) => !responses[item.id]?.response).map((item) => item.id)
+      );
+      setUnansweredItemIds(unanswered);
+      setHasGlobalPointsError(unanswered.size > 0);
+
+      // 4. Les points N'OK doivent avoir une description d'écart
+      const nokMissing = new Set<number>(
+        allItems
+          .filter(
+            (item) =>
+              responses[item.id]?.response === "NOK" &&
+              !responses[item.id]?.ecartDescription?.trim()
+          )
+          .map((item) => item.id)
+      );
+      setNokMissingDescIds(nokMissing);
+
+      const hasErrors = tlError || lrError || unanswered.size > 0 || nokMissing.size > 0;
+
+      if (hasErrors) {
+        // Scroll vers la première erreur
+        setTimeout(() => {
+          if (tlError && teamLeaderRef.current) {
+            teamLeaderRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else if (lrError && lineResponsibleRef.current) {
+            lineResponsibleRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else {
+            const firstErrorId = allItems.find(
+              (item) => unanswered.has(item.id) || nokMissing.has(item.id)
+            )?.id;
+            if (firstErrorId !== undefined) {
+              itemErrRefs.current.get(firstErrorId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }
+        }, 50);
+        return;
+      }
+    }
+
     const allItems = template.categories.flatMap((c) => c.items);
     onSave(
       {
@@ -175,41 +274,100 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
 
   const responseIdMap = responseIdByItemId();
 
+  // Field descriptors for the "Informations générales" grid
+  type FieldDesc = {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    type: string;
+    readOnly: boolean;
+    inputRef?: React.RefObject<HTMLInputElement | null>;
+    error?: string;
+  };
+
+  const fields: FieldDesc[] = [
+    {
+      label: "Date",
+      value: date,
+      onChange: setDate,
+      type: "date",
+      readOnly: !initial && !!prefill?.date,
+    },
+    {
+      label: "Ligne / Unité",
+      value: lineUnit,
+      onChange: setLineUnit,
+      type: "text",
+      readOnly: !initial && !!prefill?.lineUnit,
+    },
+    {
+      label: "Chef d'équipe",
+      value: teamLeader,
+      onChange: (v) => {
+        setTeamLeader(v);
+        if (v.trim()) setTeamLeaderError(undefined);
+      },
+      type: "text",
+      readOnly: false,
+      inputRef: teamLeaderRef,
+      error: teamLeaderError,
+    },
+    {
+      label: "Auditeur",
+      value: auditor,
+      onChange: setAuditor,
+      type: "text",
+      readOnly: !initial && !!prefill?.auditor,
+    },
+    {
+      label: "Visa auditeur",
+      value: auditorVisa,
+      onChange: setAuditorVisa,
+      type: "text",
+      readOnly: !initial && !!prefill?.auditorVisa,
+    },
+    {
+      label: "Responsable ligne/unité",
+      value: lineResponsible,
+      onChange: (v) => {
+        setLineResponsible(v);
+        if (v.trim()) setLineResponsibleError(undefined);
+      },
+      type: "text",
+      readOnly: false,
+      inputRef: lineResponsibleRef,
+      error: lineResponsibleError,
+    },
+  ];
+
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4">
       <div
-        className="w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col"
-        style={{ background: "var(--white)", border: "1px solid var(--border)", maxHeight: "92vh" }}
+        className="w-full max-w-3xl lg:max-w-4xl rounded-2xl shadow-2xl flex flex-col"
+        style={{ background: "var(--white)", border: "1px solid var(--border)", maxHeight: "96vh" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="min-w-0 flex-1 pr-3">
+            <h2 className="text-base sm:text-lg font-bold truncate" style={{ color: "var(--text)" }}>
               {initial ? "Modifier la checklist" : "Remplir la checklist"}
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{template.title}</p>
+            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--muted)" }}>{template.title}</p>
           </div>
-          <button onClick={onClose} style={{ color: "var(--muted)" }}>
+          <button onClick={onClose} className="shrink-0" style={{ color: "var(--muted)" }}>
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 space-y-5 sm:space-y-6">
 
             {/* En-tête */}
             <div>
               <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text2)" }}>Informations générales</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Date", value: date, onChange: setDate, type: "date", readOnly: !initial && !!prefill?.date },
-                  { label: "Ligne / Unité", value: lineUnit, onChange: setLineUnit, type: "text", readOnly: !initial && !!prefill?.lineUnit },
-                  { label: "Chef d'équipe", value: teamLeader, onChange: setTeamLeader, type: "text", readOnly: false },
-                  { label: "Auditeur", value: auditor, onChange: setAuditor, type: "text", readOnly: !initial && !!prefill?.auditor },
-                  { label: "Visa auditeur", value: auditorVisa, onChange: setAuditorVisa, type: "text", readOnly: !initial && !!prefill?.auditorVisa },
-                  { label: "Responsable ligne/unité", value: lineResponsible, onChange: setLineResponsible, type: "text", readOnly: false },
-                ].map(({ label, value, onChange, type, readOnly }) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {fields.map(({ label, value, onChange, type, readOnly, inputRef, error }) => (
                   <div key={label}>
                     <label className="mb-1 flex items-center gap-1 text-xs font-medium" style={{ color: "var(--text2)" }}>
                       {label}
@@ -220,19 +378,23 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                       )}
                     </label>
                     <input
+                      ref={inputRef ?? null}
                       type={type}
                       value={value}
                       onChange={(e) => !readOnly && onChange(e.target.value)}
                       readOnly={readOnly}
                       className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
                       style={{
-                        border: "1px solid var(--border)",
+                        border: `1px solid ${error ? "#fca5a5" : "var(--border)"}`,
                         color: "var(--text)",
                         background: "var(--bg)",
                         opacity: readOnly ? 0.75 : 1,
                         cursor: readOnly ? "not-allowed" : "text",
                       }}
                     />
+                    {error && (
+                      <p className="mt-1 text-xs" style={{ color: "var(--accent4)" }}>{error}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -241,6 +403,21 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
             {/* Points à vérifier */}
             <div>
               <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text2)" }}>Points à vérifier</h3>
+
+              {/* Bannière d'erreur globale */}
+              {hasGlobalPointsError && (
+                <div
+                  className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium"
+                  style={{
+                    background: "rgba(240,62,62,0.08)",
+                    color: "var(--accent4)",
+                    border: "1px solid rgba(240,62,62,0.25)",
+                  }}
+                >
+                  Veuillez répondre à tous les points avant de valider.
+                </div>
+              )}
+
               <div className="space-y-4">
                 {template.categories.map((cat) => (
                   <div key={cat.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
@@ -255,11 +432,25 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                         const pendingForItem = pendingPhotos.get(item.id) ?? [];
                         const existingPhotoCount = getExistingPhotoCount(item.id);
                         const totalPhotoCount = existingPhotoCount + (pendingPhotos.get(item.id)?.length ?? 0);
+                        const isUnanswered = unansweredItemIds.has(item.id);
+                        const isNokMissingDesc = nokMissingDescIds.has(item.id);
 
                         return (
-                          <div key={item.id} className="px-4 py-3 space-y-2" style={{ background: "var(--white)" }}>
-                            <div className="flex items-start justify-between gap-4">
-                              <span className="text-sm flex-1" style={{ color: "var(--text)" }}>
+                          <div
+                            key={item.id}
+                            ref={(el) => {
+                              if (el) itemErrRefs.current.set(item.id, el);
+                              else itemErrRefs.current.delete(item.id);
+                            }}
+                            className="px-4 py-3 space-y-2"
+                            style={{
+                              background: isUnanswered ? "rgba(240,62,62,0.04)" : "var(--white)",
+                              borderLeft: isUnanswered ? "3px solid var(--accent4)" : undefined,
+                              transition: "background 0.15s",
+                            }}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                              <span className="text-sm flex-1 min-w-0" style={{ color: "var(--text)" }}>
                                 <span className="font-mono text-xs mr-2" style={{ color: "var(--muted)" }}>
                                   {ii + 1}.
                                 </span>
@@ -286,11 +477,22 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                                     onClick={() => setResponse(item.id, "response", resp.response === rt ? "" : rt)}
                                     className="rounded-md px-2.5 py-1 text-xs font-bold transition-all"
                                     style={{
-                                      background: resp.response === rt
-                                        ? rt === "OK" ? "var(--accent2)" : rt === "NOK" ? "var(--accent4)" : "var(--muted)"
-                                        : "var(--bg)",
+                                      background:
+                                        resp.response === rt
+                                          ? rt === "OK"
+                                            ? "var(--accent2)"
+                                            : rt === "NOK"
+                                            ? "var(--accent4)"
+                                            : "var(--muted)"
+                                          : "var(--bg)",
                                       color: resp.response === rt ? "#fff" : "var(--text2)",
-                                      border: `1px solid ${resp.response === rt ? "transparent" : "var(--border)"}`,
+                                      border: `1px solid ${
+                                        resp.response === rt
+                                          ? "transparent"
+                                          : isUnanswered
+                                          ? "#fca5a5"
+                                          : "var(--border)"
+                                      }`,
                                     }}
                                   >
                                     {rt}
@@ -307,8 +509,17 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                                   onChange={(e) => setResponse(item.id, "ecartDescription", e.target.value)}
                                   placeholder="Description de l'écart observé…"
                                   className="w-full rounded-lg border px-3 py-1.5 text-sm outline-none"
-                                  style={{ border: "1px solid var(--accent4)", color: "var(--text)", background: "var(--bg)" }}
+                                  style={{
+                                    border: `1px solid ${isNokMissingDesc ? "#fca5a5" : "var(--accent4)"}`,
+                                    color: "var(--text)",
+                                    background: "var(--bg)",
+                                  }}
                                 />
+                                {isNokMissingDesc && (
+                                  <p className="text-xs" style={{ color: "var(--accent4)" }}>
+                                    Veuillez décrire l'écart observé.
+                                  </p>
+                                )}
                                 <ResponsePhotoUploader
                                   itemId={item.id}
                                   responseId={responseId}
@@ -364,7 +575,7 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
                       className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none"
                       style={{ border: "1px solid var(--border)", color: "var(--text)", background: "var(--white)" }}
                     />
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
                         <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Responsable</label>
                         <input
@@ -409,13 +620,13 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
 
           {/* Footer */}
           <div
-            className="flex justify-end gap-2 px-6 py-4"
+            className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end px-4 py-3 sm:px-6 sm:py-4"
             style={{ borderTop: "1px solid var(--border)" }}
           >
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium"
+              className="w-full sm:w-auto rounded-lg px-4 py-2 text-sm font-medium"
               style={{ border: "1px solid var(--border)", color: "var(--text2)" }}
             >
               Annuler
@@ -423,7 +634,7 @@ export function ChecklistFillForm({ template, initial, prefill, onSave, onClose,
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              className="w-full sm:w-auto rounded-lg px-4 py-2 text-sm font-semibold text-white"
               style={{ background: "var(--accent)", opacity: loading ? 0.7 : 1 }}
             >
               {loading ? "Enregistrement…" : "Enregistrer"}
