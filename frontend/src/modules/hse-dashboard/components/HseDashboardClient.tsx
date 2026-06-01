@@ -130,7 +130,7 @@ function toDates(period: PeriodKey, customFrom?: string, customTo?: string) {
 /* ══════════════════════════ MAIN COMPONENT ════════════════════════════════ */
 
 export default function HseDashboardClient() {
-  const { auth } = useAuth();
+  useAuth();
 
   /* ── Filters state ── */
   const [period, setPeriod] = useState<PeriodKey>("year");
@@ -138,7 +138,6 @@ export default function HseDashboardClient() {
   const [customTo, setCustomTo]   = useState("");
   const [lineZone,  setLineZone]  = useState("");
   const [auditorId, setAuditorId] = useState<number | undefined>();
-  const [auditorSearch, setAuditorSearch] = useState("");
 
   const { from, to } = toDates(period, customFrom, customTo);
 
@@ -161,17 +160,10 @@ export default function HseDashboardClient() {
   const { data: confLevels,  isLoading: lConf } = useFetchHseConformityLevels(filters);
 
   /* ── Report queries (on demand) ── */
-  const { data: reportNC,    isLoading: lRNC,  refetch: fetchNC  } = useFetchHseReportNonConformities(filters, false);
-  const { data: reportLine,  isLoading: lRLine, refetch: fetchLine } = useFetchHseReportByLine(filters, false);
-  const { data: reportLate,  isLoading: lRLate, refetch: fetchLate } = useFetchHseReportLate(filters, false);
+  const { isLoading: lRNC,  refetch: fetchNC  } = useFetchHseReportNonConformities(filters, false);
+  const { isLoading: lRLine, refetch: fetchLine } = useFetchHseReportByLine(filters, false);
+  const { isLoading: lRLate, refetch: fetchLate } = useFetchHseReportLate(filters, false);
 
-  /* ── Auditor options from byAuditor data ── */
-  const auditorOptions = useMemo(() => byAuditor ?? [], [byAuditor]);
-  const filteredAuditors = useMemo(() =>
-    auditorOptions.filter(a =>
-      a.fullName.toLowerCase().includes(auditorSearch.toLowerCase()) ||
-      a.matricule.toLowerCase().includes(auditorSearch.toLowerCase())
-    ), [auditorOptions, auditorSearch]);
 
   /* ── Export helpers ── */
   async function exportNcExcel() {
@@ -472,7 +464,7 @@ export default function HseDashboardClient() {
               <YAxis dataKey="itemLabel" type="category" tick={{ fontSize: 10 }} width={130}
                 tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 18) + "…" : v} />
               <Tooltip formatter={(v: any) => [v, "N'OK"]}
-                labelFormatter={(l: string) => l.length > 40 ? l.slice(0, 40) + "…" : l} />
+                labelFormatter={(l: unknown) => typeof l === "string" && l.length > 40 ? l.slice(0, 40) + "…" : String(l ?? "")} />
               <Bar dataKey="nokCount" name="N'OK" fill={ACCENT4} />
             </BarChart>
           </ResponsiveContainer>
