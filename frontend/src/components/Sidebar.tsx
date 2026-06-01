@@ -130,9 +130,10 @@ const GESTION_ITEMS: NavigationItem[] = [
 ];
 
 const HSE_ITEMS: NavigationItem[] = [
-  { label: "Checklists",  icon: "clipboard-list",  path: "/checklists", allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
-  { label: "Audits",      icon: "shield-check",    path: "/audits",     allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
-  { label: "Mes Audits",  icon: "clipboard-check", path: "/my-audits",  allowedRoles: ["SUPERVISOR"] },
+  { label: "Dashboard HSE", icon: "layout-dashboard", path: "/hse-dashboard", allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
+  { label: "Checklists",    icon: "clipboard-list",   path: "/checklists",    allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
+  { label: "Audits",        icon: "shield-check",     path: "/audits",        allowedRoles: ["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"] },
+  { label: "Mes Audits",    icon: "clipboard-check",  path: "/my-audits",     allowedRoles: ["SUPERVISOR"] },
 ];
 
 const ADMIN_ITEMS: NavigationItem[] = [

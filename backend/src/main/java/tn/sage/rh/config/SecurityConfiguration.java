@@ -194,6 +194,10 @@ public class SecurityConfiguration {
                 .requestMatchers(DELETE, "/api/v1/audits/**")
                     .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
 
+                // ── HSE : dashboard & rapports ────────────────────────────────
+                .requestMatchers(GET, "/api/v1/hse/**")
+                    .hasAnyRole(INGENIEUR_HSE.name(), ADMIN.name(), SUPER_ADMIN.name())
+
                 // ── Catch-all ─────────────────────────────────────────────────
                 .anyRequest().authenticated()
             )

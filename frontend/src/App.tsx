@@ -32,6 +32,7 @@ import UserManagementPage from "@/pages/UserManagementPage";
 import ChecklistPage from "@/pages/ChecklistPage";
 import AuditPage from "@/pages/AuditPage";
 import MyAuditsPage from "@/pages/MyAuditsPage";
+import HseDashboardPage from "@/pages/HseDashboardPage";
 
 function App() {
   return (
@@ -132,6 +133,7 @@ function App() {
 
         {/* HSE — INGENIEUR_HSE + ADMIN + SUPER_ADMIN */}
         <Route element={<ProtectedRoute allowedRoles={["INGENIEUR_HSE", "ADMIN", "SUPER_ADMIN"]} />}>
+          <Route path="/hse-dashboard" element={<HseDashboardPage />} />
           <Route path="/checklists" element={<Layout><ChecklistPage /></Layout>} />
           <Route path="/audits" element={<Layout><AuditPage /></Layout>} />
         </Route>

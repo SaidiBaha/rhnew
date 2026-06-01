@@ -60,7 +60,7 @@ export const LoginCard = () => {
 
       const destination =
         user?.role === "NURSE" ? "/presence-absences" :
-        user?.role === "INGENIEUR_HSE" ? "/checklists" :
+        user?.role === "INGENIEUR_HSE" ? "/hse-dashboard" :
         "/";
       navigate(destination, { replace: true });
     } catch {

@@ -2211,6 +2211,157 @@ Validation côté client avant soumission du formulaire "Remplir la checklist" d
 
 ---
 
+## Dashboard HSE analytique (session 2026-05-30)
+
+### Fonctionnalité
+
+Dashboard analytique dédié au rôle **INGÉNIEUR_HSE** (lecture aussi pour ADMIN et SUPER_ADMIN) accessible via `/hse-dashboard`. C'est désormais la **page d'accueil** de l'INGÉNIEUR_HSE après login.
+
+### Endpoints backend (`/api/v1/hse/`)
+
+| Endpoint | Description |
+|---|---|
+| `GET /dashboard/kpis` | 8 KPI : total, terminé, en cours, retard, annulé, completed_late, taux, score moyen |
+| `GET /dashboard/by-status` | Distribution des statuts (count + %) |
+| `GET /dashboard/by-line` | Audits par ligne empilés par statut |
+| `GET /dashboard/scores` | Score moyen par ligne de production |
+| `GET /dashboard/timeline` | Évolution mensuelle (planifiés vs terminés) |
+| `GET /dashboard/nok-points` | Top 5 points N'OK les plus fréquents |
+| `GET /dashboard/nok-categories` | Top 5 catégories les plus non-conformes |
+| `GET /dashboard/by-auditor` | Performance par auditeur |
+| `GET /dashboard/conformity-levels` | Distribution Niveau 0/1/2-3 |
+| `GET /reports/nonconformities` | Rapport N'OK détaillé (export Excel) |
+| `GET /reports/by-line` | Synthèse par ligne (export PDF + Excel) |
+| `GET /reports/late` | Audits en retard (export Excel) |
+
+Tous les endpoints acceptent `dateFrom`, `dateTo`, `lineZone`, `auditorId` (tous optionnels).
+
+### Architecture backend
+
+| Fichier | Description |
+|---|---|
+| `hse/dashboard/dto/HseKpiDto.java` | DTO KPIs |
+| `hse/dashboard/dto/HseStatusDistributionItem.java` | DTO distribution statuts |
+| `hse/dashboard/dto/HseByLineItem.java` | DTO audits par ligne |
+| `hse/dashboard/dto/HseScoreByLineItem.java` | DTO scores par ligne |
+| `hse/dashboard/dto/HseTimelineItem.java` | DTO évolution mensuelle |
+| `hse/dashboard/dto/HseNokPointItem.java` | DTO top N'OK points |
+| `hse/dashboard/dto/HseNokCategoryItem.java` | DTO top N'OK catégories |
+| `hse/dashboard/dto/HseAuditorPerformanceItem.java` | DTO performance auditeur |
+| `hse/dashboard/dto/HseNonConformityReportItem.java` | DTO rapport non-conformités |
+| `hse/dashboard/dto/HseLineSummaryReportItem.java` | DTO synthèse par ligne |
+| `hse/dashboard/dto/HseLateAuditReportItem.java` | DTO audits en retard |
+| `hse/dashboard/service/HseDashboardService.java` | Service avec `EntityManager` + native SQL dynamique (appendFilters/bindFilters) |
+| `hse/dashboard/controller/HseDashboardController.java` | Controller unique `/api/v1/hse/**` |
+
+**Pattern requêtes** : `EntityManager` + native SQL avec construction dynamique du WHERE (`appendFilters` + `bindFilters`) — évite le problème CAST PostgreSQL pour les paramètres nullable.
+
+### Architecture frontend
+
+| Fichier | Description |
+|---|---|
+| `modules/hse-dashboard/types.ts` | Types TypeScript pour tous les endpoints |
+| `modules/hse-dashboard/hooks/useFetchHse*.ts` | 12 hooks React Query (queryKey `["hse-*", filters]`) |
+| `modules/hse-dashboard/components/HseDashboardClient.tsx` | Composant principal — filtres + 9 graphiques Recharts + table auditeurs + rapports |
+| `pages/HseDashboardPage.tsx` | Page wrapper |
+
+### Graphiques Recharts utilisés
+
+- Donut (PieChart + Pie) : répartition statuts, distribution niveaux conformité
+- BarChart horizontal empilé : audits par ligne
+- BarChart horizontal avec Cell coloré : scores par ligne (rouge/orange/vert selon seuil)
+- LineChart : évolution mensuelle
+- BarChart horizontal : top 5 N'OK points, top 5 catégories
+- Heatmap manuel (divs colorés) : activité mensuelle
+
+### Filtres
+
+| Filtre | Type | Comportement |
+|---|---|---|
+| Période | Boutons : semaine/mois/trimestre/année/personnalisé | Calcule `dateFrom`/`dateTo` dynamiquement |
+| Ligne de production | Input texte | Filtre exact côté backend |
+| Auditeur | Select peuplé depuis `byAuditor` | Filtre par ID |
+
+Tous les filtres sont mémoïsés (`useMemo`) → mise à jour simultanée de tous les graphiques.
+
+### Sécurité
+
+`GET /api/v1/hse/**` → INGENIEUR_HSE + ADMIN + SUPER_ADMIN (ajouté dans `SecurityConfiguration.java`).
+
+### Modifications fichiers existants
+
+| Fichier | Changement |
+|---|---|
+| `config/SecurityConfiguration.java` | Règle `GET /api/v1/hse/**` ajoutée avant catch-all |
+| `App.tsx` | Route `/hse-dashboard` (INGENIEUR_HSE + ADMIN + SUPER_ADMIN) |
+| `components/Sidebar.tsx` | Entrée "Dashboard HSE" (icon `layout-dashboard`) en tête du groupe HSE |
+| `modules/auth/components/LoginCard.tsx` | INGENIEUR_HSE → `/hse-dashboard` (au lieu de `/checklists`) |
+
+---
+
+## Checklist HSE — Capture caméra sur points N'OK (session 2026-06-01)
+
+### Fonctionnalité ajoutée
+
+Bouton **"📷 Prendre une photo"** ajouté dans le composant `ResponsePhotoUploader`, côte à côte avec le bouton "📎 Uploader une photo", pour chaque point N'OK d'un formulaire de checklist.
+
+### Comportement selon la plateforme
+
+| Plateforme | Comportement |
+|---|---|
+| **Mobile** (iOS/Android) | `capture="environment"` → ouvre directement la caméra arrière native |
+| **Desktop** (Chrome, Firefox, Edge) | `getUserMedia({ video: true })` → modal webcam dans le navigateur |
+| Desktop sans caméra / permission refusée | Message d'erreur toast clair |
+| Desktop — API indisponible (navigateur ancien) | Fallback silencieux vers le sélecteur de fichiers |
+
+### Détection mobile
+
+```ts
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+```
+Constante calculée une fois au chargement du module.
+
+### Modal webcam desktop (`CameraModal`)
+
+- Affiche le flux `<video>` en temps réel (`getUserMedia`)
+- Bouton **"Capturer"** : dessine le frame sur un `<canvas>` → `toBlob('image/jpeg', 0.85)` → `File` → `validateAndAdd`
+- Bouton **"Annuler"** : stoppe le stream via `stream.getTracks().forEach(t => t.stop())`
+- Cleanup `useEffect` : stoppe le stream au démontage du composant (évite la caméra active en arrière-plan)
+- z-index `[200]` — au-dessus de la modal checklist (z-50)
+
+### Messages d'erreur
+
+| Erreur | Message affiché |
+|---|---|
+| `NotAllowedError` / `PermissionDeniedError` | "Accès à la caméra refusé. Autorisez l'accès dans les paramètres du navigateur." |
+| `NotFoundError` / `DevicesNotFoundError` | "Aucune caméra disponible sur cet appareil." |
+| Autre erreur | "Impossible d'accéder à la caméra. Utilisez "Uploader une photo" à la place." |
+
+### Flux de la photo capturée
+
+La photo suit **exactement le même flux** que les photos uploadées via le sélecteur de fichiers :
+- Même validation (`validateAndAdd` : type JPEG/PNG/WebP, taille max 5 Mo)
+- Même stockage dans `pendingPhotos` avant l'enregistrement
+- Même upload vers `POST /api/v1/checklist/responses/{responseId}/photos` après save
+- Même miniature avec icône de suppression
+- Même compteur (X/5 photos)
+
+### Disposition UI
+
+```
+[📎 Uploader une photo (X/5)]   [📷 Prendre une photo]
+```
+
+Les deux boutons sont dans un `flex gap-2 flex-wrap`. Le bouton caméra est stylé avec `border: 1.5px solid var(--border)` (pas de tirets).
+
+### Fichier modifié (frontend)
+
+| Fichier | Changement |
+|---|---|
+| `modules/checklist/components/ResponsePhotoUploader.tsx` | `isMobile` constant ; composant `CameraModal` (modal webcam desktop) ; état `cameraStream` ; `handleCameraClick` async (mobile vs desktop) ; `cameraInputRef` conservé pour mobile ; label upload "Uploader une photo" avec icône `Paperclip` |
+
+---
+
 ## A NE PAS MODIFIER
 
 - `backend/src/main/java/tn/sage/rh/config/PostgresDialect.java` — dialecte custom requis
