@@ -104,7 +104,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/api/v1/salary-advance-deadlines/**")
                     .hasAnyRole(ADMIN.name(), SUPERVISOR.name(), SUPER_ADMIN.name())
                 .requestMatchers(GET,    "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_READ.name())
-                .requestMatchers(POST,   "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_CREATE.name())
+                .requestMatchers(POST,   "/api/v1/salary-advance-deadlines/**").hasAnyAuthority("SALARY_ADVANCE_DEADLINE_CREATE")
                 .requestMatchers(PUT,    "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_UPDATE.name())
                 .requestMatchers(DELETE, "/api/v1/salary-advance-deadlines/**").hasAnyAuthority(SALARY_ADVANCE_DEADLINE_DELETE.name())
 
