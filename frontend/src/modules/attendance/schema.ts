@@ -1,13 +1,16 @@
 import { format, isValid, parse } from "date-fns";
 import z from "zod";
 
-const DurationSchema = z.coerce
-  .string("Champ invalide")
-  .trim()
-  .transform((value) => (value ? value.substring(0, 5) : "00:00"))
-  .refine((value) => /^([0-1]?\d|2[0-3]):[0-5]\d$/.test(value), {
-    message: "Format invalide",
-  });
+const DurationSchema = z.preprocess(
+  (value) => (value === undefined || value === null ? "" : value),
+  z.coerce
+    .string("Champ invalide")
+    .trim()
+    .transform((value) => (value ? value.substring(0, 5) : "00:00"))
+    .refine((value) => /^([0-1]?\d|2[0-3]):[0-5]\d$/.test(value), {
+      message: "Format invalide",
+    })
+);
 
 export const AttendanceSchema = z.object({
   matricule: z.coerce

@@ -31,9 +31,15 @@ export function parseAttendance(row: any, index: number) {
 
   if (!result.success) {
     const error = result.error.issues[0];
+    const fieldKey = error.path[0];
+    const rawValue = fieldKey !== undefined ? normalizedRow[fieldKey as string] : undefined;
+    const rawValueLabel =
+      rawValue === undefined || rawValue === null || rawValue === ""
+        ? "(vide)"
+        : JSON.stringify(rawValue);
 
     throw new Error(
-      `Ligne ${rowIndex}: [${error.path.join(" > ")}]: ${error.message} `
+      `Ligne ${rowIndex}: [${error.path.join(" > ")}]: ${error.message} — valeur reçue: ${rawValueLabel}`
     );
   }
   return result.data;
